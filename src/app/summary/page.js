@@ -3,10 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/AuthContext';
-import { db } from '@/lib/firebase';
-import {
-  collection, getDocs, query, where, orderBy, Timestamp
-} from 'firebase/firestore';
 import { motion } from 'framer-motion';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -61,21 +57,19 @@ export default function SummaryPage() {
   }, [students, range]);
 
   const fetchStudents = async () => {
-    const snap = await getDocs(collection(db, 'students'));
-    setStudents(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    try {
+      const res = await fetch('/api/students');
+      const data = await res.json();
+      if (data.success) setStudents(data.students || []);
+    } catch (e) { console.error(e); }
   };
 
   const fetchReports = async () => {
     setLoading(true);
     try {
-      const since = range === 'week' ? startOfWeek() : startOfMonth();
-      const sinceTs = Timestamp.fromDate(since);
-      const snap = await getDocs(
-        query(collection(db, 'reports'),
-          where('created_at', '>=', sinceTs),
-          orderBy('created_at', 'desc'))
-      );
-      setReports(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const res = await fetch('/api/students/reports');
+      const data = await res.json();
+      if (data.success) setReports(data.reports || []);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };

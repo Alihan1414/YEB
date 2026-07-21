@@ -3,10 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/AuthContext';
-import { db } from '@/lib/firebase';
-import { collection, getDocs, orderBy, query, doc, updateDoc } from 'firebase/firestore';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+
 import { motion } from 'framer-motion';
 import {
   Shield, ArrowLeft, Plus, User, Mail,
@@ -44,8 +41,22 @@ export default function AdminPage() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const snap = await getDocs(query(collection(db, 'users'), orderBy('name')));
-      setUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+      const res = await fetch(
+        `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users`
+      );
+      const data = await res.json();
+      const users = (data.documents || []).map(doc => {
+        const f = doc.fields || {};
+        return {
+          id: doc.name.split('/').pop(),
+          name: f.name?.stringValue || '',
+          email: f.email?.stringValue || '',
+          role: f.role?.stringValue || 'teacher',
+        };
+      });
+      users.sort((a, b) => a.name.localeCompare(b.name, 'tr'));
+      setUsers(users);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
@@ -54,38 +65,39 @@ export default function AdminPage() {
     e.preventDefault();
     setCreating(true);
     try {
-      // Initialize a secondary App to prevent logging out the current admin
-      const { initializeApp, getApp, deleteApp } = await import('firebase/app');
-      const { getAuth, createUserWithEmailAndPassword, signOut } = await import('firebase/auth');
-      const { doc, setDoc } = await import('firebase/firestore');
+      const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+      const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 
-      const firebaseConfig = {
-        apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-        authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-        projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-        storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-        messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-        appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-      };
+      // 1. Create Firebase Auth account via REST
+      const signUpRes = await fetch(
+        `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: newEmail, password: newPassword, returnSecureToken: true }),
+        }
+      );
+      const signUpData = await signUpRes.json();
+      if (signUpData.error) throw new Error(signUpData.error.message);
 
-      // Create a unique app name
-      const appName = `SecondaryApp-${Date.now()}`;
-      const secondaryApp = initializeApp(firebaseConfig, appName);
-      const secondaryAuth = getAuth(secondaryApp);
+      const uid = signUpData.localId;
+      const idToken = signUpData.idToken;
 
-      // Create Firebase Auth account on secondary instance
-      const cred = await createUserWithEmailAndPassword(secondaryAuth, newEmail, newPassword);
-      
-      // Save user metadata to primary Firestore database
-      await setDoc(doc(db, 'users', cred.user.uid), {
-        name: newName,
-        email: newEmail,
-        role: newRole,
-      });
-
-      // Sign out and delete the secondary app
-      await signOut(secondaryAuth);
-      await deleteApp(secondaryApp);
+      // 2. Save user to Firestore via REST
+      await fetch(
+        `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${uid}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+          body: JSON.stringify({
+            fields: {
+              name: { stringValue: newName },
+              email: { stringValue: newEmail },
+              role: { stringValue: newRole },
+            },
+          }),
+        }
+      );
 
       setNewEmail(''); setNewPassword(''); setNewName(''); setNewRole('teacher');
       fetchUsers();
@@ -96,7 +108,15 @@ export default function AdminPage() {
 
   const handleRoleChange = async (userId, newRoleValue) => {
     try {
-      await updateDoc(doc(db, 'users', userId), { role: newRoleValue });
+      const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+      await fetch(
+        `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${userId}?updateMask.fieldPaths=role`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fields: { role: { stringValue: newRoleValue } } }),
+        }
+      );
       fetchUsers();
       showToast('Rol güncellendi!');
     } catch (e) { showToast('Hata: ' + e.message, 'error'); }

@@ -27,8 +27,9 @@ const CATEGORIES = ['Akademik', 'Yemek', 'Program', 'Diğer'];
 // ─── Utility ─────────────────────────────────────────────────────────────────
 function tsToString(ts) {
   if (!ts) return '';
-  if (ts instanceof Timestamp) return ts.toDate().toLocaleString('tr-TR');
   if (typeof ts === 'string') return new Date(ts).toLocaleString('tr-TR');
+  if (ts?.toDate) return ts.toDate().toLocaleString('tr-TR');
+  if (ts?.seconds) return new Date(ts.seconds * 1000).toLocaleString('tr-TR');
   return '';
 }
 
