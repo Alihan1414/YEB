@@ -1,41 +1,45 @@
 import { NextResponse } from 'next/server';
-import { readDb, writeDb } from '@/lib/db';
-
-export async function GET(req) {
-  const { searchParams } = new URL(req.url);
-  const studentId = searchParams.get('studentId');
-  const db = readDb();
-  let reports = db.reports;
-  if (studentId) {
-    reports = reports.filter(r => r.student_id === studentId);
-  }
-  reports = reports.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-  return NextResponse.json({ success: true, reports });
-}
 
 export async function POST(req) {
   try {
-    const { studentId, reportText, category, createdBy } = await req.json();
-    if (!studentId || !reportText || !category) {
-      return NextResponse.json({ success: false, error: 'Öğrenci ID, rapor metni ve kategori zorunludur.' }, { status: 400 });
+    const { studentId, studentName, className, parentEmail, content, category, notifyParent } = await req.json();
+
+    if (!studentId || !content) {
+      return NextResponse.json({ success: false, error: 'Eksik bilgi.' }, { status: 400 });
     }
-    const db = readDb();
-    const student = db.students.find(s => s.id === studentId);
-    if (!student) {
-      return NextResponse.json({ success: false, error: 'Öğrenci bulunamadı.' }, { status: 404 });
+
+    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+
+    // Direct Firestore REST API insert - bypasses Firestore Client Security Rules
+    const res = await fetch(
+      `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/reports`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fields: {
+            student_id: { stringValue: studentId },
+            student_name: { stringValue: studentName || '' },
+            class: { stringValue: className || '' },
+            parent_email: { stringValue: parentEmail || '' },
+            content: { stringValue: content },
+            category: { stringValue: category || 'Diğer' },
+            notified: { booleanValue: !!notifyParent },
+            created_at: { timestampValue: new Date().toISOString() },
+          },
+        }),
+      }
+    );
+
+    const data = await res.json();
+
+    if (data.error) {
+      throw new Error(data.error.message);
     }
-    const newReport = {
-      id: `report-${Date.now()}`,
-      student_id: studentId,
-      report_text: reportText,
-      category,
-      created_at: new Date().toISOString(),
-      created_by: createdBy || 'Öğretmen'
-    };
-    db.reports.push(newReport);
-    writeDb(db);
-    return NextResponse.json({ success: true, report: newReport });
-  } catch (error) {
-    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+
+    return NextResponse.json({ success: true, id: data.name.split('/').pop() });
+  } catch (err) {
+    console.error('ADD REPORT API ERROR:', err);
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
