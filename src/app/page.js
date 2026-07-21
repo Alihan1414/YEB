@@ -152,21 +152,19 @@ export default function StudentsPage() {
     e.preventDefault();
     if (!selectedStudent || !directText) return;
     try {
-      const res = await fetch('/api/students/reports', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentId: selectedStudent.id,
-          studentName: `${selectedStudent.name} ${selectedStudent.surname}`,
-          className: selectedStudent.class,
-          parentEmail: selectedStudent.parent_email || '',
-          content: directText,
-          category: directCategory,
-          notifyParent,
-        }),
+      const { db } = await import('@/lib/firebase');
+      const { collection, addDoc, serverTimestamp } = await import('firebase/firestore');
+
+      await addDoc(collection(db, 'reports'), {
+        student_id: selectedStudent.id,
+        student_name: `${selectedStudent.name} ${selectedStudent.surname}`,
+        class: selectedStudent.class,
+        parent_email: selectedStudent.parent_email || '',
+        content: directText,
+        category: directCategory,
+        notified: !!notifyParent,
+        created_at: serverTimestamp(),
       });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error);
 
       if (notifyParent && selectedStudent.parent_email) {
         await fetch('/api/notify', {
@@ -195,21 +193,19 @@ export default function StudentsPage() {
     if (!aiMatch?.matchedStudentId) return;
     try {
       const student = students.find(s => s.id === aiMatch.matchedStudentId);
-      const res = await fetch('/api/students/reports', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentId: aiMatch.matchedStudentId,
-          studentName: student ? `${student.name} ${student.surname}` : '',
-          className: student?.class || '',
-          parentEmail: student?.parent_email || '',
-          content: aiMatch.extractedText,
-          category: aiMatch.category || 'Diğer',
-          notifyParent,
-        }),
+      const { db } = await import('@/lib/firebase');
+      const { collection, addDoc, serverTimestamp } = await import('firebase/firestore');
+
+      await addDoc(collection(db, 'reports'), {
+        student_id: aiMatch.matchedStudentId,
+        student_name: student ? `${student.name} ${student.surname}` : '',
+        class: student?.class || '',
+        parent_email: student?.parent_email || '',
+        content: aiMatch.extractedText,
+        category: aiMatch.category || 'Diğer',
+        notified: !!notifyParent,
+        created_at: serverTimestamp(),
       });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error);
 
       if (notifyParent && student?.parent_email) {
         await fetch('/api/notify', {
@@ -234,22 +230,25 @@ export default function StudentsPage() {
     e.preventDefault();
     if (!newName || !newSurname || !newClass) return;
     try {
-      const res = await fetch('/api/students', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newName, surname: newSurname, studentClass: newClass,
-          parentEmail: newParentEmail || '',
-        }),
+      const { db } = await import('@/lib/firebase');
+      const { collection, addDoc, serverTimestamp } = await import('firebase/firestore');
+
+      await addDoc(collection(db, 'students'), {
+        name: newName,
+        surname: newSurname,
+        class: newClass,
+        parent_email: newParentEmail || '',
+        created_at: serverTimestamp(),
       });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error);
 
       setNewName(''); setNewSurname(''); setNewClass(''); setNewParentEmail('');
       setShowAddStudent(false);
       fetchStudents();
-      showToast('Öğrenci eklendi!');
-    } catch (e) { showToast('Hata: ' + e.message, 'error'); }
+      showToast('Öğrenci başarıyla eklendi!');
+    } catch (e) {
+      console.error(e);
+      showToast('Hata: ' + e.message, 'error');
+    }
   };
 
   // ─── CSV Import ────────────────────────────────────────────────────────────
