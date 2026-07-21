@@ -11,10 +11,6 @@ import {
   Loader2
 } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
-import {
-  collection, getDocs, addDoc, query, where, orderBy, serverTimestamp, Timestamp
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/AuthContext';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -197,28 +193,33 @@ export default function StudentsPage() {
   const handleSaveAiReport = async () => {
     if (!aiMatch?.matchedStudentId) return;
     try {
-      await addDoc(collection(db, 'reports'), {
-        student_id: aiMatch.matchedStudentId,
-        report_text: aiMatch.extractedText,
-        category: aiMatch.category,
-        created_at: serverTimestamp(),
-        created_by: user?.email || 'Öğretmen',
-        notify_parent: notifyParent,
+      const student = students.find(s => s.id === aiMatch.matchedStudentId);
+      const res = await fetch('/api/students/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId: aiMatch.matchedStudentId,
+          studentName: student ? `${student.name} ${student.surname}` : '',
+          className: student?.class || '',
+          parentEmail: student?.parent_email || '',
+          content: aiMatch.extractedText,
+          category: aiMatch.category || 'Diğer',
+          notifyParent,
+        }),
       });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
 
-      if (notifyParent) {
-        const student = students.find(s => s.id === aiMatch.matchedStudentId);
-        if (student?.parent_email) {
-          await fetch('/api/notify', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              parentEmail: student.parent_email,
-              studentName: `${student.name} ${student.surname}`,
-              reportText: aiMatch.extractedText,
-              category: aiMatch.category,
-            }),
-          });
-        }
+      if (notifyParent && student?.parent_email) {
+        await fetch('/api/notify', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            parentEmail: student.parent_email,
+            studentName: `${student.name} ${student.surname}`,
+            reportText: aiMatch.extractedText,
+            category: aiMatch.category,
+          }),
+        });
       }
 
       setAiMatch(null); setVoiceText(''); setTextInput(''); setNotifyParent(false);
@@ -227,35 +228,22 @@ export default function StudentsPage() {
     } catch (e) { showToast('Kayıt hatası: ' + e.message, 'error'); }
   };
 
-  // ─── Direct Report ─────────────────────────────────────────────────────────
-  const handleDirectReport = async (e) => {
-    e.preventDefault();
-    if (!directText.trim() || !selectedStudent) return;
-    try {
-      await addDoc(collection(db, 'reports'), {
-        student_id: selectedStudent.id,
-        report_text: directText,
-        category: directCategory,
-        created_at: serverTimestamp(),
-        created_by: user?.email || 'Öğretmen',
-        notify_parent: false,
-      });
-      setDirectText('');
-      fetchReports(selectedStudent.id);
-      showToast('Rapor eklendi!');
-    } catch (e) { showToast('Hata: ' + e.message, 'error'); }
-  };
-
   // ─── Add Single Student ────────────────────────────────────────────────────
   const handleAddStudent = async (e) => {
     e.preventDefault();
     if (!newName || !newSurname || !newClass) return;
     try {
-      await addDoc(collection(db, 'students'), {
-        name: newName, surname: newSurname, class: newClass,
-        parent_email: newParentEmail || '',
-        created_at: serverTimestamp(),
+      const res = await fetch('/api/students', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newName, surname: newSurname, studentClass: newClass,
+          parentEmail: newParentEmail || '',
+        }),
       });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+
       setNewName(''); setNewSurname(''); setNewClass(''); setNewParentEmail('');
       setShowAddStudent(false);
       fetchStudents();
@@ -278,10 +266,12 @@ export default function StudentsPage() {
         if (row.length < 3) continue;
         const [name, surname, cls, parentEmail = ''] = row;
         if (!name || !surname || !cls) continue;
-        await addDoc(collection(db, 'students'), {
-          name, surname, class: cls,
-          parent_email: parentEmail,
-          created_at: serverTimestamp(),
+        await fetch('/api/students', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name, surname, studentClass: cls, parentEmail,
+          }),
         });
         imported++;
       }
@@ -310,23 +300,27 @@ export default function StudentsPage() {
     try {
       let savedCount = 0;
       for (const student of targetStudents) {
-        await addDoc(collection(db, 'reports'), {
-          student_id: student.id,
-          report_text: `${progName} Programı - Durum: ${progStatus}.${progNotes ? ' Not: ' + progNotes : ''}`,
-          category: 'Program',
-          created_at: serverTimestamp(),
-          created_by: user?.email || 'Öğretmen',
-          notify_parent: false,
+        await fetch('/api/students/reports', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            studentId: student.id,
+            studentName: `${student.name} ${student.surname}`,
+            className: student.class,
+            parentEmail: student.parent_email || '',
+            content: `${progName} Programı - Durum: ${progStatus}.${progNotes ? ' Not: ' + progNotes : ''}`,
+            category: 'Program',
+            notifyParent: false,
+          }),
         });
         savedCount++;
       }
-
-      setProgName(''); setProgNotes(''); setProgStatus('Katıldı');
       setShowProgramModal(false);
-      showToast(`${savedCount} öğrenci için program raporu kaydedildi!`);
+      setProgName(''); setProgNotes('');
       if (selectedStudent) fetchReports(selectedStudent.id);
+      showToast(`${savedCount} öğrenci için program raporu eklendi!`);
     } catch (e) {
-      showToast('Kayıt hatası: ' + e.message, 'error');
+      showToast('Hata: ' + e.message, 'error');
     }
   };
 
