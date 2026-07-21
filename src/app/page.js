@@ -13,7 +13,7 @@ import {
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { useAuth } from '@/lib/AuthContext';
 import { db } from '@/lib/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, getDocs, query, orderBy, where, serverTimestamp } from 'firebase/firestore';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CATEGORY_COLORS = {
@@ -95,23 +95,28 @@ export default function StudentsPage() {
   const fetchStudents = async () => {
     setDataLoading(true);
     try {
-      const res = await fetch('/api/students');
-      const data = await res.json();
-      if (data.success) {
-        setStudents(data.students || []);
-      }
-    } catch (e) { console.error(e); }
+      const snap = await getDocs(collection(db, 'students'));
+      const list = snap.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      list.sort((a, b) => (a.surname || '').localeCompare(b.surname || '', 'tr'));
+      setStudents(list);
+    } catch (e) { console.error('fetchStudents error:', e); }
     finally { setDataLoading(false); }
   };
 
   const fetchReports = async (studentId) => {
     try {
-      const res = await fetch(`/api/students/reports?studentId=${studentId}`);
-      const data = await res.json();
-      if (data.success) {
-        setReports(data.reports || []);
-      }
-    } catch (e) { console.error(e); }
+      const q = query(collection(db, 'reports'), where('student_id', '==', studentId));
+      const snap = await getDocs(q);
+      const list = snap.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      list.sort((a, b) => new Date(b.created_at?.toDate?.() || 0) - new Date(a.created_at?.toDate?.() || 0));
+      setReports(list);
+    } catch (e) { console.error('fetchReports error:', e); }
   };
 
   // ─── Toast ─────────────────────────────────────────────────────────────────

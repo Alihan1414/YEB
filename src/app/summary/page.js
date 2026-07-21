@@ -58,18 +58,20 @@ export default function SummaryPage() {
 
   const fetchStudents = async () => {
     try {
-      const res = await fetch('/api/students');
-      const data = await res.json();
-      if (data.success) setStudents(data.students || []);
+      const { db } = await import('@/lib/firebase');
+      const { collection, getDocs } = await import('firebase/firestore');
+      const snap = await getDocs(collection(db, 'students'));
+      setStudents(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (e) { console.error(e); }
   };
 
   const fetchReports = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/students/reports');
-      const data = await res.json();
-      if (data.success) setReports(data.reports || []);
+      const { db } = await import('@/lib/firebase');
+      const { collection, getDocs } = await import('firebase/firestore');
+      const snap = await getDocs(collection(db, 'reports'));
+      setReports(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
