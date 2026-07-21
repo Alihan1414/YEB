@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { useAuth } from '@/lib/AuthContext';
+import { db } from '@/lib/firebase';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CATEGORY_COLORS = {
@@ -152,9 +154,6 @@ export default function StudentsPage() {
     e.preventDefault();
     if (!selectedStudent || !directText) return;
     try {
-      const { db } = await import('@/lib/firebase');
-      const { collection, addDoc, serverTimestamp } = await import('firebase/firestore');
-
       await addDoc(collection(db, 'reports'), {
         student_id: selectedStudent.id,
         student_name: `${selectedStudent.name} ${selectedStudent.surname}`,
@@ -193,9 +192,6 @@ export default function StudentsPage() {
     if (!aiMatch?.matchedStudentId) return;
     try {
       const student = students.find(s => s.id === aiMatch.matchedStudentId);
-      const { db } = await import('@/lib/firebase');
-      const { collection, addDoc, serverTimestamp } = await import('firebase/firestore');
-
       await addDoc(collection(db, 'reports'), {
         student_id: aiMatch.matchedStudentId,
         student_name: student ? `${student.name} ${student.surname}` : '',
@@ -230,9 +226,6 @@ export default function StudentsPage() {
     e.preventDefault();
     if (!newName || !newSurname || !newClass) return;
     try {
-      const { db } = await import('@/lib/firebase');
-      const { collection, addDoc, serverTimestamp } = await import('firebase/firestore');
-
       await addDoc(collection(db, 'students'), {
         name: newName,
         surname: newSurname,
@@ -266,12 +259,9 @@ export default function StudentsPage() {
         if (row.length < 3) continue;
         const [name, surname, cls, parentEmail = ''] = row;
         if (!name || !surname || !cls) continue;
-        await fetch('/api/students', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name, surname, studentClass: cls, parentEmail,
-          }),
+        await addDoc(collection(db, 'students'), {
+          name, surname, class: cls, parent_email: parentEmail,
+          created_at: serverTimestamp(),
         });
         imported++;
       }
