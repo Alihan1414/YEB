@@ -1,20 +1,59 @@
 import { NextResponse } from 'next/server';
-import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
-import { app, db } from '@/lib/firebase';
 
 export async function GET() {
   try {
-    const auth = getAuth(app);
+    // Use Firebase client SDK via REST API to create user
+    const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
     const email = "yeb@2026.com";
     const password = "enderun bilişim";
 
-    const cred = await createUserWithEmailAndPassword(auth, email, password);
-    await setDoc(doc(db, 'users', cred.user.uid), {
-      name: "Enderun Bilişim Yöneticisi",
-      email: email,
-      role: "admin"
-    });
+    // Step 1: Create the user via Firebase Auth REST API
+    const signUpRes = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, returnSecureToken: true }),
+      }
+    );
+
+    const signUpData = await signUpRes.json();
+
+    if (signUpData.error) {
+      // If user already exists, that's fine
+      if (signUpData.error.message === 'EMAIL_EXISTS') {
+        return NextResponse.json({
+          success: true,
+          message: "yeb@2026.com hesabı zaten mevcut. Giriş yapabilirsiniz.",
+          email,
+          password
+        });
+      }
+      throw new Error(signUpData.error.message);
+    }
+
+    const uid = signUpData.localId;
+    const idToken = signUpData.idToken;
+
+    // Step 2: Save user metadata to Firestore via REST API
+    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+    await fetch(
+      `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${uid}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({
+          fields: {
+            name: { stringValue: "Enderun Bilişim Yöneticisi" },
+            email: { stringValue: email },
+            role: { stringValue: "admin" },
+          }
+        }),
+      }
+    );
 
     return NextResponse.json({
       success: true,
