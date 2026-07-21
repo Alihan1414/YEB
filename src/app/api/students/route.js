@@ -1,5 +1,44 @@
 import { NextResponse } from 'next/server';
 
+// GET: Fetch all students
+export async function GET() {
+  try {
+    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+    const res = await fetch(
+      `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/students`,
+      { cache: 'no-store' }
+    );
+    const data = await res.json();
+
+    if (data.error) {
+      // If collection doesn't exist yet, return empty list
+      return NextResponse.json({ success: true, students: [] });
+    }
+
+    const students = (data.documents || []).map(doc => {
+      const fields = doc.fields || {};
+      const id = doc.name.split('/').pop();
+      return {
+        id,
+        name: fields.name?.stringValue || '',
+        surname: fields.surname?.stringValue || '',
+        class: fields.class?.stringValue || '',
+        parent_email: fields.parent_email?.stringValue || '',
+        created_at: fields.created_at?.timestampValue || null,
+      };
+    });
+
+    // Sort by surname
+    students.sort((a, b) => a.surname.localeCompare(b.surname, 'tr'));
+
+    return NextResponse.json({ success: true, students });
+  } catch (err) {
+    console.error('GET STUDENTS API ERROR:', err);
+    return NextResponse.json({ success: true, students: [] });
+  }
+}
+
+// POST: Add new student
 export async function POST(req) {
   try {
     const { name, surname, studentClass, parentEmail } = await req.json();
@@ -10,7 +49,6 @@ export async function POST(req) {
 
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 
-    // Direct Firestore REST API insert - bypasses Firestore Client Security Rules
     const res = await fetch(
       `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/students`,
       {

@@ -96,20 +96,22 @@ export default function StudentsPage() {
   const fetchStudents = async () => {
     setDataLoading(true);
     try {
-      const snap = await getDocs(query(collection(db, 'students'), orderBy('surname')));
-      setStudents(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const res = await fetch('/api/students');
+      const data = await res.json();
+      if (data.success) {
+        setStudents(data.students || []);
+      }
     } catch (e) { console.error(e); }
     finally { setDataLoading(false); }
   };
 
   const fetchReports = async (studentId) => {
     try {
-      const snap = await getDocs(
-        query(collection(db, 'reports'),
-          where('student_id', '==', studentId),
-          orderBy('created_at', 'desc'))
-      );
-      setReports(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const res = await fetch(`/api/students/reports?studentId=${studentId}`);
+      const data = await res.json();
+      if (data.success) {
+        setReports(data.reports || []);
+      }
     } catch (e) { console.error(e); }
   };
 
@@ -147,6 +149,48 @@ export default function StudentsPage() {
       else showToast('Yapay zekâ analizi başarısız.', 'error');
     } catch { showToast('Bağlantı hatası.', 'error'); }
     finally { setIsAnalyzing(false); }
+  };
+
+  const handleDirectReportSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedStudent || !directText) return;
+    try {
+      const res = await fetch('/api/students/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentId: selectedStudent.id,
+          studentName: `${selectedStudent.name} ${selectedStudent.surname}`,
+          className: selectedStudent.class,
+          parentEmail: selectedStudent.parent_email || '',
+          content: directText,
+          category: directCategory,
+          notifyParent,
+        }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error);
+
+      if (notifyParent && selectedStudent.parent_email) {
+        await fetch('/api/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            studentName: `${selectedStudent.name} ${selectedStudent.surname}`,
+            parentEmail: selectedStudent.parent_email,
+            reportContent: directText,
+            category: directCategory,
+          }),
+        });
+      }
+
+      setDirectText('');
+      fetchReports(selectedStudent.id);
+      showToast('Rapor başarıyla eklendi.');
+    } catch (e) {
+      console.error(e);
+      showToast('Hata: ' + e.message, 'error');
+    }
   };
 
   // ─── Save AI Report ────────────────────────────────────────────────────────
