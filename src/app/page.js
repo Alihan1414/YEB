@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Mic, MicOff, Search, Plus, Check, X, FileText,
   User, Clock, Sparkles, ChevronRight, TrendingUp,
-  GraduationCap, Utensils, Heart, Smile, AlertCircle,
+  GraduationCap, Utensils, AlertCircle,
   ClipboardList, BarChart2, LogOut, Shield, Upload,
   Loader2
 } from 'lucide-react';
@@ -20,13 +20,13 @@ import { useAuth } from '@/lib/AuthContext';
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CATEGORY_COLORS = {
   Akademik: '#8b5cf6', Yemek: '#f59e0b',
-  Sağlık:   '#ef4444', Davranış: '#10b981', Diğer: '#6b7280',
+  Program:  '#06b6d4', Diğer: '#6b7280',
 };
 const CATEGORY_ICONS = {
   Akademik: GraduationCap, Yemek: Utensils,
-  Sağlık: Heart, Davranış: Smile, Diğer: FileText,
+  Program:  ClipboardList, Diğer: FileText,
 };
-const CATEGORIES = ['Akademik', 'Yemek', 'Sağlık', 'Davranış', 'Diğer'];
+const CATEGORIES = ['Akademik', 'Yemek', 'Program', 'Diğer'];
 
 // ─── Utility ─────────────────────────────────────────────────────────────────
 function tsToString(ts) {
@@ -76,6 +76,13 @@ export default function StudentsPage() {
   // Toast
   const [toast, setToast] = useState(null);
   const recognitionRef    = useRef(null);
+
+  // Program modal states
+  const [showProgramModal, setShowProgramModal] = useState(false);
+  const [progName, setProgName]                 = useState('');
+  const [progStatus, setProgStatus]             = useState('Katıldı');
+  const [progClass, setProgClass]               = useState('All');
+  const [progNotes, setProgNotes]               = useState('');
 
   // Auth redirect
   useEffect(() => {
@@ -245,6 +252,40 @@ export default function StudentsPage() {
     }
   };
 
+  // ─── Save Program Report ───────────────────────────────────────────────────
+  const handleSaveProgramReport = async (e) => {
+    e.preventDefault();
+    if (!progName.trim()) return;
+
+    const targetStudents = students.filter(s => progClass === 'All' || s.class === progClass);
+    if (targetStudents.length === 0) {
+      showToast('Seçilen sınıfta öğrenci bulunamadı.', 'error');
+      return;
+    }
+
+    try {
+      let savedCount = 0;
+      for (const student of targetStudents) {
+        await addDoc(collection(db, 'reports'), {
+          student_id: student.id,
+          report_text: `${progName} Programı - Durum: ${progStatus}.${progNotes ? ' Not: ' + progNotes : ''}`,
+          category: 'Program',
+          created_at: serverTimestamp(),
+          created_by: user?.email || 'Öğretmen',
+          notify_parent: false,
+        });
+        savedCount++;
+      }
+
+      setProgName(''); setProgNotes(''); setProgStatus('Katıldı');
+      setShowProgramModal(false);
+      showToast(`${savedCount} öğrenci için program raporu kaydedildi!`);
+      if (selectedStudent) fetchReports(selectedStudent.id);
+    } catch (e) {
+      showToast('Kayıt hatası: ' + e.message, 'error');
+    }
+  };
+
   // ─── Computed ──────────────────────────────────────────────────────────────
   const classesList = ['All', ...Array.from(new Set(students.map(s => s.class))).sort()];
   const filteredStudents = students.filter(s => {
@@ -343,6 +384,14 @@ export default function StudentsPage() {
             >
               <Plus size={16} />
               Öğrenci Ekle
+            </button>
+            {/* Program button */}
+            <button
+              onClick={() => setShowProgramModal(true)}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-400/25 hover:bg-cyan-500 hover:text-black font-semibold transition-all text-sm"
+            >
+              <ClipboardList size={16} />
+              Program
             </button>
             {/* CSV import (admin only) */}
             {role === 'admin' && (
@@ -811,6 +860,138 @@ export default function StudentsPage() {
                   </div>
                 </div>
               </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Program Report Modal ── */}
+      <AnimatePresence>
+        {showProgramModal && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center px-4"
+            onClick={() => setShowProgramModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.92, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.92, opacity: 0, y: 20 }}
+              transition={{ type: 'spring', damping: 20, stiffness: 260 }}
+              onClick={e => e.stopPropagation()}
+              className="w-full max-w-lg bg-zinc-950 border border-cyan-400/25 rounded-3xl overflow-hidden shadow-2xl shadow-cyan-400/10"
+            >
+              {/* Modal Header */}
+              <div className="p-6 border-b border-white/8 flex items-center justify-between bg-cyan-400/5">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-xl bg-cyan-400/15 border border-cyan-400/25">
+                    <ClipboardList size={20} className="text-cyan-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-extrabold text-white">Program Raporu Ekle</h2>
+                    <p className="text-zinc-500 text-xs mt-0.5">Tüm sınıf veya seçili sınıf için toplu rapor</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowProgramModal(false)}
+                  className="p-2 rounded-xl border border-white/10 text-zinc-500 hover:text-white hover:bg-white/5 transition-all">
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <form onSubmit={handleSaveProgramReport} className="p-6 space-y-4">
+                {/* Program Name */}
+                <div>
+                  <label className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest mb-2 block">Program Adı</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Örn: Yemek Programı, Spor Günü..."
+                    value={progName}
+                    onChange={e => setProgName(e.target.value)}
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-cyan-400/50 text-sm"
+                  />
+                </div>
+
+                {/* Class Filter */}
+                <div>
+                  <label className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest mb-2 block">Hangi Sınıf?</label>
+                  <div className="flex flex-wrap gap-2">
+                    {classesList.map(cls => (
+                      <button
+                        key={cls}
+                        type="button"
+                        onClick={() => setProgClass(cls)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border ${
+                          progClass === cls
+                            ? 'bg-cyan-400 text-black border-cyan-400'
+                            : 'bg-white/5 text-zinc-400 border-white/10 hover:border-white/25'
+                        }`}
+                      >
+                        {cls === 'All' ? 'Tüm Sınıflar' : cls}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Status */}
+                <div>
+                  <label className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest mb-2 block">Katılım Durumu</label>
+                  <div className="flex gap-2">
+                    {['Katıldı', 'Katılmadı', 'Geç Kaldı'].map(s => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setProgStatus(s)}
+                        className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all border ${
+                          progStatus === s
+                            ? s === 'Katıldı'
+                              ? 'bg-emerald-500 text-white border-emerald-500'
+                              : s === 'Katılmadı'
+                                ? 'bg-red-500 text-white border-red-500'
+                                : 'bg-amber-500 text-black border-amber-500'
+                            : 'bg-white/5 text-zinc-400 border-white/10 hover:border-white/25'
+                        }`}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <label className="text-[11px] font-bold text-zinc-500 uppercase tracking-widest mb-2 block">Ek Not (Opsiyonel)</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Ek açıklama..."
+                    value={progNotes}
+                    onChange={e => setProgNotes(e.target.value)}
+                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-zinc-600 focus:outline-none focus:border-cyan-400/50 text-sm resize-none"
+                  />
+                </div>
+
+                {/* Info */}
+                <p className="text-xs text-zinc-600 flex items-center gap-1.5">
+                  <ClipboardList size={12} className="text-cyan-400" />
+                  {progClass === 'All'
+                    ? `${students.length} öğrencinin tamamına rapor eklenecek.`
+                    : `${students.filter(s => s.class === progClass).length} öğrenciye rapor eklenecek.`}
+                </p>
+
+                {/* Submit */}
+                <div className="flex gap-3 pt-2">
+                  <button type="button" onClick={() => setShowProgramModal(false)}
+                    className="flex-1 py-3 rounded-xl border border-white/10 text-zinc-400 hover:text-white hover:bg-white/5 transition-all text-sm font-bold">
+                    İptal
+                  </button>
+                  <button type="submit"
+                    className="flex-[2] py-3 rounded-xl bg-cyan-500 text-black font-extrabold text-sm hover:bg-cyan-400 transition-all shadow-[0_0_20px_rgba(6,182,212,0.25)] flex items-center justify-center gap-2">
+                    <Check size={16} />
+                    Kaydet
+                  </button>
+                </div>
+              </form>
             </motion.div>
           </motion.div>
         )}

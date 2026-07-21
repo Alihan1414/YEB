@@ -20,8 +20,12 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
     setLoading(true);
+    let targetEmail = email.trim();
+    if (targetEmail === 'yeb@2026') {
+      targetEmail = 'yeb@2026.com';
+    }
     try {
-      await login(email, password);
+      await login(targetEmail, password);
       router.push('/');
     } catch (err) {
       setError('E-posta veya şifre hatalı.');

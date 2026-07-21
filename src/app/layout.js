@@ -15,6 +15,12 @@ const geistMono = Geist_Mono({
 export const metadata = {
   title: "Öğrenci Günlük Rapor Sistemi",
   description: "Yapay zekâ destekli sesli ve yazılı öğrenci raporlama paneli",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "YEB Rapor",
+  },
 };
 
 export default function RootLayout({ children }) {

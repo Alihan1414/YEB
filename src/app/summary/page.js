@@ -14,16 +14,16 @@ import {
 } from 'recharts';
 import {
   TrendingUp, ArrowLeft, Calendar, Loader2, FileText,
-  GraduationCap, Utensils, Heart, Smile
+  GraduationCap, Utensils, ClipboardList
 } from 'lucide-react';
 
 const CATEGORY_COLORS = {
   Akademik: '#8b5cf6', Yemek: '#f59e0b',
-  Sağlık: '#ef4444', Davranış: '#10b981', Diğer: '#6b7280',
+  Program: '#06b6d4', Diğer: '#6b7280',
 };
 const CATEGORY_ICONS = {
   Akademik: GraduationCap, Yemek: Utensils,
-  Sağlık: Heart, Davranış: Smile, Diğer: FileText,
+  Program: ClipboardList, Diğer: FileText,
 };
 
 function startOfWeek() {
@@ -184,8 +184,8 @@ export default function SummaryPage() {
               {[
                 { label: 'Toplam Rapor', value: filteredReports.length, color: 'text-purple-400' },
                 { label: 'Farklı Öğrenci', value: Object.keys(studentCounts).length, color: 'text-cyan-400' },
-                { label: 'Sağlık Raporu', value: catCounts['Sağlık'] || 0, color: 'text-red-400' },
-                { label: 'Davranış Raporu', value: catCounts['Davranış'] || 0, color: 'text-emerald-400' },
+                { label: 'Program Raporu', value: catCounts['Program'] || 0, color: 'text-cyan-400' },
+                { label: 'Yemek Raporu', value: catCounts['Yemek'] || 0, color: 'text-amber-400' },
               ].map(({ label, value, color }) => (
                 <motion.div key={label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
                   className="bg-zinc-900/50 backdrop-blur-xl border border-white/8 rounded-2xl p-5">

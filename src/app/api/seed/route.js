@@ -6,19 +6,19 @@ import { app, db } from '@/lib/firebase';
 export async function GET() {
   try {
     const auth = getAuth(app);
-    const email = "admin@okul.com";
-    const password = "admin123password";
+    const email = "yeb@2026.com";
+    const password = "enderun bilişim";
 
     const cred = await createUserWithEmailAndPassword(auth, email, password);
     await setDoc(doc(db, 'users', cred.user.uid), {
-      name: "Sistem Yöneticisi",
+      name: "Enderun Bilişim Yöneticisi",
       email: email,
       role: "admin"
     });
 
     return NextResponse.json({
       success: true,
-      message: "İlk yönetici hesabı başarıyla oluşturuldu!",
+      message: "YEB yönetici hesabı başarıyla oluşturuldu!",
       email,
       password
     });
