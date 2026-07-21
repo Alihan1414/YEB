@@ -11,7 +11,6 @@ export async function GET() {
     const data = await res.json();
 
     if (data.error) {
-      // If collection doesn't exist yet, return empty list
       return NextResponse.json({ success: true, students: [] });
     }
 
@@ -28,9 +27,7 @@ export async function GET() {
       };
     });
 
-    // Sort by surname
     students.sort((a, b) => a.surname.localeCompare(b.surname, 'tr'));
-
     return NextResponse.json({ success: true, students });
   } catch (err) {
     console.error('GET STUDENTS API ERROR:', err);
@@ -48,12 +45,37 @@ export async function POST(req) {
     }
 
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+    const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+
+    // Anonymous sign-in via REST to get an auth token for Firestore rules
+    let token = '';
+    try {
+      const authRes = await fetch(
+        `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ returnSecureToken: true }),
+        }
+      );
+      const authData = await authRes.json();
+      if (authData.idToken) {
+        token = authData.idToken;
+      }
+    } catch (authErr) {
+      console.warn('Anon auth fallback skipped:', authErr);
+    }
+
+    const headers = { 'Content-Type': 'application/json' };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
 
     const res = await fetch(
       `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/students`,
       {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           fields: {
             name: { stringValue: name },
