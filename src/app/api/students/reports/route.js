@@ -1,14 +1,15 @@
 import { NextResponse } from 'next/server';
 
-// GET: Fetch reports for a student or all reports
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
     const studentId = searchParams.get('studentId');
 
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+    const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+
     const res = await fetch(
-      `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/reports`,
+      `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/reports?key=${apiKey}`,
       { cache: 'no-store' }
     );
     const data = await res.json();
@@ -37,9 +38,7 @@ export async function GET(req) {
       reports = reports.filter(r => r.student_id === studentId);
     }
 
-    // Sort by created_at desc
     reports.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-
     return NextResponse.json({ success: true, reports });
   } catch (err) {
     console.error('GET REPORTS API ERROR:', err);
@@ -47,7 +46,6 @@ export async function GET(req) {
   }
 }
 
-// POST: Add new report
 export async function POST(req) {
   try {
     const { studentId, studentName, className, parentEmail, content, category, notifyParent } = await req.json();
@@ -59,34 +57,11 @@ export async function POST(req) {
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
     const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
-    let token = '';
-    try {
-      const authRes = await fetch(
-        `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ returnSecureToken: true }),
-        }
-      );
-      const authData = await authRes.json();
-      if (authData.idToken) {
-        token = authData.idToken;
-      }
-    } catch (authErr) {
-      console.warn('Anon auth fallback skipped:', authErr);
-    }
-
-    const headers = { 'Content-Type': 'application/json' };
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
     const res = await fetch(
-      `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/reports`,
+      `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/reports?key=${apiKey}`,
       {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fields: {
             student_id: { stringValue: studentId },

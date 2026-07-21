@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
 
-// GET: Fetch all students
 export async function GET() {
   try {
+    const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+
+    // Use Firestore REST API with structuredQuery or fallback to documents listing
     const res = await fetch(
-      `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/students`,
+      `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/students?key=${apiKey}`,
       { cache: 'no-store' }
     );
     const data = await res.json();
@@ -35,7 +37,6 @@ export async function GET() {
   }
 }
 
-// POST: Add new student
 export async function POST(req) {
   try {
     const { name, surname, studentClass, parentEmail } = await req.json();
@@ -47,35 +48,12 @@ export async function POST(req) {
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
     const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
-    // Anonymous sign-in via REST to get an auth token for Firestore rules
-    let token = '';
-    try {
-      const authRes = await fetch(
-        `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ returnSecureToken: true }),
-        }
-      );
-      const authData = await authRes.json();
-      if (authData.idToken) {
-        token = authData.idToken;
-      }
-    } catch (authErr) {
-      console.warn('Anon auth fallback skipped:', authErr);
-    }
-
-    const headers = { 'Content-Type': 'application/json' };
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
+    // Direct write via Firestore REST API passing key param
     const res = await fetch(
-      `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/students`,
+      `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/students?key=${apiKey}`,
       {
         method: 'POST',
-        headers,
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fields: {
             name: { stringValue: name },
@@ -91,6 +69,7 @@ export async function POST(req) {
     const data = await res.json();
 
     if (data.error) {
+      // If REST API fails with database error, return a friendly error response
       throw new Error(data.error.message);
     }
 
