@@ -41,15 +41,12 @@ export async function POST(req) {
 
     const { localId: uid, idToken } = signUpData;
 
-    // Firestore: Save user profile
+    // Firestore: Save user profile (no Authorization header needed in test mode)
     const firestoreRes = await fetch(
       `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users/${uid}?key=${FIREBASE_API_KEY}`,
       {
         method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${idToken}`
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fields: {
             name:            { stringValue: name.trim() + ' Yöneticisi' },
