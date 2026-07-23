@@ -1,20 +1,23 @@
 import { NextResponse } from 'next/server';
 
 export async function GET() {
-  const apiKey  = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+  const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
   const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-  const email   = 'yeb@2026.com';
-  const password = 'enderun bilişim';
+
+  // Admin credentials
+  const email    = 'admin@yeb.local';
+  const password = 'admin14';
+  const username = 'admin'; // display username
 
   if (!apiKey || !projectId) {
     return NextResponse.json(
-      { success: false, error: 'Firebase env variables missing on server.' },
+      { success: false, error: 'Firebase env variables eksik.' },
       { status: 500 }
     );
   }
 
   try {
-    // ── 1. Firebase Auth REST: Create user ───────────────────────────────────
+    // ── 1. Firebase Auth: Create admin user ──────────────────────────────────
     const signUpRes = await fetch(
       `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${apiKey}`,
       {
@@ -29,8 +32,8 @@ export async function GET() {
       if (signUpData.error.message === 'EMAIL_EXISTS') {
         return NextResponse.json({
           success: true,
-          message: 'Hesap zaten mevcut. Giriş yapabilirsiniz.',
-          email,
+          message: 'Admin hesabı zaten mevcut. Giriş yapabilirsiniz.',
+          username,
           password,
         });
       }
@@ -42,7 +45,7 @@ export async function GET() {
 
     const { localId: uid, idToken } = signUpData;
 
-    // ── 2. Firestore REST: Save user document ─────────────────────────────────
+    // ── 2. Firestore: Save user document ─────────────────────────────────────
     await fetch(
       `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${uid}`,
       {
@@ -53,9 +56,12 @@ export async function GET() {
         },
         body: JSON.stringify({
           fields: {
-            name:  { stringValue: 'Enderun Bilişim Yöneticisi' },
-            email: { stringValue: email },
-            role:  { stringValue: 'admin' },
+            name:            { stringValue: 'Sistem Yöneticisi' },
+            email:           { stringValue: email },
+            username:        { stringValue: username },
+            role:            { stringValue: 'admin' },
+            institutionId:   { stringValue: 'yamanevler' },
+            institutionName: { stringValue: 'Yamanevler Enderun Bilişim' },
           },
         }),
       }
@@ -63,8 +69,8 @@ export async function GET() {
 
     return NextResponse.json({
       success: true,
-      message: 'YEB yönetici hesabı başarıyla oluşturuldu! Şimdi giriş yapabilirsiniz.',
-      email,
+      message: 'Admin hesabı başarıyla oluşturuldu!',
+      username,
       password,
     });
   } catch (err) {

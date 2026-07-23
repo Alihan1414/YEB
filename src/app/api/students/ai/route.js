@@ -1,30 +1,66 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { readDb } from '@/lib/db';
+
 
 export async function POST(req) {
   try {
-    const { text } = await req.json();
+    const { text, institutionId = 'yamanevler' } = await req.json();
     if (!text || text.trim() === '') {
       return NextResponse.json({ success: false, error: 'Metin girişi zorunludur.' }, { status: 400 });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ success: false, error: 'GEMINI_API_KEY yapılandırılmamış.' }, { status: 500 });
+    // 1. Get current students (with local DB fallback)
+    let students = [];
+    try {
+      const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+      const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+      if (projectId && apiKey) {
+        const res = await fetch(
+          `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/students?key=${apiKey}`,
+          { cache: 'no-store' }
+        );
+        const data = await res.json();
+        if (data.documents) {
+          students = data.documents
+            .filter(doc => {
+              const f = doc.fields || {};
+              return (f.institution_id?.stringValue || 'yamanevler') === institutionId;
+            })
+            .map(doc => {
+              const fields = doc.fields || {};
+              return {
+                id: doc.name.split('/').pop(),
+                fullName: `${fields.name?.stringValue || ''} ${fields.surname?.stringValue || ''}`.trim(),
+                class: fields.class?.stringValue || ''
+              };
+            });
+        }
+      }
+    } catch (e) {
+      console.error("AI student fetch error:", e);
     }
 
-    const db = readDb();
-    const students = db.students.map(s => ({
-      id: s.id,
-      fullName: `${s.name} ${s.surname}`.trim(),
-      class: s.class
-    }));
+    if (students.length === 0) {
+      const { readDb } = await import('@/lib/db');
+      const dbData = readDb();
+      students = (dbData.students || [])
+        .filter(s => (s.institution_id || 'yamanevler') === institutionId)
+        .map(s => ({
+          id: s.id,
+          fullName: `${s.name} ${s.surname}`.trim(),
+          class: s.class || ''
+        }));
+    }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const geminiKey = process.env.GEMINI_API_KEY;
 
-    const prompt = `
+    // A. If Gemini Key is present, try Google Generative AI
+    if (geminiKey && geminiKey.trim() !== '') {
+      try {
+        const genAI = new GoogleGenerativeAI(geminiKey);
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+        const prompt = `
 Sen bir okul öğrenci takip uygulaması için akıllı bir asistansın. Görevin, Türkçe doğal dil girişini analiz ederek öğrenci raporu oluşturmaktır.
 
 Kayıtlı öğrenciler:
@@ -49,14 +85,71 @@ SADECE şu JSON formatında yanıt ver, başka hiçbir şey yazma:
   "rawInput": "${text.replace(/"/g, '\\"')}"
 }`;
 
-    const result = await model.generateContent(prompt);
-    const resultText = result.response.text().trim();
+        const result = await model.generateContent(prompt);
+        const resultText = result.response.text().trim();
+        const cleanedText = resultText.replace(/^```json\s*/, '').replace(/\s*```$/, '').trim();
+        const parsed = JSON.parse(cleanedText);
+        return NextResponse.json({ success: true, data: parsed });
+      } catch (err) {
+        console.warn("Gemini execution failed, falling back to regex parser:", err);
+      }
+    }
 
-    // Strip markdown code blocks if present
-    const cleanedText = resultText.replace(/^```json\s*/, '').replace(/\s*```$/, '').trim();
-    const parsed = JSON.parse(cleanedText);
+    // B. Local Fallback/Regex Parser when Gemini key is not configured or rate-limited
+    let matchedStudent = null;
+    const lowerInput = text.toLowerCase();
 
-    return NextResponse.json({ success: true, data: parsed });
+    for (const student of students) {
+      const nameParts = student.fullName.toLowerCase().split(' ');
+      // Check if all or most name parts are present in the text input
+      const matchCount = nameParts.filter(part => lowerInput.includes(part)).length;
+      if (matchCount > 0 && matchCount === nameParts.length) {
+        matchedStudent = student;
+        break;
+      }
+    }
+
+    // If not exact matching, look for single first name matching
+    if (!matchedStudent) {
+      for (const student of students) {
+        const firstName = student.fullName.split(' ')[0].toLowerCase();
+        if (firstName.length > 2 && lowerInput.includes(firstName)) {
+          matchedStudent = student;
+          break;
+        }
+      }
+    }
+
+    // Determine category
+    let category = 'Diğer';
+    if (lowerInput.includes('yemek') || lowerInput.includes('öğle') || lowerInput.includes('kahvaltı') || lowerInput.includes('çorba')) {
+      category = 'Yemek';
+    } else if (lowerInput.includes('namaz') || lowerInput.includes('program') || lowerInput.includes('etkinlik') || lowerInput.includes('ders')) {
+      category = 'Program';
+    } else if (lowerInput.includes('başım') || lowerInput.includes('revir') || lowerInput.includes('hasta') || lowerInput.includes('ilaç') || lowerInput.includes('sağlık')) {
+      category = 'Sağlık';
+    } else if (lowerInput.includes('akademik') || lowerInput.includes('sınav') || lowerInput.includes('not') || lowerInput.includes('ödev')) {
+      category = 'Akademik';
+    }
+
+    // Clean up text text output
+    let extractedText = text;
+    // Capitalize first letter
+    if (extractedText.length > 0) {
+      extractedText = extractedText.charAt(0).toUpperCase() + extractedText.slice(1);
+    }
+
+    const fallbackResponse = {
+      matchedStudentId: matchedStudent ? matchedStudent.id : null,
+      matchedStudentName: matchedStudent ? matchedStudent.fullName : null,
+      confidence: matchedStudent ? 0.90 : 0.50,
+      extractedText: extractedText,
+      category: category,
+      rawInput: text
+    };
+
+    return NextResponse.json({ success: true, data: fallbackResponse });
+
   } catch (error) {
     console.error("AI Parser Error:", error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });

@@ -10,7 +10,7 @@ import {
 } from 'recharts';
 import {
   TrendingUp, ArrowLeft, Calendar, Loader2, FileText,
-  GraduationCap, Utensils, ClipboardList
+  GraduationCap, Utensils, ClipboardList, User, Shield, LogOut
 } from 'lucide-react';
 
 const CATEGORY_COLORS = {
@@ -35,7 +35,7 @@ function startOfMonth() {
 }
 
 export default function SummaryPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, role, loading: authLoading, logout } = useAuth();
   const router = useRouter();
 
   const [range, setRange]           = useState('week'); // 'week' | 'month'
@@ -58,6 +58,12 @@ export default function SummaryPage() {
 
   const fetchStudents = async () => {
     try {
+      const res = await fetch('/api/students', { cache: 'no-store' });
+      const apiData = await res.json();
+      if (apiData.success && apiData.students) {
+        setStudents(apiData.students);
+        return;
+      }
       const { db } = await import('@/lib/firebase');
       const { collection, getDocs } = await import('firebase/firestore');
       const snap = await getDocs(collection(db, 'students'));
@@ -68,6 +74,12 @@ export default function SummaryPage() {
   const fetchReports = async () => {
     setLoading(true);
     try {
+      const res = await fetch('/api/students/reports', { cache: 'no-store' });
+      const apiData = await res.json();
+      if (apiData.success && apiData.reports) {
+        setReports(apiData.reports);
+        return;
+      }
       const { db } = await import('@/lib/firebase');
       const { collection, getDocs } = await import('firebase/firestore');
       const snap = await getDocs(collection(db, 'reports'));
@@ -94,7 +106,7 @@ export default function SummaryPage() {
   // Daily breakdown
   const dayCounts = {};
   filteredReports.forEach(r => {
-    const ts = r.created_at instanceof Timestamp ? r.created_at.toDate() : new Date(r.created_at);
+    const ts = r.created_at ? new Date(r.created_at) : new Date();
     const dayStr = ts.toLocaleDateString('tr-TR', { weekday: 'short', month: 'numeric', day: 'numeric' });
     dayCounts[dayStr] = (dayCounts[dayStr] || 0) + 1;
   });
@@ -109,215 +121,151 @@ export default function SummaryPage() {
     .map(([id, count]) => ({ student: studentMap[id], count }));
 
   if (authLoading) return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-      <Loader2 size={32} className="text-cyan-400 animate-spin" />
+    <div className="min-h-screen bg-[#eef5fc] flex items-center justify-center">
+      <Loader2 size={32} className="text-blue-600 animate-spin" />
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white relative">
-      <div className="fixed top-[-10%] left-[-5%] w-[35%] h-[35%] rounded-full bg-purple-600/10 blur-[120px] pointer-events-none z-0" />
-      <div className="fixed bottom-[-10%] right-[-5%] w-[35%] h-[35%] rounded-full bg-cyan-400/10 blur-[120px] pointer-events-none z-0" />
-
-      <div className="relative z-10 max-w-6xl mx-auto px-6 py-10 space-y-10">
-
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <button onClick={() => router.push('/')}
-              className="p-2.5 rounded-xl border border-white/10 text-zinc-400 hover:text-white hover:bg-white/5 transition-all">
-              <ArrowLeft size={18} />
-            </button>
+    <div className="min-h-screen bg-[#eef5fc] text-slate-800 flex flex-col md:flex-row font-sans">
+      {/* Sidebar */}
+      <aside className="hidden md:flex w-64 bg-gradient-to-b from-[#06429c] via-[#053787] to-[#011c4d] text-white flex-col justify-between p-6 shrink-0 shadow-2xl">
+        <div>
+          <div className="flex flex-col items-center text-center space-y-3 pt-4 pb-8 border-b border-white/10">
+            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center p-2.5 shadow-lg">
+              <svg viewBox="0 0 100 100" className="w-full h-full text-[#06429c]" fill="currentColor">
+                <path d="M50 15 L20 30 L50 45 L80 30 Z M20 40 L20 70 L50 85 L50 55 Z M80 40 L50 55 L50 85 L80 70 Z" />
+              </svg>
+            </div>
             <div>
-              <div className="flex items-center gap-3 mb-1">
-                <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/20">
-                  <TrendingUp size={20} className="text-purple-400" />
-                </div>
-                <h1 className="text-2xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white to-zinc-400">
-                  Rapor Özeti
-                </h1>
-              </div>
-              <p className="text-zinc-600 text-xs pl-12">
-                {range === 'week' ? 'Bu haftaki' : 'Bu ayki'} rapor istatistikleri
-              </p>
+              <h2 className="text-xs font-black tracking-widest text-blue-200 uppercase">YAMANEVLER</h2>
+              <h1 className="text-sm font-extrabold tracking-wider text-white">ENDERUN BİLİŞİM</h1>
             </div>
           </div>
+          <nav className="mt-8 space-y-2">
+            <a
+              href="/"
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-white hover:bg-white/10 font-semibold text-sm transition-all"
+            >
+              <User size={18} />
+              Öğrenciler
+            </a>
+            <a
+              href="/summary"
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-600/90 text-white font-bold text-sm shadow-md transition-all border border-blue-400/30"
+            >
+              <TrendingUp size={18} />
+              Özet Raporlar
+            </a>
+            {role === 'admin' && (
+              <a
+                href="/admin"
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-white hover:bg-white/10 font-semibold text-sm transition-all"
+              >
+                <Shield size={18} />
+                Ayarlar
+              </a>
+            )}
+            <button
+              onClick={logout}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-red-300 hover:bg-red-500/10 font-semibold text-sm transition-all"
+            >
+              <LogOut size={18} />
+              Çıkış
+            </button>
+          </nav>
+        </div>
 
-          {/* Filters */}
-          <div className="flex items-center gap-3 flex-wrap justify-end">
-            <div className="flex items-center gap-1 bg-black/30 border border-white/8 rounded-xl p-1">
-              {['week', 'month'].map(r => (
-                <button key={r} onClick={() => setRange(r)}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
-                    range === r ? 'bg-purple-500 text-white' : 'text-zinc-500 hover:text-zinc-200'
-                  }`}>
-                  <Calendar size={12} />
-                  {r === 'week' ? 'Bu Hafta' : 'Bu Ay'}
-                </button>
-              ))}
+        {/* Bottom Logo Branding */}
+        <div className="pt-6 border-t border-white/10 flex items-center gap-3">
+          <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center p-2 text-white">
+            <svg viewBox="0 0 100 100" className="w-full h-full" fill="currentColor">
+              <path d="M50 15 L20 30 L50 45 L80 30 Z M20 40 L20 70 L50 85 L50 55 Z M80 40 L50 55 L50 85 L80 70 Z" />
+            </svg>
+          </div>
+          <div className="text-[11px] leading-tight">
+            <div className="font-bold text-white">YAMANEVLER</div>
+            <div className="text-blue-200">ENDERUN BİLİŞİM</div>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 pb-10 overflow-y-auto">
+        <div className="bg-gradient-to-r from-[#eef5fc] via-[#e2eeff] to-[#d6e7ff] pt-8 pb-6 px-6 md:px-10 border-b border-blue-100/60">
+          <div className="max-w-6xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button onClick={() => router.push('/')} className="p-2.5 bg-white rounded-xl text-slate-600 border border-slate-200 hover:bg-blue-50 shadow-sm">
+                <ArrowLeft size={18} />
+              </button>
+              <div>
+                <h1 className="text-2xl md:text-3xl font-black text-slate-900">Rapor Özeti</h1>
+                <p className="text-slate-500 text-xs md:text-sm mt-0.5">
+                  {range === 'week' ? 'Bu haftaki' : 'Bu ayki'} genel performans istatistikleri
+                </p>
+              </div>
             </div>
-            <div className="flex items-center gap-1 bg-black/30 border border-white/8 rounded-xl p-1">
-              {classes.map(cls => (
-                <button key={cls} onClick={() => setClassFilter(cls)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                    classFilter === cls ? 'bg-cyan-400 text-black' : 'text-zinc-500 hover:text-zinc-200'
-                  }`}>
-                  {cls === 'All' ? 'Tümü' : cls}
-                </button>
-              ))}
+            <div className="flex items-center gap-2">
+              <button onClick={() => setRange('week')} className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${range === 'week' ? 'bg-[#06429c] text-white shadow-md' : 'bg-white text-slate-600 border border-slate-200'}`}>
+                Bu Hafta
+              </button>
+              <button onClick={() => setRange('month')} className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${range === 'month' ? 'bg-[#06429c] text-white shadow-md' : 'bg-white text-slate-600 border border-slate-200'}`}>
+                Bu Ay
+              </button>
             </div>
           </div>
         </div>
 
-        {loading ? (
-          <div className="flex items-center justify-center py-32">
-            <Loader2 size={32} className="text-purple-400 animate-spin" />
+        <div className="max-w-6xl mx-auto px-6 md:px-10 mt-6 space-y-6">
+          {/* KPI Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { label: 'Toplam Rapor', value: filteredReports.length, color: 'text-blue-700' },
+              { label: 'Aktif Öğrenci', value: Object.keys(studentCounts).length, color: 'text-emerald-600' },
+              { label: 'Program Raporu', value: catCounts['Program'] || 0, color: 'text-cyan-600' },
+              { label: 'Yemek Raporu', value: catCounts['Yemek'] || 0, color: 'text-amber-600' },
+            ].map(({ label, value, color }) => (
+              <div key={label} className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm">
+                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">{label}</p>
+                <p className={`text-3xl font-black ${color}`}>{value}</p>
+              </div>
+            ))}
           </div>
-        ) : (
-          <>
-            {/* KPI Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-              {[
-                { label: 'Toplam Rapor', value: filteredReports.length, color: 'text-purple-400' },
-                { label: 'Farklı Öğrenci', value: Object.keys(studentCounts).length, color: 'text-cyan-400' },
-                { label: 'Program Raporu', value: catCounts['Program'] || 0, color: 'text-cyan-400' },
-                { label: 'Yemek Raporu', value: catCounts['Yemek'] || 0, color: 'text-amber-400' },
-              ].map(({ label, value, color }) => (
-                <motion.div key={label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-                  className="bg-zinc-900/50 backdrop-blur-xl border border-white/8 rounded-2xl p-5">
-                  <p className="text-xs text-zinc-600 font-bold uppercase tracking-widest mb-2">{label}</p>
-                  <p className={`text-4xl font-extrabold ${color}`}>{value}</p>
-                </motion.div>
-              ))}
+
+          {/* Charts */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
+              <h3 className="text-base font-extrabold text-slate-900 mb-4">Günlük Rapor Dağılımı</h3>
+              <div className="h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={dayData}>
+                    <XAxis dataKey="day" tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                    <YAxis allowDecimals={false} tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#06429c" radius={[6, 6, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
 
-            {/* Charts Row */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Daily bar */}
-              <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/8 rounded-2xl p-6">
-                <h3 className="text-sm font-bold text-white mb-5 flex items-center gap-2">
-                  <Calendar size={14} className="text-cyan-400" />
-                  Günlük Rapor Sayısı
-                </h3>
-                {dayData.length > 0 ? (
-                  <div className="h-48">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={dayData}>
-                        <XAxis dataKey="day" tick={{ fill: '#52525b', fontSize: 10 }} />
-                        <YAxis allowDecimals={false} tick={{ fill: '#52525b', fontSize: 10 }} />
-                        <Tooltip contentStyle={{ background: '#18181b', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', fontSize: '11px' }} itemStyle={{ color: '#fff' }} />
-                        <Bar dataKey="count" fill="#8b5cf6" radius={[4,4,0,0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                ) : (
-                  <div className="h-48 flex items-center justify-center text-zinc-700 text-sm">Bu dönemde rapor yok.</div>
-                )}
-              </div>
-
-              {/* Category pie */}
-              <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/8 rounded-2xl p-6">
-                <h3 className="text-sm font-bold text-white mb-5 flex items-center gap-2">
-                  <TrendingUp size={14} className="text-purple-400" />
-                  Kategori Dağılımı
-                </h3>
-                {categoryData.length > 0 ? (
-                  <div className="h-48 flex items-center">
-                    <div className="flex-1 h-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie data={categoryData} cx="50%" cy="50%" innerRadius={45} outerRadius={70} paddingAngle={3} dataKey="value">
-                            {categoryData.map((entry, i) => (
-                              <Cell key={i} fill={CATEGORY_COLORS[entry.name] || '#6b7280'} />
-                            ))}
-                          </Pie>
-                          <Tooltip contentStyle={{ background: '#18181b', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', fontSize: '11px' }} itemStyle={{ color: '#fff' }} />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div className="flex flex-col gap-2 ml-4">
-                      {categoryData.map(d => (
-                        <div key={d.name} className="flex items-center gap-2 text-xs text-zinc-400">
-                          <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: CATEGORY_COLORS[d.name] }} />
-                          <span>{d.name}</span>
-                          <span className="font-bold text-white">{d.value}</span>
-                        </div>
+            <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
+              <h3 className="text-base font-extrabold text-slate-900 mb-4">Kategori Dağılımı</h3>
+              <div className="h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={categoryData} cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={3} dataKey="value">
+                      {categoryData.map((entry, i) => (
+                        <Cell key={i} fill={CATEGORY_COLORS[entry.name] || '#06429c'} />
                       ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="h-48 flex items-center justify-center text-zinc-700 text-sm">Veri yok.</div>
-                )}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
             </div>
-
-            {/* Top Students + Recent Reports */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Top students */}
-              <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/8 rounded-2xl p-6">
-                <h3 className="text-sm font-bold text-white mb-4">En Çok Rapor Girilen Öğrenciler</h3>
-                <div className="space-y-3">
-                  {topStudents.length > 0 ? topStudents.map(({ student, count }, i) => (
-                    <div key={student?.id || i} className="flex items-center gap-3">
-                      <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-cyan-400 to-purple-500 flex items-center justify-center font-bold text-xs text-white shrink-0">
-                        {i + 1}
-                      </div>
-                      <div className="flex-1">
-                        <div className="text-sm font-semibold text-white">
-                          {student ? `${student.name} ${student.surname}` : 'Bilinmeyen'}
-                        </div>
-                        {student?.class && <div className="text-[10px] text-zinc-600">{student.class}</div>}
-                      </div>
-                      <span className="text-sm font-extrabold text-purple-400">{count}</span>
-                    </div>
-                  )) : (
-                    <p className="text-zinc-700 text-xs text-center py-8">Veri yok.</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Recent reports */}
-              <div className="bg-zinc-900/50 backdrop-blur-xl border border-white/8 rounded-2xl p-6">
-                <h3 className="text-sm font-bold text-white mb-4">Son Raporlar</h3>
-                <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
-                  {filteredReports.slice(0, 10).map(report => {
-                    const st = studentMap[report.student_id];
-                    const Icon = CATEGORY_ICONS[report.category] || FileText;
-                    const ts = report.created_at instanceof Timestamp
-                      ? report.created_at.toDate().toLocaleString('tr-TR')
-                      : typeof report.created_at === 'string'
-                        ? new Date(report.created_at).toLocaleString('tr-TR')
-                        : '';
-                    return (
-                      <div key={report.id} className="flex items-start gap-3 p-3 rounded-xl bg-white/3 border border-white/5">
-                        <div className="p-1.5 rounded-lg border shrink-0"
-                          style={{
-                            backgroundColor: `${CATEGORY_COLORS[report.category] || '#6b7280'}12`,
-                            borderColor: `${CATEGORY_COLORS[report.category] || '#6b7280'}30`,
-                          }}>
-                          <Icon size={12} style={{ color: CATEGORY_COLORS[report.category] || '#9ca3af' }} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs font-bold text-white truncate">
-                              {st ? `${st.name} ${st.surname}` : '—'}
-                            </span>
-                            <span className="text-[10px] text-zinc-600 shrink-0">{ts}</span>
-                          </div>
-                          <p className="text-zinc-500 text-[11px] mt-0.5 truncate">{report.report_text}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {filteredReports.length === 0 && (
-                    <p className="text-zinc-700 text-xs text-center py-8">Bu dönemde rapor yok.</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
+          </div>
+        </div>
+      </main>
     </div>
   );
 }
