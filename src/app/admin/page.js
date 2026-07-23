@@ -33,7 +33,7 @@ export default function AdminPage() {
   useEffect(() => {
     if (!authLoading) {
       if (!user) { router.push('/login'); return; }
-      if (role !== 'admin') { router.push('/'); return; }
+      if (role !== 'super_admin') { router.push('/'); return; }
       fetchUsers();
     }
   }, [user, role, authLoading]);
