@@ -135,15 +135,7 @@ export default function SummaryPage() {
               <TrendingUp size={18} />
               Özet Raporlar
             </a>
-            {role === 'admin' && (
-              <a
-                href="/admin"
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-white hover:bg-white/10 font-semibold text-sm transition-all"
-              >
-                <Shield size={18} />
-                Ayarlar
-              </a>
-            )}
+
             <button
               onClick={logout}
               className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-red-300 hover:bg-red-500/10 font-semibold text-sm transition-all"
