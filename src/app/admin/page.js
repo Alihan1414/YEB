@@ -107,49 +107,23 @@ export default function AdminPage() {
     }
     setCreating(true);
     try {
-      const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-      const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-      const instId    = slugify(instName);
-
-      // 1. Firebase Auth: Hesap oluştur
-      const signUpRes = await fetch(
-        `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: instEmail.trim(), password: instPassword, returnSecureToken: true }),
-        }
-      );
-      const signUpData = await signUpRes.json();
-      if (signUpData.error) {
-        const errMsg = signUpData.error.message === 'EMAIL_EXISTS'
-          ? 'Bu e-posta zaten kayıtlı.'
-          : signUpData.error.message;
-        throw new Error(errMsg);
+      const res = await fetch('/api/admin/create-institution', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: instName.trim(),
+          email: instEmail.trim(),
+          password: instPassword,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Bilinmeyen bir hata oluştu.');
       }
 
-      const { localId: uid, idToken } = signUpData;
-
-      // 2. Firestore: Kullanıcı profili kaydet
-      await fetch(
-        `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${uid}`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
-          body: JSON.stringify({
-            fields: {
-              name:            { stringValue: instName.trim() + ' Yöneticisi' },
-              email:           { stringValue: instEmail.trim() },
-              role:            { stringValue: 'admin' },
-              institutionId:   { stringValue: instId },
-              institutionName: { stringValue: instName.trim() },
-              disabled:        { booleanValue: false },
-            },
-          }),
-        }
-      );
-
-      setInstName(''); setInstEmail(''); setInstPassword('');
+      setInstName('');
+      setInstEmail('');
+      setInstPassword('');
       setShowModal(false);
       await fetchUsers();
       showToast(`"${instName.trim()}" kurumu başarıyla oluşturuldu!`);
@@ -165,23 +139,18 @@ export default function AdminPage() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-      const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-      const instUsers = allUsers.filter(u => u.institutionId === deleteTarget.id);
-
-      // Firestore'da tüm kuruma ait kullanıcıları devre dışı bırak
-      await Promise.all(
-        instUsers.map(u =>
-          fetch(
-            `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${u.id}?updateMask.fieldPaths=disabled&key=${apiKey}`,
-            {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ fields: { disabled: { booleanValue: true } } }),
-            }
-          )
-        )
-      );
+      const res = await fetch('/api/admin/update-institution-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          institutionId: deleteTarget.id,
+          disabled: true,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Kurum silinemedi.');
+      }
 
       setDeleteTarget(null);
       await fetchUsers();
@@ -196,22 +165,18 @@ export default function AdminPage() {
   // Kurumu yeniden aktifleştir
   const handleEnableInstitution = async (inst) => {
     try {
-      const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-      const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-      const instUsers = allUsers.filter(u => u.institutionId === inst.id);
-
-      await Promise.all(
-        instUsers.map(u =>
-          fetch(
-            `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${u.id}?updateMask.fieldPaths=disabled&key=${apiKey}`,
-            {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ fields: { disabled: { booleanValue: false } } }),
-            }
-          )
-        )
-      );
+      const res = await fetch('/api/admin/update-institution-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          institutionId: inst.id,
+          disabled: false,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Kurum aktifleştirilemedi.');
+      }
 
       await fetchUsers();
       showToast(`"${inst.name}" kurumu yeniden aktifleştirildi.`);
