@@ -58,28 +58,16 @@ export default function AdminPage() {
   const fetchUsers = async () => {
     setLoadingUsers(true);
     try {
-      const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-      const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-      const res  = await fetch(
-        `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users?key=${apiKey}`
-      );
+      const res = await fetch('/api/admin/users', { cache: 'no-store' });
       const data = await res.json();
-      const list = (data.documents || []).map(doc => {
-        const f = doc.fields || {};
-        return {
-          id:              doc.name.split('/').pop(),
-          name:            f.name?.stringValue            || '',
-          email:           f.email?.stringValue           || '',
-          role:            f.role?.stringValue            || 'teacher',
-          institutionId:   f.institutionId?.stringValue   || 'yamanevler',
-          institutionName: f.institutionName?.stringValue || 'Yamanevler Enderun Bilişim',
-          disabled:        f.disabled?.booleanValue       || false,
-        };
-      });
-      setAllUsers(list);
+      if (data.success && data.users) {
+        setAllUsers(data.users);
+      } else {
+        throw new Error(data.error || 'Veriler alınamadı.');
+      }
     } catch (e) {
       console.error(e);
-      showToast('Veriler yüklenemedi.', 'error');
+      showToast('Veriler yüklenemedi: ' + e.message, 'error');
     } finally {
       setLoadingUsers(false);
     }
