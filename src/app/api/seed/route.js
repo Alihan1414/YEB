@@ -37,7 +37,11 @@ export async function GET() {
 
   for (const acc of accounts) {
     try {
-      // 1. Firebase Auth: Create user
+      let uid = '';
+      let idToken = '';
+      let isNew = true;
+
+      // 1. Firebase Auth: Try to create user
       const signUpRes = await fetch(
         `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${apiKey}`,
         {
@@ -50,16 +54,33 @@ export async function GET() {
 
       if (signUpData.error) {
         if (signUpData.error.message === 'EMAIL_EXISTS') {
-          results.push({ email: acc.email, status: 'Zaten mevcut' });
+          // If already exists, log in to get the UID and idToken so we can update Firestore
+          const signInRes = await fetch(
+            `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ email: acc.email, password: acc.password, returnSecureToken: true }),
+            }
+          );
+          const signInData = await signInRes.json();
+          if (signInData.error) {
+            results.push({ email: acc.email, status: 'Mevcut ama giriş hatası', error: signInData.error.message });
+            continue;
+          }
+          uid = signInData.localId;
+          idToken = signInData.idToken;
+          isNew = false;
+        } else {
+          results.push({ email: acc.email, status: 'Kayıt hatası', error: signUpData.error.message });
           continue;
         }
-        results.push({ email: acc.email, status: 'Hata', error: signUpData.error.message });
-        continue;
+      } else {
+        uid = signUpData.localId;
+        idToken = signUpData.idToken;
       }
 
-      const { localId: uid, idToken } = signUpData;
-
-      // 2. Firestore: Save user document
+      // 2. Firestore: Save/overwrite user document
       await fetch(
         `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${uid}`,
         {
@@ -76,12 +97,13 @@ export async function GET() {
               role:            { stringValue: acc.role },
               institutionId:   { stringValue: acc.institutionId },
               institutionName: { stringValue: acc.institutionName },
+              disabled:        { booleanValue: false },
             },
           }),
         }
       );
 
-      results.push({ email: acc.email, status: 'Başarıyla oluşturuldu' });
+      results.push({ email: acc.email, status: isNew ? 'Başarıyla oluşturuldu' : 'Firestore güncellendi' });
     } catch (err) {
       results.push({ email: acc.email, status: 'Hata', error: err.message });
     }
