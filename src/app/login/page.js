@@ -47,12 +47,39 @@ export default function LoginPage() {
     e.preventDefault();
     setError('');
     setLoading(true);
+    const email = resolveEmail(username);
     try {
-      const email = resolveEmail(username);
+      // 1. Try Firebase Auth first
       await login(email, password);
-      // Auth change listener in AuthContext handles actual role loading and redirects
-    } catch {
-      setError('Kullanıcı adı/E-posta veya şifre hatalı.');
+    } catch (fbErr) {
+      console.warn("Firebase Auth login failed, trying server-side local DB fallback:", fbErr.message);
+      try {
+        // 2. Try server-side local authentication fallback
+        const res = await fetch('/api/users/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          // Save mock user session to localStorage
+          localStorage.setItem('localUser', JSON.stringify(data.profile));
+          // Trigger route redirection
+          if (data.profile.role === 'super_admin') {
+            router.push('/admin');
+          } else {
+            router.push('/');
+          }
+          // Force page reload to sync AuthContext state
+          window.location.reload();
+          return;
+        } else {
+          setError(data.error || 'Kullanıcı adı/E-posta veya şifre hatalı.');
+        }
+      } catch (localErr) {
+        setError('Giriş başarısız. Lütfen internet bağlantınızı ve bilgilerinizi kontrol edin.');
+      }
+    } finally {
       setLoading(false);
     }
   };
