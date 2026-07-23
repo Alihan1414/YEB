@@ -21,7 +21,6 @@ export function AuthProvider({ children }) {
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         setUser(firebaseUser);
-        // Fetch full profile (role + institution) from our API
         try {
           const res = await fetch(
             `/api/users/profile?uid=${firebaseUser.uid}&email=${encodeURIComponent(firebaseUser.email || '')}`,
@@ -30,18 +29,20 @@ export function AuthProvider({ children }) {
           const data = await res.json();
           if (data.success && data.profile) {
             setRole(data.profile.role || 'teacher');
-            setInstitutionId(data.profile.institutionId || 'yamanevler');
-            setInstitutionName(data.profile.institutionName || 'Yamanevler Enderun Bilişim');
+            setInstitutionId(data.profile.institutionId);
+            setInstitutionName(data.profile.institutionName);
           } else {
-            // Safe defaults
-            setRole('admin');
-            setInstitutionId('yamanevler');
-            setInstitutionName('Yamanevler Enderun Bilişim');
+            // Local fallback logic
+            const isSuper = firebaseUser.email === 'admin@yeb.local';
+            setRole(isSuper ? 'super_admin' : 'admin');
+            setInstitutionId(isSuper ? 'platform' : 'yamanevler');
+            setInstitutionName(isSuper ? 'Sistem Yönetimi' : 'Yamanevler Enderun Bilişim');
           }
         } catch {
-          setRole('admin');
-          setInstitutionId('yamanevler');
-          setInstitutionName('Yamanevler Enderun Bilişim');
+          const isSuper = firebaseUser.email === 'admin@yeb.local';
+          setRole(isSuper ? 'super_admin' : 'admin');
+          setInstitutionId(isSuper ? 'platform' : 'yamanevler');
+          setInstitutionName(isSuper ? 'Sistem Yönetimi' : 'Yamanevler Enderun Bilişim');
         }
       } else {
         setUser(null);

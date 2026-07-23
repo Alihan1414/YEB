@@ -26,8 +26,19 @@ export async function GET(req) {
           const fields = data.fields;
           const role = fields.role?.stringValue || 'teacher';
           const name = fields.name?.stringValue || '';
-          const instId = fields.institutionId?.stringValue || 'yamanevler';
-          const instName = fields.institutionName?.stringValue || (instId === 'yamanevler' ? 'Yamanevler Enderun Bilişim' : instId.toUpperCase());
+          
+          let instId = fields.institutionId?.stringValue;
+          if (!instId) {
+            instId = (email === 'admin@yeb.local' || role === 'super_admin') ? 'platform' : 'yamanevler';
+          }
+
+          let instName = fields.institutionName?.stringValue;
+          if (!instName) {
+            if (instId === 'platform') instName = 'Sistem Yönetimi';
+            else if (instId === 'yamanevler') instName = 'Yamanevler Enderun Bilişim';
+            else instName = instId.toUpperCase();
+          }
+
           return NextResponse.json({
             success: true,
             profile: { uid, name, email: fields.email?.stringValue || email, role, institutionId: instId, institutionName: instName }
@@ -45,10 +56,19 @@ export async function GET(req) {
 
     if (!found && email) {
       // Auto-register known seed admin accounts
-      if (email === 'admin@yeb.local' || email === 'yeb@2026.com') {
+      if (email === 'admin@yeb.local') {
+        found = {
+          id: uid || 'super-admin',
+          name: 'Sistem Yöneticisi',
+          email: email,
+          role: 'super_admin',
+          institutionId: 'platform',
+          institutionName: 'Sistem Yönetimi'
+        };
+      } else if (email === 'yeb@2026.com') {
         found = {
           id: uid || 'yeb-admin',
-          name: 'Sistem Yöneticisi',
+          name: 'Yamanevler Admin',
           email: email,
           role: 'admin',
           institutionId: 'yamanevler',
@@ -58,6 +78,18 @@ export async function GET(req) {
     }
 
     if (found) {
+      let instId = found.institutionId;
+      if (!instId) {
+        instId = (found.role === 'super_admin' || found.email === 'admin@yeb.local') ? 'platform' : 'yamanevler';
+      }
+
+      let instName = found.institutionName;
+      if (!instName) {
+        if (instId === 'platform') instName = 'Sistem Yönetimi';
+        else if (instId === 'yamanevler') instName = 'Yamanevler Enderun Bilişim';
+        else instName = instId.toUpperCase();
+      }
+
       return NextResponse.json({
         success: true,
         profile: {
@@ -65,8 +97,8 @@ export async function GET(req) {
           name: found.name || '',
           email: found.email || '',
           role: found.role || 'teacher',
-          institutionId: found.institutionId || 'yamanevler',
-          institutionName: found.institutionName || (found.institutionId === 'yamanevler' ? 'Yamanevler Enderun Bilişim' : found.institutionId.toUpperCase())
+          institutionId: instId,
+          institutionName: instName
         }
       });
     }

@@ -22,27 +22,15 @@ const CATEGORY_ICONS = {
   Program: ClipboardList, Diğer: FileText,
 };
 
-function startOfWeek() {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() - d.getDay() + 1); // Monday
-  return d;
-}
-function startOfMonth() {
-  const d = new Date();
-  d.setDate(1); d.setHours(0, 0, 0, 0);
-  return d;
-}
-
 export default function SummaryPage() {
-  const { user, role, loading: authLoading, logout } = useAuth();
+  const { user, role, institutionId, institutionName, loading: authLoading, logout } = useAuth();
   const router = useRouter();
 
-  const [range, setRange]           = useState('week'); // 'week' | 'month'
-  const [classFilter, setClassFilter] = useState('All');
-  const [reports, setReports]       = useState([]);
-  const [students, setStudents]     = useState([]);
-  const [loading, setLoading]       = useState(true);
+  const [range, setRange]             = useState('week'); // 'week' | 'month'
+  const [classFilter, setClassFilter]   = useState('All');
+  const [reports, setReports]           = useState([]);
+  const [students, setStudents]         = useState([]);
+  const [loading, setLoading]           = useState(true);
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/login');
@@ -57,33 +45,27 @@ export default function SummaryPage() {
   }, [students, range]);
 
   const fetchStudents = async () => {
+    const instId = institutionId || 'yamanevler';
     try {
-      const res = await fetch('/api/students', { cache: 'no-store' });
+      const res = await fetch(`/api/students?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' });
       const apiData = await res.json();
       if (apiData.success && apiData.students) {
         setStudents(apiData.students);
         return;
       }
-      const { db } = await import('@/lib/firebase');
-      const { collection, getDocs } = await import('firebase/firestore');
-      const snap = await getDocs(collection(db, 'students'));
-      setStudents(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (e) { console.error(e); }
   };
 
   const fetchReports = async () => {
     setLoading(true);
+    const instId = institutionId || 'yamanevler';
     try {
-      const res = await fetch('/api/students/reports', { cache: 'no-store' });
+      const res = await fetch(`/api/students/reports?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' });
       const apiData = await res.json();
       if (apiData.success && apiData.reports) {
         setReports(apiData.reports);
         return;
       }
-      const { db } = await import('@/lib/firebase');
-      const { collection, getDocs } = await import('firebase/firestore');
-      const snap = await getDocs(collection(db, 'reports'));
-      setReports(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
@@ -115,10 +97,6 @@ export default function SummaryPage() {
   // Most active students
   const studentCounts = {};
   filteredReports.forEach(r => { studentCounts[r.student_id] = (studentCounts[r.student_id] || 0) + 1; });
-  const topStudents = Object.entries(studentCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5)
-    .map(([id, count]) => ({ student: studentMap[id], count }));
 
   if (authLoading) return (
     <div className="min-h-screen bg-[#eef5fc] flex items-center justify-center">
@@ -138,8 +116,8 @@ export default function SummaryPage() {
               </svg>
             </div>
             <div>
-              <h2 className="text-xs font-black tracking-widest text-blue-200 uppercase">YAMANEVLER</h2>
-              <h1 className="text-sm font-extrabold tracking-wider text-white">ENDERUN BİLİŞİM</h1>
+              <h2 className="text-xs font-black tracking-widest text-blue-200 uppercase">{(institutionName || 'Kurumsal Rapor').toUpperCase()}</h2>
+              <h1 className="text-sm font-extrabold tracking-wider text-white">YÖNETİCİ PANELİ</h1>
             </div>
           </div>
           <nav className="mt-8 space-y-2">
@@ -184,8 +162,8 @@ export default function SummaryPage() {
             </svg>
           </div>
           <div className="text-[11px] leading-tight">
-            <div className="font-bold text-white">YAMANEVLER</div>
-            <div className="text-blue-200">ENDERUN BİLİŞİM</div>
+            <div className="font-bold text-white">{(institutionName || 'Sistem Yönetimi').toUpperCase()}</div>
+            <div className="text-blue-200 text-[10px]">Aktif Kurum</div>
           </div>
         </div>
       </aside>
@@ -201,7 +179,7 @@ export default function SummaryPage() {
               <div>
                 <h1 className="text-2xl md:text-3xl font-black text-slate-900">Rapor Özeti</h1>
                 <p className="text-slate-500 text-xs md:text-sm mt-0.5">
-                  {range === 'week' ? 'Bu haftaki' : 'Bu ayki'} genel performans istatistikleri
+                  {range === 'week' ? 'Bu haftaki' : 'Bu ayki'} genel performans istatistikleri ({institutionName})
                 </p>
               </div>
             </div>

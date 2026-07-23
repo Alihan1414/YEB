@@ -92,8 +92,14 @@ export default function StudentsPage() {
 
   // Auth redirect
   useEffect(() => {
-    if (!authLoading && !user) router.push('/login');
-  }, [user, authLoading, router]);
+    if (!authLoading) {
+      if (!user) {
+        router.push('/login');
+      } else if (role === 'super_admin') {
+        router.push('/admin');
+      }
+    }
+  }, [user, role, authLoading, router]);
 
   useEffect(() => { if (user) fetchStudents(); }, [user]);
   useEffect(() => {
@@ -363,7 +369,7 @@ export default function StudentsPage() {
       return;
     }
     try {
-      const msg = `Yamanevler Enderun Bilişim'den merhaba. Öğrencimiz ${selectedStudent.name} ${selectedStudent.surname} için günlük rapor:\n\nKategori: ${report.category}\nRapor: ${report.content}`;
+      const msg = `${institutionName || 'Kurum'}'den merhaba. Öğrencimiz ${selectedStudent.name} ${selectedStudent.surname} için günlük rapor:\n\nKategori: ${report.category}\nRapor: ${report.content}`;
       const waUrl = `https://wa.me/${formatPhoneForWa(report.parent_phone)}?text=${encodeURIComponent(msg)}`;
       window.open(waUrl, '_blank');
       
@@ -966,7 +972,7 @@ export default function StudentsPage() {
 
           {/* Footer Rights */}
           <div className="text-center text-xs text-slate-400 pt-4 pb-6">
-            © 2025 Yamanevler Enderun Bilişim, Tüm hakları saklıdır.
+            © 2025 {institutionName || 'Kurumsal Rapor Sistemi'}, Tüm hakları saklıdır.
           </div>
 
         </div>
@@ -1029,7 +1035,7 @@ export default function StudentsPage() {
                         <span className="font-semibold text-slate-700">{selectedStudent.parent_phone}</span>
                         <button
                           onClick={() => {
-                            const msg = `Yamanevler Enderun Bilişim'den merhaba. Öğrencimiz ${selectedStudent.name} ${selectedStudent.surname} hakkında görüşmek üzere.`;
+                            const msg = `${institutionName || 'Kurum'}'den merhaba. Öğrencimiz ${selectedStudent.name} ${selectedStudent.surname} hakkında görüşmek üzere.`;
                             window.open(`https://wa.me/${formatPhoneForWa(selectedStudent.parent_phone)}?text=${encodeURIComponent(msg)}`, '_blank');
                           }}
                           title="WhatsApp'tan Mesaj Gönder"

@@ -3,31 +3,39 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/AuthContext';
-import { GraduationCap, Loader2, Eye, EyeOff, User, Lock } from 'lucide-react';
+import { Loader2, Eye, EyeOff, User, Lock } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 // Username → Firebase email mapping
 const USERNAME_MAP = {
   'admin': 'admin@yeb.local',
+  'yeb@2026': 'yeb@2026.com',
 };
 
 function resolveEmail(input) {
   const trimmed = input.trim().toLowerCase();
-  // If it's already a full email, use directly
-  if (trimmed.includes('@')) return trimmed;
-  // Map known usernames
+  if (trimmed.includes('@')) {
+    // If it maps to a mapped username like yeb@2026 -> yeb@2026.com
+    if (USERNAME_MAP[trimmed]) return USERNAME_MAP[trimmed];
+    return trimmed;
+  }
   if (USERNAME_MAP[trimmed]) return USERNAME_MAP[trimmed];
-  // Fallback: treat as email by appending domain
   return trimmed;
 }
 
 export default function LoginPage() {
-  const { user, loading: authLoading, login } = useAuth();
+  const { user, role, loading: authLoading, login } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!authLoading && user) router.push('/');
-  }, [user, authLoading, router]);
+    if (!authLoading && user) {
+      if (role === 'super_admin') {
+        router.push('/admin');
+      } else {
+        router.push('/');
+      }
+    }
+  }, [user, role, authLoading, router]);
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -42,10 +50,9 @@ export default function LoginPage() {
     try {
       const email = resolveEmail(username);
       await login(email, password);
-      router.push('/');
+      // Auth change listener in AuthContext handles actual role loading and redirects
     } catch {
-      setError('Kullanıcı adı veya şifre hatalı.');
-    } finally {
+      setError('Kullanıcı adı/E-posta veya şifre hatalı.');
       setLoading(false);
     }
   };
@@ -76,8 +83,8 @@ export default function LoginPage() {
               <path d="M50 15 L20 30 L50 45 L80 30 Z M20 40 L20 70 L50 85 L50 55 Z M80 40 L50 55 L50 85 L80 70 Z" />
             </svg>
           </div>
-          <h1 className="text-3xl font-black text-white tracking-tight">Öğrenci Rapor Sistemi</h1>
-          <p className="text-blue-200/70 text-sm mt-2">Yamanevler Enderun Bilişim</p>
+          <h1 className="text-3xl font-black text-white tracking-tight">Kurumsal Raporlama Sistemi</h1>
+          <p className="text-blue-200/70 text-sm mt-2">Öğrenci Takip & Raporlama Portal Girişi</p>
         </div>
 
         {/* Card */}
@@ -91,7 +98,7 @@ export default function LoginPage() {
             {/* Username */}
             <div>
               <label className="text-xs font-bold text-blue-200/80 uppercase tracking-widest mb-2 block">
-                Kullanıcı Adı
+                Kullanıcı Adı veya E-posta
               </label>
               <div className="relative">
                 <User size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-300/50" />
@@ -102,7 +109,7 @@ export default function LoginPage() {
                   required
                   value={username}
                   onChange={e => setUsername(e.target.value)}
-                  placeholder="admin"
+                  placeholder="Kullanıcı adı veya e-posta"
                   className="w-full bg-white/6 border border-white/12 rounded-2xl pl-11 pr-4 py-3.5 text-white placeholder-white/20 focus:outline-none focus:border-blue-400/60 focus:ring-2 focus:ring-blue-400/20 transition-all text-sm font-medium"
                 />
               </div>
@@ -159,7 +166,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-blue-200/40 text-xs mt-6">
-          Hesabınız yoksa sistem yöneticisiyle iletişime geçin.
+          Hesabınız yoksa kurum yöneticinizle iletişime geçin.
         </p>
       </motion.div>
     </div>
