@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { readDb } from '@/lib/db';
 
+// Firebase config fallback (public client-side keys, not secrets)
+const FIREBASE_API_KEY    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY    || 'AIzaSyA1UmjpiDX47qk8c6tJoM1xkJbRMGIsqfg';
+const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'student-687f2';
+
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
@@ -11,11 +15,11 @@ export async function GET(req) {
       return NextResponse.json({ success: false, error: 'UID veya E-posta belirtilmelidir.' }, { status: 400 });
     }
 
-    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-    const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+    const projectId = FIREBASE_PROJECT_ID;
+    const apiKey    = FIREBASE_API_KEY;
 
     // 1. Try fetching from Cloud Firestore
-    if (projectId && apiKey && uid) {
+    if (uid) {
       try {
         const res = await fetch(
           `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${uid}?key=${apiKey}`,

@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { readDb, writeDb } from '@/lib/db';
 
+// Firebase config fallback (these are public client-side keys, not secrets)
+const FIREBASE_API_KEY    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY    || 'AIzaSyA1UmjpiDX47qk8c6tJoM1xkJbRMGIsqfg';
+const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'student-687f2';
+
 export async function POST(req) {
   try {
     const { name, email, password } = await req.json();
@@ -9,7 +13,7 @@ export async function POST(req) {
       return NextResponse.json({ success: false, error: 'Tüm alanlar zorunludur.' }, { status: 400 });
     }
 
-    // 1. Türkçe karakterleri latinize ederek slug oluştur
+    // Türkçe karakterleri latinize ederek slug oluştur
     const instId = name
       .toLowerCase()
       .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's')
@@ -18,41 +22,9 @@ export async function POST(req) {
       .replace(/[^a-z0-9-]/g, '')
       .slice(0, 40);
 
-    const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-
-    // LOCAL DB FALLBACK IF FIREBASE NOT CONFIGURED
-    if (!apiKey || !projectId) {
-      const dbData = readDb();
-      const localUsers = dbData.users || [];
-
-      if (localUsers.some(u => u.email.toLowerCase() === email.trim().toLowerCase())) {
-        return NextResponse.json({ success: false, error: 'Bu e-posta zaten kayıtlı.' }, { status: 400 });
-      }
-
-      const newUser = {
-        id: 'user-' + Date.now(),
-        name: name.trim() + ' Yöneticisi',
-        email: email.trim(),
-        role: 'admin',
-        institutionId: instId,
-        institutionName: name.trim(),
-        disabled: false
-      };
-      localUsers.push(newUser);
-      dbData.users = localUsers;
-      writeDb(dbData);
-
-      return NextResponse.json({
-        success: true,
-        institutionId: instId,
-        message: 'Kurum ve yönetici başarıyla yerel veritabanında oluşturuldu (Local DB Mode).'
-      });
-    }
-
-    // 2. Firebase Auth: User creation
+    // Firebase Auth: User creation
     const signUpRes = await fetch(
-      `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${apiKey}`,
+      `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FIREBASE_API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -69,9 +41,9 @@ export async function POST(req) {
 
     const { localId: uid, idToken } = signUpData;
 
-    // 3. Firestore: Save user profile
+    // Firestore: Save user profile
     const firestoreRes = await fetch(
-      `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${uid}?key=${apiKey}`,
+      `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users/${uid}?key=${FIREBASE_API_KEY}`,
       {
         method: 'PATCH',
         headers: {
@@ -94,21 +66,7 @@ export async function POST(req) {
     if (!firestoreRes.ok) {
       const errText = await firestoreRes.text();
       console.error("Firestore save error:", errText);
-      
-      // Secondary fallback to local DB if Firestore write fails but user was created in Auth
-      const dbData = readDb();
-      const localUsers = dbData.users || [];
-      localUsers.push({
-        id: uid,
-        name: name.trim() + ' Yöneticisi',
-        email: email.trim(),
-        role: 'admin',
-        institutionId: instId,
-        institutionName: name.trim(),
-        disabled: false
-      });
-      dbData.users = localUsers;
-      writeDb(dbData);
+      return NextResponse.json({ success: false, error: 'Kullanıcı oluşturuldu ama profil kaydedilemedi.' }, { status: 500 });
     }
 
     return NextResponse.json({

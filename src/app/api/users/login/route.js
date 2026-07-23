@@ -1,75 +1,86 @@
 import { NextResponse } from 'next/server';
-import { readDb } from '@/lib/db';
+
+// Firebase config fallback (public client-side keys, not secrets)
+const FIREBASE_API_KEY    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY    || 'AIzaSyA1UmjpiDX47qk8c6tJoM1xkJbRMGIsqfg';
+const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'student-687f2';
 
 export async function POST(req) {
   try {
     const { email, password } = await req.json();
-
     if (!email || !password) {
       return NextResponse.json({ success: false, error: 'E-posta ve şifre gereklidir.' }, { status: 400 });
     }
 
-    const trimmedEmail = email.trim().toLowerCase();
+    const trimmedEmail = email.trim();
 
-    // 1. Check seed accounts first
-    if (trimmedEmail === 'admin@yeb.local' && password === 'admin14') {
-      return NextResponse.json({
-        success: true,
-        profile: {
-          uid: 'super-admin',
-          name: 'Sistem Yöneticisi',
-          email: 'admin@yeb.local',
-          role: 'super_admin',
-          institutionId: 'platform',
-          institutionName: 'Sistem Yönetimi'
-        }
-      });
-    }
-
-    if (trimmedEmail === 'yeb@2026.com' && password === 'enderun bilişim') {
-      return NextResponse.json({
-        success: true,
-        profile: {
-          uid: 'yeb-admin',
-          name: 'Yamanevler Admin',
-          email: 'yeb@2026.com',
-          role: 'admin',
-          institutionId: 'yamanevler',
-          institutionName: 'Yamanevler Enderun Bilişim'
-        }
-      });
-    }
-
-    // 2. Check local DB users
-    const dbData = readDb();
-    const localUsers = dbData.users || [];
-    const found = localUsers.find(u => u.email.toLowerCase() === trimmedEmail);
-
-    if (found) {
-      // In local mode/fallback, we allow login if password matches.
-      // (For simplicity or password mock check, we can store password in the user profile if needed,
-      // or match against a default institution password if not specified)
-      if (found.disabled) {
-        return NextResponse.json({ success: false, error: 'Bu hesap devre dışı bırakılmıştır.' }, { status: 403 });
+    // 1. Firebase Auth: sign in via REST API
+    const signInRes = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${FIREBASE_API_KEY}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: trimmedEmail, password, returnSecureToken: true }),
       }
+    );
+    const signInData = await signInRes.json();
 
-      return NextResponse.json({
-        success: true,
-        profile: {
-          uid: found.id || found.email,
-          name: found.name,
-          email: found.email,
-          role: found.role,
-          institutionId: found.institutionId,
-          institutionName: found.institutionName
-        }
-      });
+    if (signInData.error) {
+      return NextResponse.json(
+        { success: false, error: 'E-posta veya şifre hatalı.' },
+        { status: 401 }
+      );
     }
 
-    return NextResponse.json({ success: false, error: 'Kullanıcı adı veya şifre hatalı.' }, { status: 401 });
+    const { localId: uid, idToken } = signInData;
+
+    // 2. Fetch Firestore profile
+    const profileRes = await fetch(
+      `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users/${uid}?key=${FIREBASE_API_KEY}`,
+      { headers: { 'Authorization': `Bearer ${idToken}` }, cache: 'no-store' }
+    );
+
+    let profile = null;
+
+    if (profileRes.ok) {
+      const profileData = await profileRes.json();
+      if (profileData.fields) {
+        const f = profileData.fields;
+        const isDisabled = f.disabled?.booleanValue === true;
+        if (isDisabled) {
+          return NextResponse.json(
+            { success: false, error: 'Bu hesap devre dışı bırakılmıştır.' },
+            { status: 403 }
+          );
+        }
+        profile = {
+          uid,
+          name:            f.name?.stringValue            || '',
+          email:           f.email?.stringValue           || trimmedEmail,
+          role:            f.role?.stringValue            || 'teacher',
+          institutionId:   f.institutionId?.stringValue   || 'yamanevler',
+          institutionName: f.institutionName?.stringValue || 'Yamanevler Enderun Bilişim',
+        };
+      }
+    }
+
+    // 3. Fallback: construct profile from email if Firestore document not found
+    if (!profile) {
+      const isSuper = trimmedEmail === 'admin@yeb.local';
+      const isYeb   = trimmedEmail === 'yeb@2026.com';
+      profile = {
+        uid,
+        name:            isSuper ? 'Sistem Yöneticisi' : (isYeb ? 'Yamanevler Admin' : trimmedEmail),
+        email:           trimmedEmail,
+        role:            isSuper ? 'super_admin' : 'admin',
+        institutionId:   isSuper ? 'platform' : (isYeb ? 'yamanevler' : 'unknown'),
+        institutionName: isSuper ? 'Sistem Yönetimi' : (isYeb ? 'Yamanevler Enderun Bilişim' : 'Bilinmeyen Kurum'),
+      };
+    }
+
+    return NextResponse.json({ success: true, profile });
 
   } catch (error) {
-    console.error("Local login API error:", error);
+    console.error("Server-side login API error:", error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

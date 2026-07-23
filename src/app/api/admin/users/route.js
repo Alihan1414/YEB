@@ -1,6 +1,10 @@
 import { NextResponse } from 'next/server';
 import { readDb } from '@/lib/db';
 
+// Firebase config fallback (these are public client-side keys, not secrets)
+const FIREBASE_API_KEY    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY    || 'AIzaSyA1UmjpiDX47qk8c6tJoM1xkJbRMGIsqfg';
+const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'student-687f2';
+
 export async function GET(req) {
   try {
     const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
@@ -9,10 +13,9 @@ export async function GET(req) {
     let usersList = [];
 
     // 1. Try to read from Firestore
-    if (apiKey && projectId) {
-      try {
+    try {
         const res = await fetch(
-          `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users?key=${apiKey}`,
+          `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users?key=${FIREBASE_API_KEY}`,
           { cache: 'no-store' }
         );
         if (res.ok) {
@@ -33,7 +36,6 @@ export async function GET(req) {
       } catch (err) {
         console.warn("Firestore list users failed, falling back to local DB:", err.message);
       }
-    }
 
     // 2. Read from local DB
     try {

@@ -1,5 +1,9 @@
 import { NextResponse } from 'next/server';
 
+// Firebase config fallback (public client-side keys, not secrets)
+const FIREBASE_API_KEY    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY    || 'AIzaSyA1UmjpiDX47qk8c6tJoM1xkJbRMGIsqfg';
+const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'student-687f2';
+
 export async function POST(req) {
   try {
     const { institutionId, disabled } = await req.json();
@@ -8,19 +12,9 @@ export async function POST(req) {
       return NextResponse.json({ success: false, error: 'Kurum ID zorunludur.' }, { status: 400 });
     }
 
-    const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-
-    if (!apiKey || !projectId) {
-      return NextResponse.json(
-        { success: false, error: 'Sunucu Firebase yapılandırması eksik.' },
-        { status: 500 }
-      );
-    }
-
-    // 1. Fetch all users
+    // 1. Fetch all users from Firestore
     const usersRes = await fetch(
-      `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users?key=${apiKey}`
+      `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users?key=${FIREBASE_API_KEY}`
     );
     if (!usersRes.ok) {
       return NextResponse.json({ success: false, error: 'Kullanıcı listesi alınamadı.' }, { status: 500 });
@@ -41,7 +35,7 @@ export async function POST(req) {
     await Promise.all(
       instUsers.map(u =>
         fetch(
-          `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${u.id}?updateMask.fieldPaths=disabled&key=${apiKey}`,
+          `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users/${u.id}?updateMask.fieldPaths=disabled&key=${FIREBASE_API_KEY}`,
           {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
@@ -53,7 +47,7 @@ export async function POST(req) {
 
     return NextResponse.json({
       success: true,
-      message: `Kurum ${disabled ? 'devre dışı bırakıldı' : 'aktifleşirildi'}.`
+      message: `Kurum ${disabled ? 'devre dışı bırakıldı' : 'aktifleştirildi'}.`
     });
 
   } catch (error) {
