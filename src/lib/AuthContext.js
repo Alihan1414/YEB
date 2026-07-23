@@ -26,6 +26,16 @@ export function AuthProvider({ children }) {
             `/api/users/profile?uid=${firebaseUser.uid}&email=${encodeURIComponent(firebaseUser.email || '')}`,
             { cache: 'no-store' }
           );
+          if (res.status === 403) {
+            // Disabled account — sign out immediately
+            await signOut(auth);
+            setUser(null);
+            setRole(null);
+            setInstitutionId(null);
+            setInstitutionName(null);
+            setLoading(false);
+            return;
+          }
           const data = await res.json();
           if (data.success && data.profile) {
             setRole(data.profile.role || 'teacher');
@@ -38,7 +48,8 @@ export function AuthProvider({ children }) {
             setInstitutionId(isSuper ? 'platform' : 'yamanevler');
             setInstitutionName(isSuper ? 'Sistem Yönetimi' : 'Yamanevler Enderun Bilişim');
           }
-        } catch {
+        } catch (err) {
+          console.error("Auth context load profile error:", err);
           const isSuper = firebaseUser.email === 'admin@yeb.local';
           setRole(isSuper ? 'super_admin' : 'admin');
           setInstitutionId(isSuper ? 'platform' : 'yamanevler');

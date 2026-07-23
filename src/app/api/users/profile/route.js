@@ -26,7 +26,16 @@ export async function GET(req) {
           const fields = data.fields;
           const role = fields.role?.stringValue || 'teacher';
           const name = fields.name?.stringValue || '';
-          
+          const isDisabled = fields.disabled?.booleanValue === true;
+
+          // Disabled institution check — block login
+          if (isDisabled) {
+            return NextResponse.json(
+              { success: false, error: 'Bu hesap devre dışı bırakılmıştır. Lütfen platform yöneticisiyle iletişime geçin.' },
+              { status: 403 }
+            );
+          }
+
           let instId = fields.institutionId?.stringValue;
           if (!instId) {
             instId = (email === 'admin@yeb.local' || role === 'super_admin') ? 'platform' : 'yamanevler';

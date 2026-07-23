@@ -5,30 +5,42 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Shield, ArrowLeft, Plus, User, Loader2,
+  Shield, Plus, User, Loader2,
   TrendingUp, LogOut, Building2, Check, X,
-  Eye, EyeOff, Users, RefreshCw, ChevronRight
+  Eye, EyeOff, Trash2, RefreshCw, Users,
+  AlertTriangle, ChevronRight
 } from 'lucide-react';
+
+// Türkçe karakterleri latinize ederek slug oluştur
+function slugify(text) {
+  return text
+    .toLowerCase()
+    .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's')
+    .replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .slice(0, 40);
+}
 
 export default function AdminPage() {
   const { user, role, loading: authLoading, logout } = useAuth();
   const router = useRouter();
 
-  const [allUsers, setAllUsers]     = useState([]);
+  const [allUsers, setAllUsers]       = useState([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
-  const [toast, setToast]           = useState(null);
-  const [activeTab, setActiveTab]   = useState('institutions'); // 'institutions' | 'users' | 'create'
+  const [toast, setToast]             = useState(null);
 
-  // New user form
-  const [newName, setNewName]         = useState('');
-  const [newUsername, setNewUsername] = useState('');
-  const [newEmail, setNewEmail]       = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [newRole, setNewRole]         = useState('teacher');
-  const [newInstId, setNewInstId]     = useState('');
-  const [newInstName, setNewInstName] = useState('');
+  // Yeni kurum modal
+  const [showModal, setShowModal]     = useState(false);
+  const [instName, setInstName]       = useState('');
+  const [instEmail, setInstEmail]     = useState('');
+  const [instPassword, setInstPassword] = useState('');
   const [showPw, setShowPw]           = useState(false);
   const [creating, setCreating]       = useState(false);
+
+  // Silme onay modali
+  const [deleteTarget, setDeleteTarget] = useState(null); // { id, name }
+  const [deleting, setDeleting]         = useState(false);
 
   useEffect(() => {
     if (!authLoading) {
@@ -58,13 +70,12 @@ export default function AdminPage() {
           id:              doc.name.split('/').pop(),
           name:            f.name?.stringValue            || '',
           email:           f.email?.stringValue           || '',
-          username:        f.username?.stringValue        || '',
           role:            f.role?.stringValue            || 'teacher',
           institutionId:   f.institutionId?.stringValue   || 'yamanevler',
           institutionName: f.institutionName?.stringValue || 'Yamanevler Enderun Bilişim',
+          disabled:        f.disabled?.booleanValue       || false,
         };
       });
-      list.sort((a, b) => a.institutionId.localeCompare(b.institutionId, 'tr'));
       setAllUsers(list);
     } catch (e) {
       console.error(e);
@@ -74,40 +85,52 @@ export default function AdminPage() {
     }
   };
 
-  // Group users by institution
+  // Kurumları group'la (platform admini hariç)
   const institutions = Object.values(
-    allUsers.reduce((acc, u) => {
-      const key = u.institutionId;
-      if (!acc[key]) acc[key] = { id: key, name: u.institutionName, users: [] };
-      acc[key].users.push(u);
-      return acc;
-    }, {})
+    allUsers
+      .filter(u => u.institutionId !== 'platform')
+      .reduce((acc, u) => {
+        const key = u.institutionId;
+        if (!acc[key]) acc[key] = { id: key, name: u.institutionName, users: [], disabled: false };
+        if (u.disabled) acc[key].disabled = true;
+        acc[key].users.push(u);
+        return acc;
+      }, {})
   );
 
-  const handleCreateUser = async (e) => {
+  // Yeni kurum oluştur
+  const handleCreateInstitution = async (e) => {
     e.preventDefault();
-    if (!newEmail || !newPassword || !newInstId) {
-      showToast('E-posta, şifre ve Kurum ID zorunludur.', 'error');
+    if (!instName.trim() || !instEmail.trim() || !instPassword.trim()) {
+      showToast('Lütfen tüm alanları doldurun.', 'error');
       return;
     }
     setCreating(true);
     try {
       const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
       const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+      const instId    = slugify(instName);
 
+      // 1. Firebase Auth: Hesap oluştur
       const signUpRes = await fetch(
         `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${apiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: newEmail, password: newPassword, returnSecureToken: true }),
+          body: JSON.stringify({ email: instEmail.trim(), password: instPassword, returnSecureToken: true }),
         }
       );
       const signUpData = await signUpRes.json();
-      if (signUpData.error) throw new Error(signUpData.error.message);
+      if (signUpData.error) {
+        const errMsg = signUpData.error.message === 'EMAIL_EXISTS'
+          ? 'Bu e-posta zaten kayıtlı.'
+          : signUpData.error.message;
+        throw new Error(errMsg);
+      }
 
       const { localId: uid, idToken } = signUpData;
 
+      // 2. Firestore: Kullanıcı profili kaydet
       await fetch(
         `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${uid}`,
         {
@@ -115,50 +138,85 @@ export default function AdminPage() {
           headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
           body: JSON.stringify({
             fields: {
-              name:            { stringValue: newName || newUsername || '' },
-              email:           { stringValue: newEmail },
-              username:        { stringValue: newUsername || '' },
-              role:            { stringValue: newRole },
-              institutionId:   { stringValue: newInstId },
-              institutionName: { stringValue: newInstName || newInstId },
+              name:            { stringValue: instName.trim() + ' Yöneticisi' },
+              email:           { stringValue: instEmail.trim() },
+              role:            { stringValue: 'admin' },
+              institutionId:   { stringValue: instId },
+              institutionName: { stringValue: instName.trim() },
+              disabled:        { booleanValue: false },
             },
           }),
         }
       );
 
-      // Reset form
-      setNewName(''); setNewUsername(''); setNewEmail('');
-      setNewPassword(''); setNewRole('teacher');
-      setNewInstId(''); setNewInstName('');
-      setActiveTab('institutions');
+      setInstName(''); setInstEmail(''); setInstPassword('');
+      setShowModal(false);
       await fetchUsers();
-      showToast('Kullanıcı başarıyla oluşturuldu!');
-    } catch (e) {
-      const msg = e.message === 'EMAIL_EXISTS'
-        ? 'Bu e-posta zaten kayıtlı.'
-        : e.message;
-      showToast('Hata: ' + msg, 'error');
+      showToast(`"${instName.trim()}" kurumu başarıyla oluşturuldu!`);
+    } catch (err) {
+      showToast('Hata: ' + err.message, 'error');
     } finally {
       setCreating(false);
     }
   };
 
-  const handleRoleChange = async (userId, newRoleValue) => {
+  // Kurumu sil (tüm kullanıcılarını devre dışı bırak)
+  const handleDeleteInstitution = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
       const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
       const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-      await fetch(
-        `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${userId}?updateMask.fieldPaths=role&key=${apiKey}`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fields: { role: { stringValue: newRoleValue } } }),
-        }
+      const instUsers = allUsers.filter(u => u.institutionId === deleteTarget.id);
+
+      // Firestore'da tüm kuruma ait kullanıcıları devre dışı bırak
+      await Promise.all(
+        instUsers.map(u =>
+          fetch(
+            `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${u.id}?updateMask.fieldPaths=disabled&key=${apiKey}`,
+            {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ fields: { disabled: { booleanValue: true } } }),
+            }
+          )
+        )
       );
-      setAllUsers(prev => prev.map(u => u.id === userId ? { ...u, role: newRoleValue } : u));
-      showToast('Rol güncellendi!');
-    } catch (e) {
-      showToast('Hata: ' + e.message, 'error');
+
+      setDeleteTarget(null);
+      await fetchUsers();
+      showToast(`"${deleteTarget.name}" kurumu devre dışı bırakıldı.`);
+    } catch (err) {
+      showToast('Hata: ' + err.message, 'error');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  // Kurumu yeniden aktifleştir
+  const handleEnableInstitution = async (inst) => {
+    try {
+      const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+      const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+      const instUsers = allUsers.filter(u => u.institutionId === inst.id);
+
+      await Promise.all(
+        instUsers.map(u =>
+          fetch(
+            `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${u.id}?updateMask.fieldPaths=disabled&key=${apiKey}`,
+            {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ fields: { disabled: { booleanValue: false } } }),
+            }
+          )
+        )
+      );
+
+      await fetchUsers();
+      showToast(`"${inst.name}" kurumu yeniden aktifleştirildi.`);
+    } catch (err) {
+      showToast('Hata: ' + err.message, 'error');
     }
   };
 
@@ -169,419 +227,336 @@ export default function AdminPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#eef5fc] text-slate-800 flex flex-col md:flex-row font-sans">
+    <div className="min-h-screen bg-[#eef5fc] text-slate-800 font-sans">
 
-      {/* ── Sidebar ── */}
-      <aside className="hidden md:flex w-64 bg-gradient-to-b from-[#06429c] via-[#053787] to-[#011c4d] text-white flex-col justify-between p-6 shrink-0 shadow-2xl">
-        <div>
-          <div className="flex flex-col items-center text-center space-y-2 pt-4 pb-8 border-b border-white/10">
-            <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center p-2.5 shadow-lg">
-              <svg viewBox="0 0 100 100" className="w-full h-full text-[#06429c]" fill="currentColor">
-                <path d="M50 15 L20 30 L50 45 L80 30 Z M20 40 L20 70 L50 85 L50 55 Z M80 40 L50 55 L50 85 L80 70 Z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-[10px] font-black tracking-widest text-blue-200 uppercase">Platform</p>
-              <h1 className="text-sm font-extrabold text-white">Admin Paneli</h1>
-            </div>
+      {/* ── Top Header ── */}
+      <header className="bg-gradient-to-r from-[#06429c] via-[#053787] to-[#011c4d] text-white px-6 md:px-12 py-5 flex items-center justify-between shadow-2xl">
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center p-2 shadow-md">
+            <svg viewBox="0 0 100 100" className="w-full h-full text-[#06429c]" fill="currentColor">
+              <path d="M50 15 L20 30 L50 45 L80 30 Z M20 40 L20 70 L50 85 L50 55 Z M80 40 L50 55 L50 85 L80 70 Z" />
+            </svg>
           </div>
-
-          <nav className="mt-8 space-y-2">
-            <a href="/" className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-white hover:bg-white/10 font-semibold text-sm transition-all">
-              <User size={18} /> Öğrenciler
-            </a>
-            <a href="/summary" className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-white hover:bg-white/10 font-semibold text-sm transition-all">
-              <TrendingUp size={18} /> Özet Raporlar
-            </a>
-            <a href="/admin" className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-600/90 text-white font-bold text-sm shadow-md border border-blue-400/30">
-              <Shield size={18} /> Admin Paneli
-            </a>
-            <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-red-300 hover:bg-red-500/10 font-semibold text-sm transition-all">
-              <LogOut size={18} /> Çıkış Yap
-            </button>
-          </nav>
-        </div>
-
-        <div className="pt-6 border-t border-white/10">
-          <div className="text-[10px] text-blue-200/50 uppercase tracking-widest mb-2">Platform İstatistikleri</div>
-          <div className="space-y-1.5">
-            <div className="flex justify-between text-xs">
-              <span className="text-blue-200/70">Toplam Kurum</span>
-              <span className="font-bold text-white">{institutions.length}</span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-blue-200/70">Toplam Kullanıcı</span>
-              <span className="font-bold text-white">{allUsers.length}</span>
-            </div>
+          <div>
+            <div className="text-[10px] font-black tracking-widest text-blue-200 uppercase">Platform Yönetimi</div>
+            <div className="text-base font-extrabold text-white">Kurum Yönetici Paneli</div>
           </div>
         </div>
-      </aside>
+
+        <div className="flex items-center gap-3">
+          <button onClick={fetchUsers} title="Yenile"
+            className="p-2.5 bg-white/10 hover:bg-white/20 rounded-xl text-white/80 hover:text-white transition-all">
+            <RefreshCw size={16} />
+          </button>
+          <button onClick={logout}
+            className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-red-500/30 border border-white/10 rounded-xl text-xs font-bold text-white/80 hover:text-white transition-all">
+            <LogOut size={15} /> Çıkış
+          </button>
+        </div>
+      </header>
 
       {/* ── Main ── */}
-      <main className="flex-1 overflow-y-auto pb-16">
+      <main className="max-w-5xl mx-auto px-6 md:px-10 py-8 space-y-6">
 
-        {/* Page Header */}
-        <div className="bg-white border-b border-slate-100 px-6 md:px-10 py-6">
-          <div className="max-w-5xl mx-auto flex items-center gap-4">
-            <button onClick={() => router.push('/')} className="p-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-slate-600 transition-all">
-              <ArrowLeft size={18} />
-            </button>
-            <div className="flex-1">
-              <h1 className="text-2xl font-black text-slate-900">Platform Yönetimi</h1>
-              <p className="text-slate-500 text-xs mt-0.5">
-                Sistemi kullanan kurumlar ve kullanıcılar burada yönetilir.
-              </p>
-            </div>
-            <button onClick={fetchUsers} title="Yenile" className="p-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-slate-500 transition-all">
-              <RefreshCw size={16} />
-            </button>
+        {/* Toast */}
+        <AnimatePresence>
+          {toast && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+              className={`p-4 rounded-2xl text-sm font-semibold flex items-center gap-3 shadow-sm ${
+                toast.type === 'error'
+                  ? 'bg-red-50 border border-red-200 text-red-700'
+                  : 'bg-emerald-50 border border-emerald-200 text-emerald-700'
+              }`}
+            >
+              {toast.type === 'error' ? <X size={16} /> : <Check size={16} />}
+              {toast.msg}
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Stats + Add button row */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-black text-slate-900">Kayıtlı Kurumlar</h1>
+            <p className="text-slate-500 text-xs mt-0.5">
+              Sistemi kullanan {institutions.length} kurum var. Aktif: {institutions.filter(i => !i.disabled).length}
+            </p>
           </div>
+          <button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2 px-5 py-3 bg-[#06429c] text-white rounded-2xl font-bold text-sm hover:bg-blue-700 transition-all shadow-lg shadow-blue-900/20"
+          >
+            <Plus size={17} /> Yeni Kurum Ekle
+          </button>
         </div>
 
-        <div className="max-w-5xl mx-auto px-6 md:px-10 mt-6 space-y-6">
-
-          {/* Toast */}
-          <AnimatePresence>
-            {toast && (
+        {/* Institutions Grid */}
+        {loadingUsers ? (
+          <div className="flex justify-center py-20">
+            <Loader2 size={28} className="text-blue-600 animate-spin" />
+          </div>
+        ) : institutions.length === 0 ? (
+          <div className="text-center py-20 text-slate-400">
+            <Building2 size={48} className="mx-auto mb-4 opacity-20" />
+            <p className="font-semibold text-sm">Henüz kayıtlı kurum yok.</p>
+            <p className="text-xs mt-1">Yukarıdaki butona tıklayarak ilk kurumu ekleyin.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {institutions.map(inst => (
               <motion.div
-                initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
-                className={`p-4 rounded-2xl text-sm font-semibold flex items-center gap-3 ${
-                  toast.type === 'error'
-                    ? 'bg-red-50 border border-red-200 text-red-700'
-                    : 'bg-emerald-50 border border-emerald-200 text-emerald-700'
+                key={inst.id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`bg-white rounded-3xl shadow-sm border overflow-hidden transition-all ${
+                  inst.disabled ? 'border-slate-200 opacity-60' : 'border-slate-100 hover:shadow-md'
                 }`}
               >
-                {toast.type === 'error' ? <X size={16} /> : <Check size={16} />}
-                {toast.msg}
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {[
-              { label: 'Kayıtlı Kurum',     value: institutions.length, icon: Building2, color: 'blue' },
-              { label: 'Toplam Kullanıcı',  value: allUsers.length,     icon: Users,     color: 'indigo' },
-              { label: 'Yöneticiler',       value: allUsers.filter(u => u.role === 'admin').length, icon: Shield, color: 'purple' },
-            ].map(({ label, value, icon: Icon, color }) => (
-              <div key={label} className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex items-center gap-4">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                  color === 'blue'   ? 'bg-blue-50 text-blue-600' :
-                  color === 'indigo' ? 'bg-indigo-50 text-indigo-600' :
-                  'bg-purple-50 text-purple-600'
-                }`}>
-                  <Icon size={20} />
-                </div>
-                <div>
-                  <div className="text-2xl font-black text-slate-900">{value}</div>
-                  <div className="text-[11px] text-slate-500 font-medium">{label}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Tabs */}
-          <div className="flex gap-2 bg-slate-100 p-1.5 rounded-2xl w-fit flex-wrap">
-            {[
-              { key: 'institutions', label: 'Kurumlar', icon: Building2 },
-              { key: 'users',        label: 'Tüm Kullanıcılar', icon: Users },
-              { key: 'create',       label: 'Yeni Kullanıcı Ekle', icon: Plus },
-            ].map(tab => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                  activeTab === tab.key
-                    ? 'bg-white text-slate-800 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-700'
-                }`}
-              >
-                <tab.icon size={13} /> {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* ── TAB: Institutions ── */}
-          {activeTab === 'institutions' && (
-            <div className="space-y-4">
-              {loadingUsers ? (
-                <div className="flex justify-center py-12 bg-white rounded-3xl border border-slate-100">
-                  <Loader2 size={24} className="text-blue-600 animate-spin" />
-                </div>
-              ) : institutions.length === 0 ? (
-                <div className="text-center py-12 bg-white rounded-3xl border border-slate-100 text-slate-400 text-sm">
-                  <Building2 size={36} className="mx-auto mb-3 opacity-30" />
-                  Henüz kayıtlı kurum yok.
-                </div>
-              ) : (
-                institutions.map(inst => (
-                  <div key={inst.id} className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-                    {/* Institution Header */}
-                    <div className="px-6 py-4 bg-gradient-to-r from-blue-50/60 to-indigo-50/30 border-b border-slate-100 flex items-center gap-4">
-                      <div className="w-10 h-10 bg-[#06429c] text-white rounded-xl flex items-center justify-center shrink-0 font-black text-sm shadow-sm">
-                        {(inst.name || inst.id)[0].toUpperCase()}
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-extrabold text-slate-900 text-sm">{inst.name}</h3>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <code className="text-[10px] font-mono text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md font-semibold">{inst.id}</code>
-                          <span className="text-[10px] text-slate-400">{inst.users.length} kullanıcı</span>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => { setNewInstId(inst.id); setNewInstName(inst.name); setActiveTab('create'); }}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 text-xs font-bold text-slate-600 rounded-xl hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-all"
-                      >
-                        <Plus size={12} /> Kullanıcı Ekle
-                      </button>
-                    </div>
-
-                    {/* Users in this institution */}
-                    <div className="divide-y divide-slate-50">
-                      {inst.users.map(u => (
-                        <div key={u.id} className="px-6 py-3.5 flex items-center gap-4 hover:bg-slate-50/50 transition-colors">
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-400 to-slate-600 text-white flex items-center justify-center font-bold text-xs shrink-0">
-                            {(u.name || u.email || '?')[0].toUpperCase()}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="font-semibold text-slate-800 text-xs truncate">{u.name || '—'}</div>
-                            <div className="text-[10px] text-slate-400 truncate">
-                              {u.username && <span className="font-mono text-blue-500 font-semibold mr-1">@{u.username}</span>}
-                              {u.email}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                              u.role === 'admin'
-                                ? 'bg-purple-50 text-purple-700 border-purple-200'
-                                : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            }`}>
-                              {u.role === 'admin' ? '⚡ Yönetici' : '👨‍🏫 Öğretmen'}
-                            </span>
-                            <select
-                              value={u.role}
-                              onChange={e => handleRoleChange(u.id, e.target.value)}
-                              className="bg-slate-50 border border-slate-200 text-[10px] text-slate-600 rounded-lg px-2 py-1 focus:outline-none cursor-pointer"
-                            >
-                              <option value="teacher">Öğretmen yap</option>
-                              <option value="admin">Yönetici yap</option>
-                            </select>
-                          </div>
-                        </div>
-                      ))}
+                {/* Card Header */}
+                <div className={`px-6 py-5 flex items-center gap-4 ${inst.disabled ? 'bg-slate-50' : 'bg-gradient-to-r from-blue-50/60 to-indigo-50/20'}`}>
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 font-black text-lg shadow-sm ${
+                    inst.disabled ? 'bg-slate-300 text-white' : 'bg-[#06429c] text-white'
+                  }`}>
+                    {(inst.name || inst.id)[0].toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-extrabold text-slate-900 truncate">{inst.name}</h3>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <code className="text-[10px] font-mono text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md font-semibold border border-blue-100">{inst.id}</code>
+                      <span className="text-[10px] text-slate-400">{inst.users.length} kullanıcı</span>
+                      {inst.disabled && (
+                        <span className="text-[10px] bg-red-50 text-red-500 border border-red-200 px-2 py-0.5 rounded-full font-bold">Devre Dışı</span>
+                      )}
                     </div>
                   </div>
-                ))
-              )}
-            </div>
-          )}
+                </div>
 
-          {/* ── TAB: All Users ── */}
-          {activeTab === 'users' && (
-            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-                <h2 className="text-sm font-extrabold text-slate-900">Tüm Kullanıcılar</h2>
-                <span className="text-xs bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full font-bold border border-blue-100">{allUsers.length} kullanıcı</span>
-              </div>
-              {loadingUsers ? (
-                <div className="flex justify-center py-12"><Loader2 size={24} className="text-blue-600 animate-spin" /></div>
-              ) : (
-                <div className="divide-y divide-slate-50">
-                  {allUsers.map(u => (
-                    <div key={u.id} className="px-6 py-4 flex items-center gap-4 hover:bg-slate-50/60 transition-colors">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#06429c] to-[#1b63d6] text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
-                        {(u.name || u.email || '?')[0].toUpperCase()}
+                {/* Users list */}
+                <div className="px-6 py-3 space-y-2">
+                  {inst.users.map(u => (
+                    <div key={u.id} className="flex items-center gap-2 text-xs">
+                      <div className="w-6 h-6 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center font-bold text-[10px] shrink-0">
+                        {(u.name || u.email)[0].toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-bold text-slate-800 text-sm truncate">{u.name || '—'}</div>
-                        <div className="text-[11px] text-slate-400 truncate">
-                          {u.username && <span className="font-mono text-blue-500 font-semibold mr-2">@{u.username}</span>}
-                          {u.email}
-                        </div>
-                        <div className="flex items-center gap-1 mt-1">
-                          <Building2 size={10} className="text-slate-400" />
-                          <span className="text-[10px] text-slate-500">{u.institutionName}</span>
-                          <code className="text-[9px] font-mono text-blue-500 bg-blue-50 px-1 rounded ml-1">{u.institutionId}</code>
-                        </div>
+                        <span className="font-medium text-slate-700 truncate block">{u.name || u.email}</span>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${
-                          u.role === 'admin'
-                            ? 'bg-purple-50 text-purple-700 border-purple-200'
-                            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        }`}>
-                          {u.role === 'admin' ? '⚡ Yönetici' : '👨‍🏫 Öğretmen'}
-                        </span>
-                        <select
-                          value={u.role}
-                          onChange={e => handleRoleChange(u.id, e.target.value)}
-                          className="bg-slate-50 border border-slate-200 text-xs text-slate-600 rounded-xl px-2.5 py-1.5 focus:outline-none cursor-pointer"
-                        >
-                          <option value="teacher">Öğretmen yap</option>
-                          <option value="admin">Yönetici yap</option>
-                        </select>
-                      </div>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                        u.role === 'admin' || u.role === 'super_admin'
+                          ? 'bg-purple-50 text-purple-700 border-purple-200'
+                          : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      }`}>
+                        {u.role === 'admin' || u.role === 'super_admin' ? 'Yönetici' : 'Öğretmen'}
+                      </span>
                     </div>
                   ))}
-                  {allUsers.length === 0 && (
-                    <div className="text-center py-10 text-slate-400 text-xs">Kullanıcı bulunamadı.</div>
-                  )}
                 </div>
-              )}
-            </div>
-          )}
 
-          {/* ── TAB: Create User ── */}
-          {activeTab === 'create' && (
-            <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden">
-              <div className="px-6 py-5 border-b border-slate-100">
-                <h2 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
-                  <Plus size={16} className="text-blue-600" /> Yeni Kullanıcı Oluştur
-                </h2>
-                <p className="text-[11px] text-slate-400 mt-1.5 leading-relaxed">
-                  Yeni bir kullanıcı ekleyin. Kurum ID'yi mevcut bir kurumla aynı yaparsanız o kuruma katılır.
-                  Farklı bir Kurum ID verirseniz yeni bir kurum oluşturulur.
-                </p>
-              </div>
+                {/* Actions */}
+                <div className="px-6 pb-5 pt-3 border-t border-slate-50 flex items-center justify-between gap-3">
+                  {inst.disabled ? (
+                    <button
+                      onClick={() => handleEnableInstitution(inst)}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold rounded-xl hover:bg-emerald-100 transition-all"
+                    >
+                      <Check size={13} /> Yeniden Aktifleştir
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setDeleteTarget({ id: inst.id, name: inst.name })}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-red-50 border border-red-200 text-red-600 text-xs font-bold rounded-xl hover:bg-red-100 transition-all"
+                    >
+                      <Trash2 size={13} /> Kurumu Sil
+                    </button>
+                  )}
+                  <div className="text-[10px] text-slate-400 text-right">
+                    Giriş: <span className="font-mono text-slate-600">{inst.users[0]?.email || '—'}</span>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </main>
 
-              <form onSubmit={handleCreateUser} className="p-6 space-y-6">
-
-                {/* Section 1: Kişisel Bilgiler */}
-                <div>
-                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Kişisel Bilgiler</div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Ad Soyad</label>
-                      <input type="text" placeholder="Örn: Ahmet Yılmaz" value={newName}
-                        onChange={e => setNewName(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-800 focus:outline-none focus:border-blue-500 placeholder-slate-300 transition-all"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Kullanıcı Adı</label>
-                      <div className="relative">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-sm font-mono font-bold">@</span>
-                        <input type="text" placeholder="ogretmen1" value={newUsername}
-                          onChange={e => setNewUsername(e.target.value.toLowerCase().replace(/\s/g, ''))}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-8 pr-4 py-3 text-sm font-mono text-slate-800 focus:outline-none focus:border-blue-500 placeholder-slate-300 transition-all"
-                        />
+      {/* ── Yeni Kurum Modal ── */}
+      <AnimatePresence>
+        {showModal && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => !creating && setShowModal(false)}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            >
+              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
+                {/* Modal Header */}
+                <div className="bg-gradient-to-r from-[#06429c] to-[#1b63d6] p-6 text-white">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
+                        <Building2 size={18} />
+                      </div>
+                      <div>
+                        <h2 className="font-extrabold text-base">Yeni Kurum Ekle</h2>
+                        <p className="text-blue-200 text-[11px] mt-0.5">Sisteme yeni bir kurum ekleyin</p>
                       </div>
                     </div>
+                    <button onClick={() => !creating && setShowModal(false)} className="p-2 hover:bg-white/20 rounded-xl transition-all">
+                      <X size={18} />
+                    </button>
                   </div>
                 </div>
 
-                {/* Section 2: Giriş Bilgileri */}
-                <div>
-                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Giriş Bilgileri</div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-semibold text-slate-600 mb-1.5 block">E-posta <span className="text-red-400">*</span></label>
-                      <input type="email" placeholder="ogretmen@okul.com" value={newEmail}
-                        onChange={e => setNewEmail(e.target.value)} required
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-800 focus:outline-none focus:border-blue-500 placeholder-slate-300 transition-all"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-semibold text-slate-600 mb-1.5 block">Şifre <span className="text-red-400">*</span></label>
-                      <div className="relative">
-                        <input type={showPw ? 'text' : 'password'} placeholder="En az 6 karakter" value={newPassword}
-                          onChange={e => setNewPassword(e.target.value)} required minLength={6}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 pr-11 text-sm text-slate-800 focus:outline-none focus:border-blue-500 placeholder-slate-300 transition-all"
-                        />
-                        <button type="button" onClick={() => setShowPw(!showPw)}
-                          className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                          {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                {/* Modal Form */}
+                <form onSubmit={handleCreateInstitution} className="p-6 space-y-5">
 
-                {/* Section 3: Kurum */}
-                <div className="bg-gradient-to-r from-blue-50/60 to-indigo-50/30 border border-blue-100 rounded-2xl p-4 space-y-3">
-                  <div className="text-[10px] font-black text-blue-600 uppercase tracking-widest flex items-center gap-1.5">
-                    <Building2 size={12} /> Kurum Bilgileri
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs font-semibold text-blue-700 mb-1.5 block">Kurum ID <span className="text-red-400">*</span></label>
-                      <input type="text" placeholder="örn: yamanevler, umraniye" value={newInstId}
-                        onChange={e => setNewInstId(e.target.value.toLowerCase().replace(/\s/g, ''))} required
-                        className="w-full bg-white border border-blue-200 rounded-xl px-4 py-3 text-sm font-mono text-slate-800 focus:outline-none focus:border-blue-500 placeholder-slate-300 transition-all"
-                      />
-                      <p className="text-[10px] text-blue-400 mt-1">Küçük harf, boşluksuz. Mevcut kuruma eklemek için aynı ID'yi kullanın.</p>
-                    </div>
-                    <div>
-                      <label className="text-xs font-semibold text-blue-700 mb-1.5 block">Kurum Adı</label>
-                      <input type="text" placeholder="Örn: Ümraniye Bilişim" value={newInstName}
-                        onChange={e => setNewInstName(e.target.value)}
-                        className="w-full bg-white border border-blue-200 rounded-xl px-4 py-3 text-sm text-slate-800 focus:outline-none focus:border-blue-500 placeholder-slate-300 transition-all"
-                      />
-                      <p className="text-[10px] text-blue-400 mt-1">Sidebar ve bildirimlerde görünür.</p>
-                    </div>
+                  {/* Kurum İsmi */}
+                  <div>
+                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-2 block">
+                      1. Kurum İsmi
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Örn: Çınardere Erenler"
+                      value={instName}
+                      onChange={e => setInstName(e.target.value)}
+                      required
+                      autoFocus
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-sm text-slate-800 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 placeholder-slate-300 transition-all"
+                    />
+                    {instName && (
+                      <p className="text-[10px] text-blue-500 mt-1.5 font-mono">
+                        Kurum ID: <strong>{slugify(instName)}</strong>
+                      </p>
+                    )}
                   </div>
 
-                  {/* Existing institutions hint */}
-                  {institutions.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      <span className="text-[10px] text-blue-500 font-semibold self-center">Mevcut kurumlar:</span>
-                      {institutions.map(inst => (
-                        <button
-                          key={inst.id}
-                          type="button"
-                          onClick={() => { setNewInstId(inst.id); setNewInstName(inst.name); }}
-                          className="text-[10px] px-2.5 py-1 bg-white border border-blue-200 text-blue-700 rounded-lg font-mono font-semibold hover:bg-blue-50 transition-all flex items-center gap-1"
-                        >
-                          {inst.id} <ChevronRight size={9} />
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                  {/* E-posta */}
+                  <div>
+                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-2 block">
+                      2. Kurum E-postası
+                    </label>
+                    <input
+                      type="email"
+                      placeholder="Örn: cinardere@erenler.com"
+                      value={instEmail}
+                      onChange={e => setInstEmail(e.target.value)}
+                      required
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 text-sm text-slate-800 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 placeholder-slate-300 transition-all"
+                    />
+                  </div>
 
-                {/* Section 4: Rol */}
-                <div>
-                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Rol</div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {[
-                      { value: 'teacher', emoji: '👨‍🏫', label: 'Öğretmen', desc: 'Öğrencileri ve raporları görebilir, rapor ekleyebilir.' },
-                      { value: 'admin',   emoji: '⚡',    label: 'Yönetici', desc: 'Tüm yetkiler + Admin paneline erişim.' },
-                    ].map(opt => (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => setNewRole(opt.value)}
-                        className={`px-4 py-3.5 rounded-xl border-2 text-left transition-all ${
-                          newRole === opt.value
-                            ? 'border-blue-500 bg-blue-50/60'
-                            : 'border-slate-200 bg-slate-50 hover:border-slate-300'
-                        }`}
-                      >
-                        <div className="text-sm font-bold text-slate-800">{opt.emoji} {opt.label}</div>
-                        <div className="text-[10px] text-slate-500 mt-0.5">{opt.desc}</div>
+                  {/* Şifre */}
+                  <div>
+                    <label className="text-xs font-bold text-slate-600 uppercase tracking-wider mb-2 block">
+                      3. Kurum Şifresi
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPw ? 'text' : 'password'}
+                        placeholder="En az 6 karakter"
+                        value={instPassword}
+                        onChange={e => setInstPassword(e.target.value)}
+                        required
+                        minLength={6}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 pr-12 text-sm text-slate-800 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 placeholder-slate-300 transition-all"
+                      />
+                      <button type="button" onClick={() => setShowPw(!showPw)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+                        {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
                       </button>
-                    ))}
+                    </div>
                   </div>
-                </div>
 
-                {/* Submit */}
-                <div className="flex justify-end">
+                  {/* Info box */}
+                  <div className="bg-blue-50 border border-blue-100 rounded-2xl p-3.5 text-[11px] text-blue-700">
+                    <p className="font-bold mb-1">ℹ️ Bu bilgilerle ne olur?</p>
+                    <p className="leading-relaxed text-blue-600">
+                      Belirlediğiniz <strong>e-posta ve şifre</strong> ile sisteme giriş yapan kişiler,
+                      yalnızca <strong>{instName || 'bu kuruma'}</strong> ait öğrencileri ve raporları görebilir.
+                      Diğer kurumlardan tamamen bağımsız çalışır.
+                    </p>
+                  </div>
+
+                  {/* Buttons */}
+                  <div className="flex gap-3 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => !creating && setShowModal(false)}
+                      className="flex-1 py-3 rounded-2xl border border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50 transition-all"
+                    >
+                      İptal
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={creating}
+                      className="flex-1 py-3 rounded-2xl bg-[#06429c] text-white font-bold text-sm hover:bg-blue-700 transition-all shadow-lg shadow-blue-900/20 flex items-center justify-center gap-2 disabled:opacity-60"
+                    >
+                      {creating ? <Loader2 size={16} className="animate-spin" /> : <><Check size={16} /> Kurumu Oluştur</>}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* ── Silme Onay Modal ── */}
+      <AnimatePresence>
+        {deleteTarget && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => !deleting && setDeleteTarget(null)}
+              className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            >
+              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-6">
+                <div className="text-center mb-5">
+                  <div className="w-14 h-14 bg-red-50 border-2 border-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <AlertTriangle size={26} className="text-red-500" />
+                  </div>
+                  <h3 className="font-extrabold text-slate-900 text-base">Kurumu Sil</h3>
+                  <p className="text-slate-500 text-xs mt-2 leading-relaxed">
+                    <strong className="text-slate-700">"{deleteTarget.name}"</strong> kurumu devre dışı bırakılacak.
+                    Bu kurumdaki kullanıcılar artık sisteme giriş yapamaz.
+                  </p>
+                </div>
+                <div className="flex gap-3">
                   <button
-                    type="submit" disabled={creating}
-                    className="bg-[#06429c] text-white font-bold rounded-2xl py-3 px-8 hover:bg-blue-700 transition-all text-sm shadow-lg shadow-blue-900/20 flex items-center gap-2 disabled:opacity-50"
+                    onClick={() => setDeleteTarget(null)}
+                    className="flex-1 py-3 rounded-2xl border border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50"
                   >
-                    {creating ? <Loader2 size={16} className="animate-spin" /> : <><Plus size={16} /> Kullanıcı Oluştur</>}
+                    Vazgeç
+                  </button>
+                  <button
+                    onClick={handleDeleteInstitution}
+                    disabled={deleting}
+                    className="flex-1 py-3 rounded-2xl bg-red-500 text-white font-bold text-sm hover:bg-red-600 flex items-center justify-center gap-2 disabled:opacity-60"
+                  >
+                    {deleting ? <Loader2 size={15} className="animate-spin" /> : <><Trash2 size={15} /> Sil</>}
                   </button>
                 </div>
-              </form>
-            </div>
-          )}
-
-          <div className="text-center text-xs text-slate-400 pb-6">
-            © 2025 Öğrenci Rapor Sistemi — Platform Admin Paneli
-          </div>
-        </div>
-      </main>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
