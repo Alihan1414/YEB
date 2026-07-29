@@ -33,6 +33,7 @@ export async function GET(req) {
             notified:       fields.notified?.booleanValue || false,
             institution_id: fields.institution_id?.stringValue || 'yamanevler',
             created_at:     fields.created_at?.timestampValue || null,
+            created_by:     fields.created_by?.stringValue || 'Bilinmeyen Öğretmen',
           };
         });
 
@@ -65,7 +66,8 @@ export async function POST(req) {
   try {
     const {
       studentId, studentName, className, parentPhone,
-      content, category, notifyParent, institutionId = 'yamanevler'
+      content, category, notifyParent, institutionId = 'yamanevler',
+      createdBy
     } = await req.json();
 
     if (!studentId || !content) {
@@ -92,6 +94,7 @@ export async function POST(req) {
               notified:       { booleanValue: !!notifyParent },
               institution_id: { stringValue: institutionId },
               created_at:     { timestampValue: new Date().toISOString() },
+              created_by:     { stringValue: createdBy || 'Bilinmeyen Öğretmen' },
             },
           }),
         }
@@ -115,6 +118,7 @@ export async function POST(req) {
       notified:       !!notifyParent,
       institution_id: institutionId,
       created_at:     new Date().toISOString(),
+      created_by:     createdBy || 'Bilinmeyen Öğretmen',
     };
     dbData.reports = dbData.reports || [];
     dbData.reports.push(newReport);

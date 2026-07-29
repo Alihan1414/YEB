@@ -1,14 +1,17 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
+  BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer
+} from 'recharts';
+import {
   Mic, MicOff, Search, Plus, Check, X, FileText,
   User, Clock, Sparkles, ChevronRight, TrendingUp,
-  GraduationCap, Utensils, AlertCircle,
+  GraduationCap, Utensils, AlertCircle, Heart, Sunrise,
   ClipboardList, BarChart2, LogOut, Shield, Upload,
-  Loader2, Trash2, MessageCircle
+  Loader2, Trash2, MessageCircle, Trophy, Target, Tv, BookOpen, Calendar, Settings
 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 import { db } from '@/lib/firebase';
@@ -17,13 +20,20 @@ import { collection, addDoc, getDocs, query, orderBy, where, serverTimestamp } f
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CATEGORY_COLORS = {
   Akademik: '#8b5cf6', Yemek: '#f59e0b',
-  Program:  '#06b6d4', Diğer: '#6b7280',
+  Program:  '#06b6d4', Sağlık: '#ef4444',
+  Namaz: '#10b981',   Diğer: '#6b7280',
 };
 const CATEGORY_ICONS = {
   Akademik: GraduationCap, Yemek: Utensils,
-  Program:  ClipboardList, Diğer: FileText,
+  Program:  ClipboardList,  Sağlık: Heart,
+  Namaz: Sunrise,           Diğer: FileText,
 };
-const CATEGORIES = ['Akademik', 'Yemek', 'Program', 'Diğer'];
+const CATEGORIES = ['Akademik', 'Yemek', 'Program', 'Sağlık', 'Namaz', 'Diğer'];
+
+// Puan sistemi: her kategorinin haftalık puana katkısı
+const CATEGORY_SCORES = {
+  Akademik: 3, Namaz: 2, Program: 2, Sağlık: 1, Yemek: 1, Diğer: 1,
+};
 
 // ─── Utility ─────────────────────────────────────────────────────────────────
 function formatPhoneForWa(phone) {
@@ -88,7 +98,14 @@ export default function StudentsPage() {
   const [toast, setToast] = useState(null);
   const recognitionRef    = useRef(null);
 
-  const [editingPhone, setEditingPhone]         = useState('');
+  const [editingPhone, setEditingPhone] = useState('');
+
+  // Haftalık istatistikler
+  const [weeklyReports, setWeeklyReports] = useState([]);
+  const [weeklyLoading, setWeeklyLoading] = useState(false);
+
+  // İzin modülü aktif mi?
+  const [leaveEnabled, setLeaveEnabled] = useState(false);
 
   // Auth redirect
   useEffect(() => {
@@ -101,7 +118,18 @@ export default function StudentsPage() {
     }
   }, [user, role, authLoading, router]);
 
-  useEffect(() => { if (user) fetchStudents(); }, [user]);
+  useEffect(() => {
+    if (user) {
+      fetchStudents();
+      fetchWeeklyReports();
+      // İzin modülü ayarını çek
+      const instId = institutionId || 'yamanevler';
+      fetch(`/api/admin/leave-settings?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' })
+        .then(r => r.json())
+        .then(d => { if (d.success && d.settings) setLeaveEnabled(!!d.settings.enabled); })
+        .catch(() => {});
+    }
+  }, [user]);
   useEffect(() => {
     if (selectedStudent) {
       fetchReports(selectedStudent.id);
@@ -150,6 +178,27 @@ export default function StudentsPage() {
       list.sort((a, b) => new Date(b.created_at?.toDate?.() || 0) - new Date(a.created_at?.toDate?.() || 0));
       setReports(list);
     } catch (e) { console.error('fetchReports error:', e); }
+  };
+
+  // ─── Weekly Stats ───────────────────────────────────────────────────────────
+  const fetchWeeklyReports = async () => {
+    setWeeklyLoading(true);
+    const instId = institutionId || 'yamanevler';
+    try {
+      const res = await fetch(`/api/students/reports?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' });
+      const apiData = await res.json();
+      if (apiData.success && apiData.reports) {
+        // Son 7 günün raporlarını filtrele
+        const weekAgo = new Date();
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        const recent = apiData.reports.filter(r => {
+          const d = r.created_at ? new Date(r.created_at) : null;
+          return d && d >= weekAgo;
+        });
+        setWeeklyReports(recent);
+      }
+    } catch (e) { console.error('fetchWeeklyReports error:', e); }
+    finally { setWeeklyLoading(false); }
   };
 
   const showToast = (msg, type = 'success') => {
@@ -205,6 +254,7 @@ export default function StudentsPage() {
           category: directCategory,
           notifyParent: !!notifyParent,
           institutionId: institutionId || 'yamanevler',
+          createdBy: user?.email || 'Bilinmeyen Öğretmen',
         }),
       });
       const data = await res.json();
@@ -261,6 +311,7 @@ export default function StudentsPage() {
           category: aiMatch.category || 'Diğer',
           notifyParent: !!notifyParent,
           institutionId: institutionId || 'yamanevler',
+          createdBy: user?.email || 'Bilinmeyen Öğretmen',
         }),
       });
       const data = await res.json();
@@ -467,6 +518,21 @@ export default function StudentsPage() {
     );
   });
 
+  // ─── Haftanın Sınıfı: Puan bazlı hesaplama ───────────────────────────────
+  const studentMap = Object.fromEntries(students.map(s => [s.id, s]));
+  const classScores = {};
+  weeklyReports.forEach(r => {
+    const st = studentMap[r.student_id];
+    const cls = st?.class || r.class_name || 'Bilinmiyor';
+    const pts = CATEGORY_SCORES[r.category] || 1;
+    classScores[cls] = (classScores[cls] || 0) + pts;
+  });
+  const topClass = Object.entries(classScores).sort((a, b) => b[1] - a[1])[0];
+  const weeklyNamazCount  = weeklyReports.filter(r => r.category === 'Namaz').length;
+  const weeklyAkademikCount = weeklyReports.filter(r => r.category === 'Akademik').length;
+
+
+
   return (
     <div className="min-h-screen bg-[#eef5fc] text-slate-800 flex flex-col md:flex-row font-sans selection:bg-blue-500 selection:text-white">
       {/* ── Desktop Left Sidebar (Visible on md+) ── */}
@@ -512,11 +578,37 @@ export default function StudentsPage() {
             </button>
 
             <a
-              href="/summary"
+              href="/haftalik"
               className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-white hover:bg-white/10 font-semibold text-sm transition-all"
             >
-              <TrendingUp size={18} />
-              Özet Raporlar
+              <Trophy size={18} />
+              Haftalık Özet
+            </a>
+
+            <a
+              href="/tv"
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-white hover:bg-white/10 font-semibold text-sm transition-all"
+            >
+              <Tv size={18} />
+              TV Ekranı
+            </a>
+
+            {leaveEnabled && (
+              <a
+                href="/izinler"
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-white hover:bg-white/10 font-semibold text-sm transition-all"
+              >
+                <Calendar size={18} />
+                İzin Yönetimi
+              </a>
+            )}
+
+            <a
+              href="/ayarlar"
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-white hover:bg-white/10 font-semibold text-sm transition-all"
+            >
+              <Settings size={18} />
+              Ayarlar
             </a>
 
             {role === 'admin' && (
@@ -537,6 +629,7 @@ export default function StudentsPage() {
             </button>
           </nav>
         </div>
+
 
         {/* Bottom Logo Branding */}
         <div className="pt-6 border-t border-white/10 flex items-center gap-3">
@@ -626,10 +719,10 @@ export default function StudentsPage() {
                       </button>
                     )}
                     <a
-                      href="/summary"
+                      href="/ayarlar"
                       className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 font-bold text-xs shadow-sm transition-all"
                     >
-                      <TrendingUp size={14} /> Özet Raporlar
+                      <Settings size={14} /> Ayarlar
                     </a>
                   </div>
                 </div>
@@ -740,8 +833,50 @@ export default function StudentsPage() {
                 )}
               </AnimatePresence>
 
+              {/* ── Haftanın Sınıfı + Haftalık İstatistikler ── */}
+              {(topClass || weeklyReports.length > 0) && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Haftanın Sınıfı */}
+                  {topClass && (
+                    <div className="md:col-span-1 bg-gradient-to-br from-amber-400 to-orange-500 rounded-3xl p-5 shadow-md text-white flex items-center gap-4">
+                      <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0">
+                        <Trophy size={24} className="text-white" />
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-black uppercase tracking-widest text-amber-100">🏆 Haftanın Sınıfı</div>
+                        <div className="text-2xl font-black">{topClass[0]}</div>
+                        <div className="text-xs text-amber-100 mt-0.5">{topClass[1]} puan · Bu hafta</div>
+                      </div>
+                    </div>
+                  )}
+                  {/* Namaz İstatistiği */}
+                  <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-3xl p-5 shadow-md text-white flex items-center gap-4">
+                    <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0">
+                      <Sunrise size={24} className="text-white" />
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-black uppercase tracking-widest text-emerald-100">🕌 Namaz Raporları</div>
+                      <div className="text-2xl font-black">{weeklyNamazCount}</div>
+                      <div className="text-xs text-emerald-100 mt-0.5">Bu haftaki kayıt</div>
+                    </div>
+                  </div>
+                  {/* Ders İstatistiği */}
+                  <div className="bg-gradient-to-br from-violet-500 to-purple-700 rounded-3xl p-5 shadow-md text-white flex items-center gap-4">
+                    <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0">
+                      <BookOpen size={24} className="text-white" />
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-black uppercase tracking-widest text-violet-200">📚 Akademik Raporlar</div>
+                      <div className="text-2xl font-black">{weeklyAkademikCount}</div>
+                      <div className="text-xs text-violet-200 mt-0.5">Bu haftaki kayıt</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Student Table */}
               <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100 space-y-6">
+
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
@@ -964,7 +1099,7 @@ export default function StudentsPage() {
 
           {/* Footer Rights */}
           <div className="text-center text-xs text-slate-400 pt-4 pb-6">
-            © 2025 {institutionName || 'Kurumsal Rapor Sistemi'}, Tüm hakları saklıdır.
+            © 2026 {institutionName || 'Kurumsal Rapor Sistemi'}, Tüm hakları saklıdır.
           </div>
 
         </div>
@@ -1079,18 +1214,45 @@ export default function StudentsPage() {
                 {/* mini analytics */}
                 <div className="space-y-2.5">
                   <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">KATEGORİ DAĞILIMI</div>
-                  <div className="grid grid-cols-4 gap-2">
-                    {['Akademik', 'Yemek', 'Program', 'Diğer'].map(cat => {
+                  <div className="grid grid-cols-3 gap-2">
+                    {CATEGORIES.map(cat => {
                       const count = reports.filter(r => r.category === cat).length;
+                      const color = CATEGORY_COLORS[cat] || '#6b7280';
                       return (
                         <div key={cat} className="bg-slate-50 border border-slate-100 rounded-xl p-2.5 text-center">
                           <div className="text-[9px] font-bold text-slate-400 uppercase">{cat}</div>
-                          <div className="text-base font-extrabold text-slate-800 mt-1">{count}</div>
+                          <div className="text-base font-extrabold mt-1" style={{ color }}>{count}</div>
                         </div>
                       );
                     })}
                   </div>
                 </div>
+
+                {/* Öğrenci Gelişim Grafiği */}
+                {reports.length > 1 && (() => {
+                  const dayCounts = {};
+                  reports.forEach(r => {
+                    const d = r.created_at ? new Date(r.created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' }) : '?';
+                    dayCounts[d] = (dayCounts[d] || 0) + 1;
+                  });
+                  const chartData = Object.entries(dayCounts).map(([day, count]) => ({ day, count })).reverse().slice(-7);
+                  return (
+                    <div className="space-y-2">
+                      <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">📈 GELİŞİM GRAFİĞİ</div>
+                      <div className="h-24">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={chartData}>
+                            <XAxis dataKey="day" tick={{ fill: '#94a3b8', fontSize: 9 }} />
+                            <YAxis allowDecimals={false} tick={{ fill: '#94a3b8', fontSize: 9 }} width={20} />
+                            <Tooltip />
+                            <Line type="monotone" dataKey="count" stroke="#06429c" strokeWidth={2} dot={{ r: 3, fill: '#06429c' }} />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  );
+                })()}
+
 
                 {/* Hızlı Manuel Rapor Ekle */}
                 <div className="bg-[#f8fafc] border border-slate-200/50 rounded-2xl p-4">
@@ -1137,7 +1299,7 @@ export default function StudentsPage() {
                 {/* Reports List */}
                 <div className="space-y-3">
                   <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">ÖĞRENCİYE AİT RAPORLAR ({reports.length})</div>
-                  <div className="space-y-3 divide-y divide-slate-100 max-h-[300px] overflow-y-auto pr-1">
+                  <div className="space-y-3 divide-y divide-slate-100 max-h-[480px] overflow-y-auto pr-1">
                     {reports.map((rep) => {
                       const IconComponent = CATEGORY_ICONS[rep.category] || FileText;
                       const iconColor = CATEGORY_COLORS[rep.category] || '#6b7280';
@@ -1218,13 +1380,25 @@ export default function StudentsPage() {
           <span className="text-[10px] font-bold">Sesli AI</span>
         </button>
 
-        <a href="/summary" className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-600">
-          <TrendingUp size={18} />
-          <span className="text-[10px] font-medium">Özetler</span>
+        <a href="/haftalik" className="flex flex-col items-center gap-1 text-slate-400 hover:text-amber-500">
+          <Trophy size={18} />
+          <span className="text-[10px] font-medium">Haftalık</span>
         </a>
 
-        <a href="/admin" className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-600">
-          <Shield size={18} />
+        <a href="/tv" className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-600">
+          <Tv size={18} />
+          <span className="text-[10px] font-medium">TV</span>
+        </a>
+
+        {leaveEnabled && (
+          <a href="/izinler" className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-600">
+            <Calendar size={18} />
+            <span className="text-[10px] font-medium">İzinler</span>
+          </a>
+        )}
+
+        <a href="/ayarlar" className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-600">
+          <Settings size={18} />
           <span className="text-[10px] font-medium">Ayarlar</span>
         </a>
       </nav>

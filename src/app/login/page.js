@@ -29,11 +29,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!authLoading && user) {
-      if (role === 'super_admin') {
-        router.push('/admin');
-      } else {
-        router.push('/');
-      }
+      router.push('/');
     }
   }, [user, role, authLoading, router]);
 
@@ -43,11 +39,51 @@ export default function LoginPage() {
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
 
+  // Dynamic teacher selection states
+  const [resolvedTeachers, setResolvedTeachers] = useState([]);
+  const [selectedTeacherEmail, setSelectedTeacherEmail] = useState('');
+  const [resolvingTeachers, setResolvingTeachers] = useState(false);
+
+  // Debounced teacher list fetching
+  useEffect(() => {
+    const term = username.trim();
+    if (term.length < 3) {
+      setResolvedTeachers([]);
+      setSelectedTeacherEmail('');
+      return;
+    }
+
+    const delayDebounceFn = setTimeout(async () => {
+      setResolvingTeachers(true);
+      try {
+        const resolvedMail = resolveEmail(term);
+        const res = await fetch(`/api/users/list-teachers?emailOrInst=${encodeURIComponent(resolvedMail)}`);
+        const data = await res.json();
+        if (data.success && data.teachers && data.teachers.length > 0) {
+          setResolvedTeachers(data.teachers);
+          setSelectedTeacherEmail(data.teachers[0].email);
+        } else {
+          setResolvedTeachers([]);
+          setSelectedTeacherEmail('');
+        }
+      } catch (err) {
+        console.warn("Failed to load teachers for selection:", err);
+      } finally {
+        setResolvingTeachers(false);
+      }
+    }, 400);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [username]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);
-    const email = resolveEmail(username);
+    
+    // Log in as selected teacher or fall back to resolved email input
+    const email = selectedTeacherEmail || resolveEmail(username);
+    
     try {
       // 1. Try Firebase Auth first
       await login(email, password);
@@ -64,12 +100,8 @@ export default function LoginPage() {
         if (res.ok && data.success) {
           // Save mock user session to localStorage
           localStorage.setItem('localUser', JSON.stringify(data.profile));
-          // Trigger route redirection
-          if (data.profile.role === 'super_admin') {
-            router.push('/admin');
-          } else {
-            router.push('/');
-          }
+          
+          router.push('/');
           // Force page reload to sync AuthContext state
           window.location.reload();
           return;
@@ -141,6 +173,30 @@ export default function LoginPage() {
                 />
               </div>
             </div>
+
+            {/* Teacher Dropdown Selection */}
+            {resolvedTeachers.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="space-y-2"
+              >
+                <label className="text-xs font-bold text-emerald-300 uppercase tracking-widest block">
+                  Giriş Yapacak Kişiyi Seçin
+                </label>
+                <select
+                  value={selectedTeacherEmail}
+                  onChange={e => setSelectedTeacherEmail(e.target.value)}
+                  className="w-full bg-[#0a1c3c] border border-emerald-400/40 rounded-2xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-400/20 transition-all text-sm font-semibold cursor-pointer"
+                >
+                  {resolvedTeachers.map(t => (
+                    <option key={t.email} value={t.email} className="bg-[#0c1933] text-white">
+                      {t.name} ({t.role === 'admin' ? 'Yönetici' : 'Öğretmen'})
+                    </option>
+                  ))}
+                </select>
+              </motion.div>
+            )}
 
             {/* Password */}
             <div>

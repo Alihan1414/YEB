@@ -62,6 +62,15 @@ export async function GET(req) {
     // 3. Guarantee seed accounts are ALWAYS in the list
     const seedAccounts = [
       {
+        id: 'super-admin-alihan',
+        name: 'Alihan (Süper Yönetici)',
+        email: 'alihan@2026',
+        role: 'super_admin',
+        institutionId: 'platform',
+        institutionName: 'Sistem Yönetimi',
+        disabled: false
+      },
+      {
         id: 'super-admin',
         name: 'Sistem Yöneticisi',
         email: 'admin@yeb.local',

@@ -10,16 +10,19 @@ import {
 } from 'recharts';
 import {
   TrendingUp, ArrowLeft, Calendar, Loader2, FileText,
-  GraduationCap, Utensils, ClipboardList, User, Shield, LogOut
+  GraduationCap, Utensils, ClipboardList, User, Shield, LogOut,
+  Heart, Sunrise, Trophy, Tv, Settings
 } from 'lucide-react';
 
 const CATEGORY_COLORS = {
   Akademik: '#8b5cf6', Yemek: '#f59e0b',
-  Program: '#06b6d4', Diğer: '#6b7280',
+  Program:  '#06b6d4', Sağlık: '#ef4444',
+  Namaz: '#10b981',   Diğer: '#6b7280',
 };
 const CATEGORY_ICONS = {
   Akademik: GraduationCap, Yemek: Utensils,
-  Program: ClipboardList, Diğer: FileText,
+  Program:  ClipboardList,  Sağlık: Heart,
+  Namaz: Sunrise,           Diğer: FileText,
 };
 
 export default function SummaryPage() {
@@ -31,13 +34,21 @@ export default function SummaryPage() {
   const [reports, setReports]           = useState([]);
   const [students, setStudents]         = useState([]);
   const [loading, setLoading]           = useState(true);
+  const [leaveEnabled, setLeaveEnabled] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/login');
   }, [user, authLoading, router]);
 
   useEffect(() => {
-    if (user) { fetchStudents(); }
+    if (user) {
+      fetchStudents();
+      const instId = institutionId || 'yamanevler';
+      fetch(`/api/admin/leave-settings?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' })
+        .then(r => r.json())
+        .then(d => { if (d.success && d.settings) setLeaveEnabled(!!d.settings.enabled); })
+        .catch(() => {});
+    }
   }, [user]);
 
   useEffect(() => {
@@ -75,6 +86,21 @@ export default function SummaryPage() {
   const studentMap = Object.fromEntries(students.map(s => [s.id, s]));
 
   const filteredReports = reports.filter(r => {
+    // 1. Filter by date range
+    const ts = r.created_at ? new Date(r.created_at) : null;
+    if (!ts) return false;
+    const now = new Date();
+    if (range === 'week') {
+      const weekAgo = new Date();
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      if (ts < weekAgo) return false;
+    } else if (range === 'month') {
+      const monthAgo = new Date();
+      monthAgo.setDate(monthAgo.getDate() - 30);
+      if (ts < monthAgo) return false;
+    }
+
+    // 2. Filter by class
     if (classFilter === 'All') return true;
     const st = studentMap[r.student_id];
     return st?.class === classFilter;
@@ -129,11 +155,36 @@ export default function SummaryPage() {
               Öğrenciler
             </a>
             <a
-              href="/summary"
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-600/90 text-white font-bold text-sm shadow-md transition-all border border-blue-400/30"
+              href="/haftalik"
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-white hover:bg-white/10 font-semibold text-sm transition-all"
             >
-              <TrendingUp size={18} />
-              Özet Raporlar
+              <Trophy size={18} />
+              Haftalık Özet
+            </a>
+            <a
+              href="/tv"
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-white hover:bg-white/10 font-semibold text-sm transition-all"
+            >
+              <Tv size={18} />
+              TV Ekranı
+            </a>
+
+            {leaveEnabled && (
+              <a
+                href="/izinler"
+                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-white hover:bg-white/10 font-semibold text-sm transition-all"
+              >
+                <Calendar size={18} />
+                İzin Yönetimi
+              </a>
+            )}
+
+            <a
+              href="/ayarlar"
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-white hover:bg-white/10 font-semibold text-sm transition-all"
+            >
+              <Settings size={18} />
+              Ayarlar
             </a>
 
             <button
@@ -191,9 +242,9 @@ export default function SummaryPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[
               { label: 'Toplam Rapor', value: filteredReports.length, color: 'text-blue-700' },
-              { label: 'Aktif Öğrenci', value: Object.keys(studentCounts).length, color: 'text-emerald-600' },
-              { label: 'Program Raporu', value: catCounts['Program'] || 0, color: 'text-cyan-600' },
-              { label: 'Yemek Raporu', value: catCounts['Yemek'] || 0, color: 'text-amber-600' },
+              { label: 'Akademik Rapor', value: catCounts['Akademik'] || 0, color: 'text-violet-600' },
+              { label: 'Namaz Raporu', value: catCounts['Namaz'] || 0, color: 'text-emerald-600' },
+              { label: 'Aktif Öğrenci', value: Object.keys(studentCounts).length, color: 'text-amber-600' },
             ].map(({ label, value, color }) => (
               <div key={label} className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm">
                 <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">{label}</p>

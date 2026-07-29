@@ -88,8 +88,15 @@ export function AuthProvider({ children }) {
     return unsub;
   }, []);
 
-  const login = (email, password) =>
-    signInWithEmailAndPassword(auth, email, password);
+  const login = (email, password) => {
+    // Firebase SDK requires a valid TLD — normalize non-standard emails
+    // e.g. kiliaslan@2026 → kiliaslan@2026.com
+    const parts = email.split('@');
+    const firebaseEmail = (parts.length === 2 && !parts[1].includes('.'))
+      ? `${parts[0]}@${parts[1]}.com`
+      : email;
+    return signInWithEmailAndPassword(auth, firebaseEmail, password);
+  };
 
   const logout = () => {
     if (typeof window !== 'undefined') {

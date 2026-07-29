@@ -22,15 +22,28 @@ export async function POST(req) {
       .replace(/[^a-z0-9-]/g, '')
       .slice(0, 40);
 
+    // Normalize e-posta: Firebase Auth requires a valid TLD.
+    // If the domain part has no dot (e.g. kiliaslan@2026) append .com
+    const rawEmail = email.trim();
+    const normalizeEmail = (addr) => {
+      const parts = addr.split('@');
+      if (parts.length === 2 && !parts[1].includes('.')) {
+        return `${parts[0]}@${parts[1]}.com`;
+      }
+      return addr;
+    };
+    const firebaseEmail = normalizeEmail(rawEmail);
+
     // Firebase Auth: User creation
     const signUpRes = await fetch(
       `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FIREBASE_API_KEY}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.trim(), password: password, returnSecureToken: true }),
+        body: JSON.stringify({ email: firebaseEmail, password: password, returnSecureToken: true }),
       }
     );
+
     const signUpData = await signUpRes.json();
     if (signUpData.error) {
       const errMsg = signUpData.error.message === 'EMAIL_EXISTS'
@@ -50,7 +63,7 @@ export async function POST(req) {
         body: JSON.stringify({
           fields: {
             name:            { stringValue: name.trim() + ' Yöneticisi' },
-            email:           { stringValue: email.trim() },
+            email:           { stringValue: rawEmail },
             role:            { stringValue: 'admin' },
             institutionId:   { stringValue: instId },
             institutionName: { stringValue: name.trim() },
