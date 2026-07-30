@@ -67,7 +67,7 @@ export default function StudentsPage() {
   const [searchQuery, setSearchQuery]         = useState('');
   const [selectedClass, setSelectedClass]     = useState('All');
   const [dataLoading, setDataLoading]         = useState(true);
-  const [activeView, setActiveView]           = useState('students'); // 'students' | 'ai'
+  const [activeView, setActiveView]           = useState('ai'); // Default view is Voice AI ('ai')
 
   // Voice & AI
   const [isListening, setIsListening]  = useState(false);
@@ -260,8 +260,12 @@ export default function StudentsPage() {
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Rapor eklenemedi');
 
+      if (data.report) {
+        setReports(prev => [data.report, ...prev]);
+      }
+
       if (notifyParent && selectedStudent.parent_phone) {
-        const msg = `${institutionName || 'Yamanevler Enderun Bilişim'}'den merhaba. Öğrencimiz ${selectedStudent.name} ${selectedStudent.surname} için günlük rapor:\n\nKategori: ${directCategory}\nRapor: ${directText}`;
+        const msg = `${institutionName || 'Talebe Takip Sistemi'}'den merhaba. Talebemiz ${selectedStudent.name} ${selectedStudent.surname} için günlük rapor:\n\nKategori: ${directCategory}\nRapor: ${directText}`;
         const waUrl = `https://wa.me/${formatPhoneForWa(selectedStudent.parent_phone)}?text=${encodeURIComponent(msg)}`;
         window.open(waUrl, '_blank');
 
@@ -280,6 +284,7 @@ export default function StudentsPage() {
       setDirectText('');
       await fetchReports(selectedStudent.id);
       await fetchStudents();
+      await fetchWeeklyReports();
       showToast('Rapor başarıyla eklendi.');
     } catch (e) {
       console.error(e);
@@ -317,8 +322,12 @@ export default function StudentsPage() {
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Rapor kaydı başarısız');
 
+      if (selectedStudent && selectedStudent.id === student.id && data.report) {
+        setReports(prev => [data.report, ...prev]);
+      }
+
       if (notifyParent && student.parent_phone) {
-        const msg = `${institutionName || 'Yamanevler Enderun Bilişim'}'den merhaba. Öğrencimiz ${student.name} ${student.surname} için günlük rapor:\n\nKategori: ${aiMatch.category}\nRapor: ${aiMatch.extractedText}`;
+        const msg = `${institutionName || 'Talebe Takip Sistemi'}'den merhaba. Talebemiz ${student.name} ${student.surname} için günlük rapor:\n\nKategori: ${aiMatch.category}\nRapor: ${aiMatch.extractedText}`;
         const waUrl = `https://wa.me/${formatPhoneForWa(student.parent_phone)}?text=${encodeURIComponent(msg)}`;
         window.open(waUrl, '_blank');
 
@@ -540,31 +549,17 @@ export default function StudentsPage() {
         <div>
           {/* Logo Header */}
           <div className="flex flex-col items-center text-center space-y-3 pt-4 pb-8 border-b border-white/10">
-            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center p-2.5 shadow-lg shadow-black/20">
-              <svg viewBox="0 0 100 100" className="w-full h-full text-[#06429c]" fill="currentColor">
-                <path d="M50 15 L20 30 L50 45 L80 30 Z M20 40 L20 70 L50 85 L50 55 Z M80 40 L50 55 L50 85 L80 70 Z" />
-              </svg>
+            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center p-1.5 shadow-lg shadow-black/20 overflow-hidden border border-white/20">
+              <img src="/cover.png" alt="Logo" className="w-full h-full object-contain" />
             </div>
             <div>
-              <h2 className="text-xs font-black tracking-widest text-blue-200 uppercase">YAMANEVLER</h2>
-              <h1 className="text-sm font-extrabold tracking-wider text-white">ENDERUN BİLİŞİM</h1>
+              <h2 className="text-[10px] font-black tracking-widest text-blue-200 uppercase">TALEBE TAKİP VE RAPORLAMA</h2>
+              <h1 className="text-xs font-extrabold tracking-wider text-white">SİSTEMİ</h1>
             </div>
           </div>
 
           {/* Navigation Links */}
           <nav className="mt-8 space-y-2">
-            <button
-              onClick={() => { setActiveView('students'); setSelectedStudent(null); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${
-                activeView === 'students'
-                  ? 'bg-blue-600/90 text-white shadow-md border border-blue-400/30'
-                  : 'text-blue-100/70 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <User size={18} />
-              Öğrenciler
-            </button>
-            
             <button
               onClick={() => { setActiveView('ai'); setSelectedStudent(null); }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${
@@ -575,6 +570,18 @@ export default function StudentsPage() {
             >
               <Sparkles size={18} />
               Sesli AI Giriş
+            </button>
+
+            <button
+              onClick={() => { setActiveView('students'); setSelectedStudent(null); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${
+                activeView === 'students'
+                  ? 'bg-blue-600/90 text-white shadow-md border border-blue-400/30'
+                  : 'text-blue-100/70 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <User size={18} />
+              Öğrenciler (Talebeler)
             </button>
 
             <a
@@ -1229,7 +1236,7 @@ export default function StudentsPage() {
                 </div>
 
                 {/* Öğrenci Gelişim Grafiği */}
-                {reports.length > 1 && (() => {
+                {reports.length >= 1 && (() => {
                   const dayCounts = {};
                   reports.forEach(r => {
                     const d = r.created_at ? new Date(r.created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' }) : '?';
@@ -1365,19 +1372,19 @@ export default function StudentsPage() {
       {/* ── Mobile Bottom Navigation Bar (Visible on Mobile only) ── */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex items-center justify-around py-2.5 px-2 z-40 shadow-lg">
         <button
-          onClick={() => { setActiveView('students'); setSelectedStudent(null); }}
-          className={`flex flex-col items-center gap-1 ${activeView === 'students' ? 'text-blue-600' : 'text-slate-400'}`}
-        >
-          <User size={18} />
-          <span className="text-[10px] font-bold">Öğrenciler</span>
-        </button>
-
-        <button
           onClick={() => { setActiveView('ai'); setSelectedStudent(null); }}
-          className={`flex flex-col items-center gap-1 ${activeView === 'ai' ? 'text-blue-600' : 'text-slate-400'}`}
+          className={`flex flex-col items-center gap-1 ${activeView === 'ai' ? 'text-blue-600 font-bold' : 'text-slate-400'}`}
         >
           <Sparkles size={18} />
           <span className="text-[10px] font-bold">Sesli AI</span>
+        </button>
+
+        <button
+          onClick={() => { setActiveView('students'); setSelectedStudent(null); }}
+          className={`flex flex-col items-center gap-1 ${activeView === 'students' ? 'text-blue-600 font-bold' : 'text-slate-400'}`}
+        >
+          <User size={18} />
+          <span className="text-[10px] font-bold">Öğrenciler</span>
         </button>
 
         <a href="/haftalik" className="flex flex-col items-center gap-1 text-slate-400 hover:text-amber-500">

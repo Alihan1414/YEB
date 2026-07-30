@@ -13,13 +13,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Öğrenci Günlük Rapor Sistemi",
-  description: "Yapay zekâ destekli sesli ve yazılı öğrenci raporlama paneli",
+  title: "Talebe takip ve raporlama sistemi",
+  description: "Yapay zekâ destekli sesli ve yazılı talebe takip ve raporlama paneli",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "YEB Rapor",
+    title: "Talebe Takip",
   },
 };
 

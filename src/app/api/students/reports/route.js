@@ -74,41 +74,11 @@ export async function POST(req) {
       return NextResponse.json({ success: false, error: 'Eksik bilgi.' }, { status: 400 });
     }
 
-    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-    const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+    const reportId = `report-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const createdAtIso = new Date().toISOString();
 
-    if (projectId && apiKey) {
-      const res = await fetch(
-        `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/reports?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            fields: {
-              student_id:     { stringValue: studentId },
-              student_name:   { stringValue: studentName || '' },
-              class:          { stringValue: className || '' },
-              parent_phone:   { stringValue: parentPhone || '' },
-              content:        { stringValue: content },
-              category:       { stringValue: category || 'Diğer' },
-              notified:       { booleanValue: !!notifyParent },
-              institution_id: { stringValue: institutionId },
-              created_at:     { timestampValue: new Date().toISOString() },
-              created_by:     { stringValue: createdBy || 'Bilinmeyen Öğretmen' },
-            },
-          }),
-        }
-      );
-      const data = await res.json();
-      if (!data.error && data.name) {
-        return NextResponse.json({ success: true, id: data.name.split('/').pop() });
-      }
-    }
-
-    // Local DB fallback
-    const dbData = readDb();
     const newReport = {
-      id: `report-${Date.now()}`,
+      id: reportId,
       student_id:     studentId,
       student_name:   studentName || '',
       class:          className || '',
@@ -117,12 +87,47 @@ export async function POST(req) {
       category:       category || 'Diğer',
       notified:       !!notifyParent,
       institution_id: institutionId,
-      created_at:     new Date().toISOString(),
+      created_at:     createdAtIso,
       created_by:     createdBy || 'Bilinmeyen Öğretmen',
     };
+
+    // Always update local DB first for instant consistency
+    const dbData = readDb();
     dbData.reports = dbData.reports || [];
-    dbData.reports.push(newReport);
+    dbData.reports.unshift(newReport);
     writeDb(dbData);
+
+    // Try Firestore update as secondary sync
+    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+    const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+
+    if (projectId && apiKey) {
+      try {
+        await fetch(
+          `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/reports?key=${apiKey}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              fields: {
+                student_id:     { stringValue: studentId },
+                student_name:   { stringValue: studentName || '' },
+                class:          { stringValue: className || '' },
+                parent_phone:   { stringValue: parentPhone || '' },
+                content:        { stringValue: content },
+                category:       { stringValue: category || 'Diğer' },
+                notified:       { booleanValue: !!notifyParent },
+                institution_id: { stringValue: institutionId },
+                created_at:     { timestampValue: createdAtIso },
+                created_by:     { stringValue: createdBy || 'Bilinmeyen Öğretmen' },
+              },
+            }),
+          }
+        );
+      } catch (fsErr) {
+        console.warn('Firestore report save error:', fsErr.message);
+      }
+    }
 
     return NextResponse.json({ success: true, id: newReport.id, report: newReport });
   } catch (err) {

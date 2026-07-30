@@ -137,13 +137,11 @@ export default function LoginPage() {
       >
         {/* Logo & Title */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-white shadow-2xl shadow-blue-900/40 mb-5 p-4">
-            <svg viewBox="0 0 100 100" className="w-full h-full text-[#06429c]" fill="currentColor">
-              <path d="M50 15 L20 30 L50 45 L80 30 Z M20 40 L20 70 L50 85 L50 55 Z M80 40 L50 55 L50 85 L80 70 Z" />
-            </svg>
+          <div className="inline-flex items-center justify-center w-24 h-24 rounded-3xl bg-white shadow-2xl shadow-blue-900/40 mb-4 p-2 overflow-hidden border-2 border-blue-400/20">
+            <img src="/cover.png" alt="Talebe Takip ve Raporlama Sistemi Logo" className="w-full h-full object-contain" />
           </div>
-          <h1 className="text-3xl font-black text-white tracking-tight">Kurumsal Raporlama Sistemi</h1>
-          <p className="text-blue-200/70 text-sm mt-2">Öğrenci Takip & Raporlama Portal Girişi</p>
+          <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">Talebe takip ve raporlama sistemi</h1>
+          <p className="text-blue-200/80 text-xs md:text-sm mt-2 font-medium">Talebe Takip & Raporlama Portal Girişi</p>
         </div>
 
         {/* Card */}
