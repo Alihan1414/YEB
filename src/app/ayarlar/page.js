@@ -77,6 +77,7 @@ export default function AyarlarPage() {
   // ── Save leave settings ─────────────────────────────────────────────────────
   const handleSaveLeave = async (e) => {
     e.preventDefault();
+    if (role !== 'admin') return;
     setSavingLeave(true);
     const instId = institutionId || 'yamanevler';
     try {
@@ -86,9 +87,9 @@ export default function AyarlarPage() {
         body: JSON.stringify({ institutionId: instId, enabled: leaveSettings.enabled, assignedTeacherId: leaveSettings.assignedTeacherId }),
       });
       const data = await res.json();
-      if (data.success && data.settings) {
-        setLeaveSettings(data.settings);
+      if (data.success) {
         showToast('İzin ayarları kaydedildi.');
+        fetchLeaveSettings();
       } else throw new Error(data.error || 'Kayıt başarısız.');
     } catch (err) {
       showToast(err.message, 'error');
@@ -390,7 +391,14 @@ export default function AyarlarPage() {
             </div>
 
             <div className="px-6 py-5">
-              {loadingLeave ? (
+              {role !== 'admin' ? (
+                <div className="bg-amber-50 border border-amber-100 text-amber-800 p-4 rounded-2xl flex gap-3 text-xs">
+                  <Lock size={16} className="shrink-0 text-amber-600" />
+                  <div>
+                    <span className="font-bold">Yetki Sınırı: </span>İzin ayarlarını yalnızca kurum yöneticileri değiştirebilir.
+                  </div>
+                </div>
+              ) : loadingLeave ? (
                 <div className="py-8 text-center">
                   <Loader2 size={24} className="text-blue-600 animate-spin mx-auto" />
                 </div>

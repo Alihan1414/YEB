@@ -7,22 +7,21 @@ const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'stud
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
-    const rawInstId = searchParams.get('institutionId') || 'yamanevler';
-    const institutionId = rawInstId.trim().toLowerCase();
+    const institutionId = searchParams.get('institutionId') || 'yamanevler';
 
     const dbData = readDb();
+    
+    // Default structure
     if (!dbData.leaveSettings) {
       dbData.leaveSettings = {};
     }
 
-    // Local DB is primary ground truth
-    if (dbData.leaveSettings[institutionId] !== undefined) {
-      return NextResponse.json({ success: true, settings: dbData.leaveSettings[institutionId] });
-    }
+    const settings = dbData.leaveSettings[institutionId] || {
+      enabled: false,
+      assignedTeacherId: ''
+    };
 
-    // Default setting fallback if never configured
-    let settings = { enabled: false, assignedTeacherId: '' };
-
+    // Try fetching from Firestore if we want to sync (optional, we can just use local DB for simplicity)
     try {
       const res = await fetch(
         `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/leaveSettings/${institutionId}?key=${FIREBASE_API_KEY}`,
@@ -31,17 +30,15 @@ export async function GET(req) {
       if (res.ok) {
         const data = await res.json();
         if (data.fields) {
-          const enabled = data.fields.enabled?.booleanValue ?? false;
+          const enabled = data.fields.enabled?.booleanValue || false;
           const assignedTeacherId = data.fields.assignedTeacherId?.stringValue || '';
-          settings = { enabled: Boolean(enabled), assignedTeacherId };
+          settings.enabled = enabled;
+          settings.assignedTeacherId = assignedTeacherId;
         }
       }
     } catch (err) {
       console.warn("Firestore leave settings fetch failed, using local fallback:", err.message);
     }
-
-    dbData.leaveSettings[institutionId] = settings;
-    writeDb(dbData);
 
     return NextResponse.json({ success: true, settings });
   } catch (error) {
@@ -66,24 +63,23 @@ export async function POST(req) {
       dbData.leaveSettings = {};
     }
 
-    const newSettings = {
-      enabled: Boolean(enabled),
+    dbData.leaveSettings[instId] = {
+      enabled: !!enabled,
       assignedTeacherId: assignedTeacherId || ''
     };
 
-    dbData.leaveSettings[instId] = newSettings;
     writeDb(dbData);
 
-    // 2. Try Firestore update with proper updateMask
+    // 2. Try Firestore update
     try {
       await fetch(
-        `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/leaveSettings/${instId}?updateMask.fieldPaths=enabled&updateMask.fieldPaths=assignedTeacherId&key=${FIREBASE_API_KEY}`,
+        `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/leaveSettings/${instId}?key=${FIREBASE_API_KEY}`,
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             fields: {
-              enabled:           { booleanValue: Boolean(enabled) },
+              enabled:           { booleanValue: !!enabled },
               assignedTeacherId: { stringValue: assignedTeacherId || '' },
             },
           }),
@@ -95,7 +91,7 @@ export async function POST(req) {
 
     return NextResponse.json({
       success: true,
-      settings: newSettings
+      settings: dbData.leaveSettings[instId]
     });
 
   } catch (error) {

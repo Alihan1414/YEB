@@ -47,30 +47,18 @@ export default function TVPage() {
     if (!authLoading && !user) router.push('/login');
   }, [user, authLoading, router]);
 
-  const [announcements, setAnnouncements] = useState([
-    "📢 ÖNEMLİ DUYURU: Bu hafta dereceye giren sınıflar ve haftalık performans puanları canlı olarak panoda ilan edilmektedir.",
-    "🔔 İZİN BİLGİLENDİRMESİ: Öğrenci izin başvuruları veliler tarafından doğrudan dijital form üzerinden iletilebilir.",
-    "⭐ AKADEMİK & NAMAZ TAKİBİ: Günlük raporlar öğretmenlerimiz tarafından anlık işlenmekte ve veli bilgilendirme sistemiyle paylaşılmaktadır.",
-    "🏆 TEBRİKLER: Tüm öğrencilerimize derslerinde ve haftalık çalışmalarda üstün başarılar dileriz."
-  ]);
-  const [announcementIndex, setAnnouncementIndex] = useState(0);
-
   const fetchData = useCallback(async () => {
     const instId = institutionId || 'yamanevler';
     try {
-      const [sRes, rRes, aRes] = await Promise.all([
+      const [sRes, rRes] = await Promise.all([
         fetch(`/api/students?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' }),
         fetch(`/api/students/reports?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' }),
-        fetch(`/api/admin/announcements?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' }),
       ]);
-      const [sData, rData, aData] = await Promise.all([sRes.json(), rRes.json(), aRes.json()]);
+      const [sData, rData] = await Promise.all([sRes.json(), rRes.json()]);
       if (sData.success && sData.students) setStudents(sData.students);
       if (rData.success && rData.reports) {
         const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
         setReports(rData.reports.filter(r => r.created_at && new Date(r.created_at) >= weekAgo));
-      }
-      if (aData.success && aData.announcements && aData.announcements.length > 0) {
-        setAnnouncements(aData.announcements);
       }
       setLastRefresh(new Date());
     } catch (e) { console.error(e); }
@@ -85,13 +73,19 @@ export default function TVPage() {
     return () => clearInterval(interval);
   }, [user, fetchData]);
 
-  useEffect(() => {
-    if (announcements.length === 0) return;
-    const timer = setInterval(() => {
-      setAnnouncementIndex(prev => (prev + 1) % announcements.length);
-    }, 6000);
-    return () => clearInterval(timer);
-  }, [announcements.length]);
+  // Compute stats
+  const studentMap = Object.fromEntries(students.map(s => [s.id, s]));
+  const classScores = {};
+  reports.forEach(r => {
+    const st = studentMap[r.student_id];
+    const cls = st?.class || r.class_name || '?';
+    classScores[cls] = (classScores[cls] || 0) + (CATEGORY_SCORES[r.category] || 1);
+  });
+  const topClasses = Object.entries(classScores).sort((a, b) => b[1] - a[1]).slice(0, 3);
+
+  const catCounts = {};
+  reports.forEach(r => { catCounts[r.category] = (catCounts[r.category] || 0) + 1; });
+  const recentReports = [...reports].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 6);
 
   if (authLoading || loading) return (
     <div className="min-h-screen bg-[#0a1628] flex items-center justify-center">
@@ -100,16 +94,18 @@ export default function TVPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0a1628] via-[#06429c] to-[#011c4d] text-white p-6 md:p-8 flex flex-col gap-6 select-none">
+    <div className="min-h-screen bg-gradient-to-br from-[#0a1628] via-[#06429c] to-[#011c4d] text-white p-8 flex flex-col gap-8 select-none">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center p-1.5 shadow-2xl overflow-hidden border border-white/20">
-            <img src="/cover.png" alt="Logo" className="w-full h-full object-contain" />
+          <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center p-3 shadow-2xl">
+            <svg viewBox="0 0 100 100" className="w-full h-full text-[#06429c]" fill="currentColor">
+              <path d="M50 15 L20 30 L50 45 L80 30 Z M20 40 L20 70 L50 85 L50 55 Z M80 40 L50 55 L50 85 L80 70 Z" />
+            </svg>
           </div>
           <div>
-            <div className="text-2xl font-black tracking-wide">Talebe takip ve raporlama sistemi</div>
-            <div className="text-blue-200 text-sm font-semibold">{institutionName || 'Yamanevler Enderun'} · TV Canlı Dashboard</div>
+            <div className="text-2xl font-black tracking-wide">{institutionName || 'Enderun Bilişim'}</div>
+            <div className="text-blue-200 text-sm">Öğrenci Takip Sistemi · Canlı Dashboard</div>
           </div>
         </div>
         <div className="flex items-center gap-6">
@@ -121,27 +117,6 @@ export default function TVPage() {
           >
             <RefreshCw size={20} />
           </button>
-        </div>
-      </div>
-
-      {/* 📢 ÖNEMLİ DUYURULAR PANOSU (Dinamik Canlı Duyuru Bandı) */}
-      <div className="bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-amber-500/20 border-2 border-amber-400/40 rounded-3xl p-4 md:p-5 shadow-2xl backdrop-blur-md relative overflow-hidden flex items-center gap-4">
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500 text-slate-950 font-black rounded-xl text-xs uppercase tracking-wider shrink-0 shadow-lg animate-pulse">
-          <span className="text-base">📢</span> ÖNEMLİ DUYURU
-        </div>
-        <div className="flex-1 overflow-hidden">
-          <div className="text-sm md:text-base font-bold text-amber-100 transition-all duration-500 ease-in-out truncate">
-            {announcements[announcementIndex]}
-          </div>
-        </div>
-        <div className="flex items-center gap-1 shrink-0">
-          {announcements.map((_, idx) => (
-            <button
-              key={idx}
-              onClick={() => setAnnouncementIndex(idx)}
-              className={`w-2.5 h-2.5 rounded-full transition-all ${idx === announcementIndex ? 'bg-amber-400 w-6' : 'bg-white/30'}`}
-            />
-          ))}
         </div>
       </div>
 
