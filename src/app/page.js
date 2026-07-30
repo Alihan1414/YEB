@@ -67,7 +67,7 @@ export default function StudentsPage() {
   const [searchQuery, setSearchQuery]         = useState('');
   const [selectedClass, setSelectedClass]     = useState('All');
   const [dataLoading, setDataLoading]         = useState(true);
-  const [activeView, setActiveView]           = useState('ai'); // Default view is Voice AI ('ai')
+  const [activeView, setActiveView]           = useState('all'); // Default: both sections visible (AI on top, Students below)
 
   // Voice & AI
   const [isListening, setIsListening]  = useState(false);
@@ -345,6 +345,11 @@ export default function StudentsPage() {
       setAiMatch(null); setVoiceText(''); setTextInput(''); setNotifyParent(false);
       showToast('Rapor başarıyla kaydedildi!');
       await fetchStudents();
+      await fetchWeeklyReports();
+      // If the student's drawer is open, refresh their chart data immediately
+      if (selectedStudent && selectedStudent.id === student.id) {
+        await fetchReports(student.id);
+      }
     } catch (e) { showToast('Kayıt hatası: ' + e.message, 'error'); }
   };
 
@@ -561,6 +566,18 @@ export default function StudentsPage() {
           {/* Navigation Links */}
           <nav className="mt-8 space-y-2">
             <button
+              onClick={() => { setActiveView('all'); setSelectedStudent(null); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${
+                activeView === 'all'
+                  ? 'bg-blue-600/90 text-white shadow-md border border-blue-400/30'
+                  : 'text-blue-100/70 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <BarChart2 size={18} />
+              Ana Sayfa (Tümü)
+            </button>
+
+            <button
               onClick={() => { setActiveView('ai'); setSelectedStudent(null); }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${
                 activeView === 'ai'
@@ -569,7 +586,7 @@ export default function StudentsPage() {
               }`}
             >
               <Sparkles size={18} />
-              Sesli AI Giriş
+              1. Sesli AI Giriş
             </button>
 
             <button
@@ -581,7 +598,7 @@ export default function StudentsPage() {
               }`}
             >
               <User size={18} />
-              Öğrenciler (Talebeler)
+              2. Öğrenciler (Talebeler)
             </button>
 
             <a
@@ -700,94 +717,274 @@ export default function StudentsPage() {
         
         {/* Top Header & Context Switch */}
         <div className="bg-white border-b border-slate-100 px-4 md:px-10 py-6">
-          <div className="max-w-6xl mx-auto flex flex-col gap-4">
-            
-            {activeView === 'students' ? (
-              <>
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="max-w-6xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                Talebe takip ve raporlama sistemi
+              </h1>
+              <p className="text-slate-500 text-xs mt-0.5">
+                Sesli yapay zekâ desteği ve anlık performans takibi ile dijital raporlama portalı.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="bg-slate-100 p-1 rounded-2xl flex items-center gap-1 border border-slate-200">
+                <button
+                  onClick={() => setActiveView('all')}
+                  className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all ${
+                    activeView === 'all' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  Tüm Ekran
+                </button>
+                <button
+                  onClick={() => setActiveView('ai')}
+                  className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all flex items-center gap-1 ${
+                    activeView === 'ai' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <Sparkles size={14} /> 1. Sesli AI
+                </button>
+                <button
+                  onClick={() => setActiveView('students')}
+                  className={`px-3 py-1.5 rounded-xl font-bold text-xs transition-all flex items-center gap-1 ${
+                    activeView === 'students' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  <User size={14} /> 2. Öğrenciler
+                </button>
+              </div>
+
+              <button
+                onClick={() => setShowAddStudent(!showAddStudent)}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#06429c] text-white hover:bg-blue-700 font-bold text-xs shadow-md transition-all ml-1"
+              >
+                <Plus size={14} /> Öğrenci Ekle
+              </button>
+              {role === 'admin' && (
+                <button
+                  onClick={() => setShowCSV(!showCSV)}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white text-blue-700 border border-blue-200 hover:bg-blue-50 font-bold text-xs shadow-sm transition-all"
+                >
+                  <Upload size={14} /> CSV Import
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="max-w-6xl mx-auto px-4 md:px-10 mt-6 space-y-8">
+
+          {/* ──────────────── 1. BÖLÜM: SESLİ YAPAY ZEKÂ Rapor Girişi (ÜSTTE) ──────────────── */}
+          {(activeView === 'all' || activeView === 'ai') && (
+            <div className="space-y-4 bg-gradient-to-r from-blue-50/50 to-indigo-50/50 p-6 rounded-3xl border border-blue-100/80 shadow-sm">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-lg bg-blue-600 text-white font-extrabold text-xs flex items-center justify-center">1</span>
+                  <h2 className="text-base md:text-lg font-black text-slate-900 flex items-center gap-2">
+                    <Sparkles className="text-blue-600" size={20} /> Sesli Yapay Zekâ Rapor Girişi
+                  </h2>
+                </div>
+                <span className="text-[11px] font-bold text-blue-600 bg-blue-100/80 px-2.5 py-1 rounded-full">
+                  Öncelikli Giriş Paneli
+                </span>
+              </div>
+
+              {/* Dual voice & AI result cards */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                {/* Voice Input Card */}
+                <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100 flex flex-col justify-between min-h-[320px]">
                   <div>
-                    <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">Öğrenciler Listesi</h1>
-                    <p className="text-slate-500 text-xs mt-0.5">Toplam {filteredStudents.length} öğrenci listeleniyor.</p>
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
+                        <Mic size={20} />
+                      </div>
+                      <div>
+                        <h3 className="text-sm md:text-base font-extrabold text-slate-900">Sesli Konuşarak Rapor Girin</h3>
+                        <p className="text-slate-500 text-xs mt-0.5 leading-relaxed">
+                          Mikrofona dokunun ve söyleyin: <span className="italic font-medium text-slate-600">"Alihan Karakoç bugün namazını kıldı, rapora gir."</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Mic & Waveform animation */}
+                    <div className="flex flex-col items-center justify-center my-6 py-2">
+                      <div className="flex items-center gap-6">
+                        <div className="flex items-center gap-1 opacity-40">
+                          <div className="w-1 h-4 bg-blue-400 rounded-full animate-pulse" />
+                          <div className="w-1 h-7 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '0.1s' }} />
+                          <div className="w-1 h-10 bg-blue-600 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }} />
+                        </div>
+
+                        <button
+                          onClick={isListening ? stopListening : startListening}
+                          className={`w-16 h-16 rounded-full flex items-center justify-center text-white transition-all shadow-lg ${
+                            isListening
+                              ? 'bg-red-500 shadow-red-200 animate-pulse'
+                              : 'bg-gradient-to-b from-[#1b63d6] to-[#043d96] shadow-blue-300 hover:scale-105'
+                          }`}
+                        >
+                          {isListening ? <MicOff size={26} /> : <Mic size={26} />}
+                        </button>
+
+                        <div className="flex items-center gap-1 opacity-40">
+                          <div className="w-1 h-10 bg-blue-600 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }} />
+                          <div className="w-1 h-7 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '0.1s' }} />
+                          <div className="w-1 h-4 bg-blue-400 rounded-full animate-pulse" />
+                        </div>
+                      </div>
+                      <span className="text-[11px] font-black tracking-wider uppercase text-slate-400 mt-4">
+                        {isListening ? 'SİZİ DİNLİYORUZ...' : 'KONUŞMAK İÇİN DOKUNUN'}
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <button
-                      onClick={() => setShowAddStudent(!showAddStudent)}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#06429c] text-white hover:bg-blue-700 font-bold text-xs shadow-md transition-all"
-                    >
-                      <Plus size={14} /> Öğrenci Ekle
-                    </button>
-                    {role === 'admin' && (
-                      <button
-                        onClick={() => setShowCSV(!showCSV)}
-                        className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white text-blue-700 border border-blue-200 hover:bg-blue-50 font-bold text-xs shadow-sm transition-all"
-                      >
-                        <Upload size={14} /> CSV Import
-                      </button>
-                    )}
-                    <a
-                      href="/ayarlar"
-                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 font-bold text-xs shadow-sm transition-all"
-                    >
-                      <Settings size={14} /> Ayarlar
-                    </a>
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">CANLI TRANSCRIPT</div>
+                    <div className="bg-[#f2f6fa] border border-slate-200/70 rounded-2xl p-3 text-xs text-slate-600">
+                      {voiceText || <span className="text-slate-400 italic">Henüz ses kaydı yok...</span>}
+                    </div>
+                  </div>
+                </div>
+
+                {/* AI Analysis Result Card */}
+                <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100 flex flex-col justify-between min-h-[320px]">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
+                      <Sparkles size={20} />
+                    </div>
+                    <h3 className="text-sm md:text-base font-extrabold text-slate-900 pt-1.5">Yapay Zekâ Analiz Sonucu</h3>
+                  </div>
+
+                  {isAnalyzing ? (
+                    <div className="flex flex-col items-center justify-center py-10 my-auto">
+                      <Loader2 size={36} className="text-blue-600 animate-spin" />
+                      <span className="text-xs text-slate-500 mt-3 font-semibold">Gemini Analiz Ediyor...</span>
+                    </div>
+                  ) : !aiMatch ? (
+                    <div className="flex flex-col items-center justify-center my-auto py-6 text-center">
+                      <div className="w-14 h-14 rounded-2xl border-2 border-slate-200 flex items-center justify-center text-slate-300 mb-2">
+                        <Search size={26} />
+                      </div>
+                      <p className="text-xs text-slate-400 max-w-xs leading-relaxed">
+                        Sesli komut veya yazılı metin girdiğinizde<br />analiz sonucu ve eşleşen öğrenci burada gösterilir.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="my-auto space-y-3 py-2">
+                      <div className="bg-blue-50/60 border border-blue-100 p-3 rounded-2xl">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-blue-600">Eşleşen Öğrenci</div>
+                        <div className="text-xs md:text-sm font-bold text-slate-900 mt-0.5">
+                          {aiMatch.matchedStudentName ? (
+                            <span className="text-emerald-700">✓ {aiMatch.matchedStudentName}</span>
+                          ) : (
+                            <span className="text-red-500">⚠ Öğrenci Bulunamadı</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="bg-slate-50 border border-slate-100 p-3 rounded-2xl">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Temiz Rapor Metni</div>
+                        <div className="text-xs text-slate-800 mt-0.5 leading-relaxed">{aiMatch.extractedText}</div>
+                      </div>
+                      <div className="flex items-center justify-between text-xs pt-1">
+                        <span className="font-bold text-slate-500">Kategori: <span className="text-blue-700">{aiMatch.category}</span></span>
+                        
+                        <div className="flex items-center gap-2">
+                          <label className="flex items-center gap-1 cursor-pointer text-xs font-semibold text-slate-500">
+                            <input
+                              type="checkbox"
+                              checked={notifyParent}
+                              onChange={e => setNotifyParent(e.target.checked)}
+                              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                            />
+                            Veliye Bildir (WP)
+                          </label>
+                          <button
+                            onClick={handleSaveAiReport}
+                            disabled={!aiMatch.matchedStudentId}
+                            className={`px-4 py-2 rounded-xl font-bold text-xs shadow-md transition-all ${
+                              aiMatch.matchedStudentId
+                                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                                : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                            }`}
+                          >
+                            Kaydet
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  <div />
+                </div>
+
+              </div>
+
+              {/* Written Rapor Text Entry Bar */}
+              <div className="bg-white rounded-2xl p-2.5 shadow-sm border border-slate-100 flex items-center gap-3">
+                <div className="pl-3 text-blue-600">
+                  <Sparkles size={18} />
+                </div>
+                <input
+                  type="text"
+                  value={textInput}
+                  onChange={e => setTextInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && textInput.trim()) analyzeWithAI(textInput); }}
+                  placeholder="Yazılı olarak da rapor girebilirsiniz... (Örn: Alihan ödevlerini teslim etti)"
+                  className="flex-1 bg-transparent border-none text-xs md:text-sm text-slate-800 placeholder-slate-400 focus:outline-none"
+                />
+                <button
+                  onClick={() => { if (textInput.trim()) analyzeWithAI(textInput); }}
+                  className="bg-[#06429c] text-white px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 hover:bg-blue-700 transition-all shadow-md shrink-0"
+                >
+                  <Sparkles size={14} /> Çözümle
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ──────────────── 2. BÖLÜM: ÖĞRENCİLER LİSTESİ & TABLOSU (ALTTA) ──────────────── */}
+          {(activeView === 'all' || activeView === 'students') && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-3xl border border-slate-100 shadow-sm">
+                <div className="flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-lg bg-blue-600 text-white font-extrabold text-xs flex items-center justify-center">2</span>
+                  <div>
+                    <h2 className="text-base md:text-lg font-black text-slate-900">Öğrenciler Listesi</h2>
+                    <p className="text-slate-500 text-xs">Toplam {filteredStudents.length} öğrenci listeleniyor.</p>
                   </div>
                 </div>
 
                 {/* Beautiful Search & Filter Bar */}
-                <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex flex-col sm:flex-row gap-3 flex-1 max-w-md">
                   <div className="relative flex-1">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                     <input
                       type="text"
                       value={searchQuery}
                       onChange={e => setSearchQuery(e.target.value)}
-                      placeholder="Öğrenci ismi veya sınıfı arayın (Örn: Alihan)..."
-                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-11 pr-4 py-3 text-xs md:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-600 transition-all font-medium"
+                      placeholder="Öğrenci ismi arayın..."
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-11 pr-4 py-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-600 transition-all font-medium"
                     />
                   </div>
 
-                  <div className="relative min-w-[130px]">
+                  <div className="relative min-w-[120px]">
                     <select
                       value={selectedClass}
                       onChange={e => setSelectedClass(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs md:text-sm text-slate-700 font-semibold focus:outline-none focus:border-blue-600 transition-all appearance-none cursor-pointer"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2.5 text-xs text-slate-700 font-semibold focus:outline-none focus:border-blue-600 transition-all appearance-none cursor-pointer"
                     >
                       <option value="All">Tüm Sınıflar</option>
                       {classesList.filter(c => c !== 'All').map(cls => (
                         <option key={cls} value={cls}>{cls}</option>
                       ))}
                     </select>
-                    <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
+                    <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
                       <ChevronRight size={14} className="rotate-90" />
                     </div>
                   </div>
                 </div>
-              </>
-            ) : (
-              // AI View Header
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                  <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-                    <Sparkles className="text-blue-600" size={24} /> Sesli Yapay Zekâ Girişi
-                  </h1>
-                  <p className="text-slate-500 text-xs mt-0.5">Doğal dilde konuşarak veya yazarak akıllı raporlar oluşturun.</p>
-                </div>
-                <button
-                  onClick={() => setActiveView('students')}
-                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all"
-                >
-                  Öğrenci Listesine Dön
-                </button>
               </div>
-            )}
-
-          </div>
-        </div>
-
-        <div className="max-w-6xl mx-auto px-4 md:px-10 mt-6 space-y-6">
-
-          {activeView === 'students' ? (
             /* ──────────────── STUDENTS LIST VIEW ──────────────── */
             <>
               {/* Add Student Form */}
@@ -945,169 +1142,13 @@ export default function StudentsPage() {
                 </div>
               </div>
             </>
-          ) : (
-            /* ──────────────── AI WORKSPACE VIEW ──────────────── */
-            <div className="space-y-6">
-              
-              {/* Dual voice & AI result cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
-                {/* Voice Input Card */}
-                <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100 flex flex-col justify-between min-h-[340px]">
-                  <div>
-                    <div className="flex items-start gap-3">
-                      <div className="w-10 h-10 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
-                        <Mic size={20} />
-                      </div>
-                      <div>
-                        <h3 className="text-base md:text-lg font-extrabold text-slate-900">Yapay Zekâ Sesli Rapor Girişi</h3>
-                        <p className="text-slate-500 text-xs mt-1 leading-relaxed">
-                          Mikrofona basın ve doğal dilde söyleyin,<br />
-                          <span className="italic font-medium text-slate-600">"Furkan Karakoç bugün ödevini çok iyi yaptı, rapora gir."</span>
-                        </p>
-                      </div>
-                    </div>
 
-                    {/* Mic & Waveform animation */}
-                    <div className="flex flex-col items-center justify-center my-6 py-2">
-                      <div className="flex items-center gap-6">
-                        <div className="flex items-center gap-1 opacity-40">
-                          <div className="w-1 h-4 bg-blue-400 rounded-full animate-pulse" />
-                          <div className="w-1 h-7 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '0.1s' }} />
-                          <div className="w-1 h-10 bg-blue-600 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }} />
-                        </div>
-
-                        <button
-                          onClick={isListening ? stopListening : startListening}
-                          className={`w-16 h-16 rounded-full flex items-center justify-center text-white transition-all shadow-lg ${
-                            isListening
-                              ? 'bg-red-500 shadow-red-200 animate-pulse'
-                              : 'bg-gradient-to-b from-[#1b63d6] to-[#043d96] shadow-blue-300 hover:scale-105'
-                          }`}
-                        >
-                          {isListening ? <MicOff size={26} /> : <Mic size={26} />}
-                        </button>
-
-                        <div className="flex items-center gap-1 opacity-40">
-                          <div className="w-1 h-10 bg-blue-600 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }} />
-                          <div className="w-1 h-7 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '0.1s' }} />
-                          <div className="w-1 h-4 bg-blue-400 rounded-full animate-pulse" />
-                        </div>
-                      </div>
-                      <span className="text-[11px] font-black tracking-wider uppercase text-slate-400 mt-4">
-                        {isListening ? 'SİZİ DİNLİYORUZ...' : 'KONUŞMAK İÇİN DOKUNUN'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">CANLI TRANSCRIPT</div>
-                    <div className="bg-[#f2f6fa] border border-slate-200/70 rounded-2xl p-3.5 min-h-[48px] text-xs text-slate-600">
-                      {voiceText || <span className="text-slate-400 italic">Henüz ses kaydı yok...</span>}
-                    </div>
-                  </div>
-                </div>
-
-                {/* AI Analysis Result Card */}
-                <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100 flex flex-col justify-between min-h-[340px]">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
-                      <Sparkles size={20} />
-                    </div>
-                    <h3 className="text-base md:text-lg font-extrabold text-slate-900 pt-1.5">Yapay Zekâ Analiz Sonucu</h3>
-                  </div>
-
-                  {isAnalyzing ? (
-                    <div className="flex flex-col items-center justify-center py-10 my-auto">
-                      <Loader2 size={36} className="text-blue-600 animate-spin" />
-                      <span className="text-xs text-slate-500 mt-3 font-semibold">Gemini Analiz Ediyor...</span>
-                    </div>
-                  ) : !aiMatch ? (
-                    <div className="flex flex-col items-center justify-center my-auto py-8 text-center">
-                      <div className="w-16 h-16 rounded-2xl border-2 border-slate-200 flex items-center justify-center text-slate-300 mb-3">
-                        <Search size={30} />
-                      </div>
-                      <p className="text-xs text-slate-400 max-w-xs leading-relaxed">
-                        Sesli komut veya yazılı metin girdiğinizde<br />analiz sonucu ve eşleşen öğrenci burada gösterilir.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="my-auto space-y-3 py-4">
-                      <div className="bg-blue-50/60 border border-blue-100 p-3.5 rounded-2xl">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-blue-600">Eşleşen Öğrenci</div>
-                        <div className="text-sm font-bold text-slate-900 mt-0.5">
-                          {aiMatch.matchedStudentName ? (
-                            <span className="text-emerald-700">✓ {aiMatch.matchedStudentName}</span>
-                          ) : (
-                            <span className="text-red-500">⚠ Öğrenci Bulunamadı</span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="bg-slate-50 border border-slate-100 p-3.5 rounded-2xl">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Temiz Rapor Metni</div>
-                        <div className="text-xs text-slate-800 mt-0.5 leading-relaxed">{aiMatch.extractedText}</div>
-                      </div>
-                      <div className="flex items-center justify-between text-xs pt-2">
-                        <span className="font-bold text-slate-500">Kategori: <span className="text-blue-700">{aiMatch.category}</span></span>
-                        
-                        <div className="flex items-center gap-2">
-                          <label className="flex items-center gap-1 cursor-pointer text-xs font-semibold text-slate-500">
-                            <input
-                              type="checkbox"
-                              checked={notifyParent}
-                              onChange={e => setNotifyParent(e.target.checked)}
-                              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
-                            />
-                            Veliye Bildir (WP)
-                          </label>
-                          <button
-                            onClick={handleSaveAiReport}
-                            disabled={!aiMatch.matchedStudentId}
-                            className={`px-4 py-2 rounded-xl font-bold text-xs shadow-md transition-all ${
-                              aiMatch.matchedStudentId
-                                ? 'bg-blue-600 text-white hover:bg-blue-700'
-                                : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                            }`}
-                          >
-                            Kaydet
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  <div />
-                </div>
-
+              {/* Footer Rights - Students section */}
+              <div className="text-center text-xs text-slate-400 pt-4 pb-6">
+                © 2026 {institutionName || 'Kurumsal Rapor Sistemi'}, Tüm hakları saklıdır.
               </div>
-
-              {/* Written Rapor Text Entry Bar */}
-              <div className="bg-white rounded-2xl p-2.5 md:p-3 shadow-sm border border-slate-100 flex items-center gap-3">
-                <div className="pl-3 text-blue-600">
-                  <Sparkles size={18} />
-                </div>
-                <input
-                  type="text"
-                  value={textInput}
-                  onChange={e => setTextInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && textInput.trim()) analyzeWithAI(textInput); }}
-                  placeholder="Yazılı rapor giriniz... (Örn: Alihan ödevlerini teslim etti)"
-                  className="flex-1 bg-transparent border-none text-xs md:text-sm text-slate-800 placeholder-slate-400 focus:outline-none"
-                />
-                <button
-                  onClick={() => { if (textInput.trim()) analyzeWithAI(textInput); }}
-                  className="bg-[#06429c] text-white px-5 md:px-6 py-2.5 rounded-xl font-bold text-xs md:text-sm flex items-center gap-2 hover:bg-blue-700 transition-all shadow-md shrink-0 animate-none"
-                >
-                  <Sparkles size={14} /> Çözümle
-                </button>
-              </div>
-
             </div>
           )}
-
-          {/* Footer Rights */}
-          <div className="text-center text-xs text-slate-400 pt-4 pb-6">
-            © 2026 {institutionName || 'Kurumsal Rapor Sistemi'}, Tüm hakları saklıdır.
-          </div>
 
         </div>
       </main>
@@ -1371,6 +1412,14 @@ export default function StudentsPage() {
 
       {/* ── Mobile Bottom Navigation Bar (Visible on Mobile only) ── */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex items-center justify-around py-2.5 px-2 z-40 shadow-lg">
+        <button
+          onClick={() => { setActiveView('all'); setSelectedStudent(null); }}
+          className={`flex flex-col items-center gap-1 ${activeView === 'all' ? 'text-blue-600 font-bold' : 'text-slate-400'}`}
+        >
+          <BarChart2 size={18} />
+          <span className="text-[10px] font-bold">Ana Sayfa</span>
+        </button>
+
         <button
           onClick={() => { setActiveView('ai'); setSelectedStudent(null); }}
           className={`flex flex-col items-center gap-1 ${activeView === 'ai' ? 'text-blue-600 font-bold' : 'text-slate-400'}`}

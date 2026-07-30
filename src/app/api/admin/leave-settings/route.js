@@ -11,14 +11,18 @@ export async function GET(req) {
     const institutionId = rawInstId.trim().toLowerCase();
 
     const dbData = readDb();
-    
     if (!dbData.leaveSettings) {
       dbData.leaveSettings = {};
     }
 
-    let settings = dbData.leaveSettings[institutionId];
+    // Local DB is primary ground truth
+    if (dbData.leaveSettings[institutionId] !== undefined) {
+      return NextResponse.json({ success: true, settings: dbData.leaveSettings[institutionId] });
+    }
 
-    // Try fetching from Firestore if local DB doesn't have it or as optional sync
+    // Default setting fallback if never configured
+    let settings = { enabled: false, assignedTeacherId: '' };
+
     try {
       const res = await fetch(
         `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/leaveSettings/${institutionId}?key=${FIREBASE_API_KEY}`,
@@ -27,22 +31,17 @@ export async function GET(req) {
       if (res.ok) {
         const data = await res.json();
         if (data.fields) {
-          const enabled = data.fields.enabled?.booleanValue !== undefined ? data.fields.enabled.booleanValue : (settings?.enabled ?? false);
-          const assignedTeacherId = data.fields.assignedTeacherId?.stringValue || settings?.assignedTeacherId || '';
-          settings = { enabled, assignedTeacherId };
-          dbData.leaveSettings[institutionId] = settings;
-          writeDb(dbData);
+          const enabled = data.fields.enabled?.booleanValue ?? false;
+          const assignedTeacherId = data.fields.assignedTeacherId?.stringValue || '';
+          settings = { enabled: Boolean(enabled), assignedTeacherId };
         }
       }
     } catch (err) {
       console.warn("Firestore leave settings fetch failed, using local fallback:", err.message);
     }
 
-    if (!settings) {
-      settings = { enabled: false, assignedTeacherId: '' };
-      dbData.leaveSettings[institutionId] = settings;
-      writeDb(dbData);
-    }
+    dbData.leaveSettings[institutionId] = settings;
+    writeDb(dbData);
 
     return NextResponse.json({ success: true, settings });
   } catch (error) {

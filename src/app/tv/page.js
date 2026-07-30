@@ -47,18 +47,30 @@ export default function TVPage() {
     if (!authLoading && !user) router.push('/login');
   }, [user, authLoading, router]);
 
+  const [announcements, setAnnouncements] = useState([
+    "📢 ÖNEMLİ DUYURU: Bu hafta dereceye giren sınıflar ve haftalık performans puanları canlı olarak panoda ilan edilmektedir.",
+    "🔔 İZİN BİLGİLENDİRMESİ: Öğrenci izin başvuruları veliler tarafından doğrudan dijital form üzerinden iletilebilir.",
+    "⭐ AKADEMİK & NAMAZ TAKİBİ: Günlük raporlar öğretmenlerimiz tarafından anlık işlenmekte ve veli bilgilendirme sistemiyle paylaşılmaktadır.",
+    "🏆 TEBRİKLER: Tüm öğrencilerimize derslerinde ve haftalık çalışmalarda üstün başarılar dileriz."
+  ]);
+  const [announcementIndex, setAnnouncementIndex] = useState(0);
+
   const fetchData = useCallback(async () => {
     const instId = institutionId || 'yamanevler';
     try {
-      const [sRes, rRes] = await Promise.all([
+      const [sRes, rRes, aRes] = await Promise.all([
         fetch(`/api/students?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' }),
         fetch(`/api/students/reports?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' }),
+        fetch(`/api/admin/announcements?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' }),
       ]);
-      const [sData, rData] = await Promise.all([sRes.json(), rRes.json()]);
+      const [sData, rData, aData] = await Promise.all([sRes.json(), rRes.json(), aRes.json()]);
       if (sData.success && sData.students) setStudents(sData.students);
       if (rData.success && rData.reports) {
         const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
         setReports(rData.reports.filter(r => r.created_at && new Date(r.created_at) >= weekAgo));
+      }
+      if (aData.success && aData.announcements && aData.announcements.length > 0) {
+        setAnnouncements(aData.announcements);
       }
       setLastRefresh(new Date());
     } catch (e) { console.error(e); }
@@ -73,29 +85,8 @@ export default function TVPage() {
     return () => clearInterval(interval);
   }, [user, fetchData]);
 
-  // Compute stats
-  const studentMap = Object.fromEntries(students.map(s => [s.id, s]));
-  const classScores = {};
-  reports.forEach(r => {
-    const st = studentMap[r.student_id];
-    const cls = st?.class || r.class_name || '?';
-    classScores[cls] = (classScores[cls] || 0) + (CATEGORY_SCORES[r.category] || 1);
-  });
-  const topClasses = Object.entries(classScores).sort((a, b) => b[1] - a[1]).slice(0, 3);
-
-  const catCounts = {};
-  reports.forEach(r => { catCounts[r.category] = (catCounts[r.category] || 0) + 1; });
-  const recentReports = [...reports].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 6);
-
-  const [announcementIndex, setAnnouncementIndex] = useState(0);
-  const announcements = [
-    "📢 ÖNEMLİ DUYURU: Bu hafta dereceye giren sınıflar ve haftalık performans puanları canlı olarak panoda ilan edilmektedir.",
-    "🔔 İZİN BİLGİLENDİRMESİ: Öğrenci izin başvuruları veliler tarafından doğrudan dijital form üzerinden iletilebilir.",
-    "⭐ AKADEMİK & NAMAZ TAKİBİ: Günlük raporlar öğretmenlerimiz tarafından anlık işlenmekte ve veli bilgilendirme sistemiyle paylaşılmaktadır.",
-    "🏆 TEBRİKLER: Tüm öğrencilerimize derslerinde ve haftalık çalışmalarda üstün başarılar dileriz."
-  ];
-
   useEffect(() => {
+    if (announcements.length === 0) return;
     const timer = setInterval(() => {
       setAnnouncementIndex(prev => (prev + 1) % announcements.length);
     }, 6000);
