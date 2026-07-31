@@ -85,32 +85,34 @@ export default function LoginPage() {
     const email = selectedTeacherEmail || resolveEmail(username);
     
     try {
-      // 1. Try Firebase Auth first
-      await login(email, password);
-    } catch (fbErr) {
-      console.warn("Firebase Auth login failed, trying server-side local DB fallback:", fbErr.message);
-      try {
-        // 2. Try server-side local authentication fallback
-        const res = await fetch('/api/users/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
-        });
-        const data = await res.json();
-        if (res.ok && data.success) {
-          // Save mock user session to localStorage
-          localStorage.setItem('localUser', JSON.stringify(data.profile));
-          
-          router.push('/');
-          // Force page reload to sync AuthContext state
-          window.location.reload();
-          return;
+      // 1. Try server-side authentication API first (handles seed super admin & local accounts)
+      const res = await fetch('/api/users/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = await res.json();
+
+      if (res.ok && data.success && data.profile) {
+        // Save user session to localStorage
+        localStorage.setItem('localUser', JSON.stringify(data.profile));
+        
+        // Redirect super admin to /admin, others to /
+        if (data.profile.role === 'super_admin') {
+          router.push('/admin');
         } else {
-          setError(data.error || 'Kullanıcı adı/E-posta veya şifre hatalı.');
+          router.push('/');
         }
-      } catch (localErr) {
-        setError('Giriş başarısız. Lütfen internet bağlantınızı ve bilgilerinizi kontrol edin.');
+        window.location.reload();
+        return;
       }
+
+      // 2. If server API returned error (e.g. Firebase Auth user), try client-side Firebase Auth
+      await login(email, password);
+      router.push('/');
+    } catch (err) {
+      console.warn("Login attempt error:", err);
+      setError(err.message || 'Kullanıcı adı/E-posta veya şifre hatalı.');
     } finally {
       setLoading(false);
     }
