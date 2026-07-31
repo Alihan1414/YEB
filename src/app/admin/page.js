@@ -696,8 +696,8 @@ export default function PlatformAdminPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {filteredUsers.map(usr => (
-                          <tr key={usr.id} className={`text-xs ${usr.disabled ? 'opacity-50 bg-slate-50/50' : 'hover:bg-slate-50/50'}`}>
+                        {filteredUsers.map((usr, idx) => (
+                          <tr key={`${usr.id || usr.email}-${idx}`} className={`text-xs ${usr.disabled ? 'opacity-50 bg-slate-50/50' : 'hover:bg-slate-50/50'}`}>
                             <td className="px-5 py-4">
                               <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-xs shrink-0">
