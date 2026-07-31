@@ -29,7 +29,11 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!authLoading && user) {
-      router.push('/');
+      if (role === 'super_admin') {
+        router.push('/admin');
+      } else {
+        router.push('/');
+      }
     }
   }, [user, role, authLoading, router]);
 
