@@ -190,8 +190,8 @@ export default function LoginPage() {
                   className="w-full bg-[#0a1c3c] border border-emerald-400/40 rounded-2xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-400/20 transition-all text-sm font-semibold cursor-pointer"
                 >
                   {resolvedTeachers.map(t => (
-                    <option key={t.email} value={t.email} className="bg-[#0c1933] text-white">
-                      {t.name} ({t.role === 'admin' ? 'Yönetici' : 'Öğretmen'})
+                    <option key={t.email} value={t.email} className="bg-[#0c1933] text-white font-medium">
+                      {t.name || t.email} ({t.role === 'admin' || t.role === 'super_admin' ? 'Kurum Yöneticisi' : 'Öğretmen'})
                     </option>
                   ))}
                 </select>

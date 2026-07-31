@@ -15,7 +15,6 @@ export async function POST(req) {
     const dbData = readDb();
     if (!dbData.users) dbData.users = [];
 
-    // Normalize: Firebase Auth requires a valid TLD (e.g. user@2026 → user@2026.com)
     const normalizeEmail = (addr) => {
       const parts = addr.split('@');
       if (parts.length === 2 && !parts[1].includes('.')) return `${parts[0]}@${parts[1]}.com`;
@@ -32,7 +31,6 @@ export async function POST(req) {
       const firebaseEmail = normalizeEmail(trimmedEmail);
       let uid = `local-user-${Date.now()}`;
 
-      // 1. Try Firebase Auth
       try {
         const signUpRes = await fetch(
           `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FIREBASE_API_KEY}`,
@@ -46,7 +44,6 @@ export async function POST(req) {
         if (signUpData && !signUpData.error) {
           uid = signUpData.localId;
           
-          // Save to Firestore
           await fetch(
             `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users/${uid}?key=${FIREBASE_API_KEY}`,
             {
@@ -55,7 +52,7 @@ export async function POST(req) {
               body: JSON.stringify({
                 fields: {
                   name:            { stringValue: name.trim() },
-                  email:           { stringValue: trimmedEmail }, // store original
+                  email:           { stringValue: trimmedEmail },
                   role:            { stringValue: role },
                   institutionId:   { stringValue: institutionId },
                   institutionName: { stringValue: institutionName.trim() },
@@ -72,12 +69,11 @@ export async function POST(req) {
         console.warn("Firestore sign up failed in manage-user:", err.message);
       }
 
-      // 2. Save to Local DB fallback
       const newUser = {
         id: uid,
         name: name.trim(),
         email: trimmedEmail,
-        password: password, // Store password plain text for local fallback auth
+        password: password,
         role,
         institutionId,
         institutionName: institutionName.trim(),
@@ -98,7 +94,6 @@ export async function POST(req) {
 
       const trimmedEmail = email ? email.trim().toLowerCase() : '';
 
-      // 1. Try Firebase Auth / Firestore Update
       try {
         const updateFields = {};
         if (name) updateFields.name = { stringValue: name.trim() };
@@ -108,7 +103,6 @@ export async function POST(req) {
         if (institutionName) updateFields.institutionName = { stringValue: institutionName.trim() };
         if (typeof disabled === 'boolean') updateFields.disabled = { booleanValue: disabled };
 
-        // Construct updateMask query params
         const fieldPaths = Object.keys(updateFields).map(f => `updateMask.fieldPaths=${f}`).join('&');
 
         await fetch(
@@ -123,7 +117,6 @@ export async function POST(req) {
         console.warn("Firestore update failed in manage-user:", err.message);
       }
 
-      // 2. Update Local DB
       const userIdx = dbData.users.findIndex(u => u.id === userId || u.email === userId);
       if (userIdx !== -1) {
         if (name) dbData.users[userIdx].name = name.trim();
@@ -134,7 +127,6 @@ export async function POST(req) {
         if (typeof disabled === 'boolean') dbData.users[userIdx].disabled = disabled;
         if (password) dbData.users[userIdx].password = password;
       } else if (email) {
-        // If not found by ID, try finding by email
         const userIdxByEmail = dbData.users.findIndex(u => u.email === trimmedEmail);
         if (userIdxByEmail !== -1) {
           if (name) dbData.users[userIdxByEmail].name = name.trim();
@@ -151,13 +143,12 @@ export async function POST(req) {
       return NextResponse.json({ success: true, message: 'Kullanıcı güncellendi.' });
     }
 
-    // --- DELETE ACTION ---
+    // --- DELETE / DISABLE ACTION ---
     if (action === 'delete') {
       if (!userId) {
         return NextResponse.json({ success: false, error: 'Kullanıcı ID gereklidir.' }, { status: 400 });
       }
 
-      // 1. Try Firestore Delete/Disable
       try {
         await fetch(
           `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users/${userId}?updateMask.fieldPaths=disabled&key=${FIREBASE_API_KEY}`,
@@ -171,14 +162,41 @@ export async function POST(req) {
         console.warn("Firestore delete/disable failed in manage-user:", err.message);
       }
 
-      // 2. Update Local DB (disable user)
       const userIdx = dbData.users.findIndex(u => u.id === userId || u.email === userId);
       if (userIdx !== -1) {
         dbData.users[userIdx].disabled = true;
       }
       writeDb(dbData);
 
-      return NextResponse.json({ success: true, message: 'Kullanıcı devre dışı bırakıldı (silindi).' });
+      return NextResponse.json({ success: true, message: 'Kullanıcı devre dışı bırakıldı.' });
+    }
+
+    // --- ENABLE / UNBLOCK ACTION ---
+    if (action === 'enable') {
+      if (!userId) {
+        return NextResponse.json({ success: false, error: 'Kullanıcı ID gereklidir.' }, { status: 400 });
+      }
+
+      try {
+        await fetch(
+          `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users/${userId}?updateMask.fieldPaths=disabled&key=${FIREBASE_API_KEY}`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fields: { disabled: { booleanValue: false } } }),
+          }
+        );
+      } catch (err) {
+        console.warn("Firestore enable failed in manage-user:", err.message);
+      }
+
+      const userIdx = dbData.users.findIndex(u => u.id === userId || u.email === userId);
+      if (userIdx !== -1) {
+        dbData.users[userIdx].disabled = false;
+      }
+      writeDb(dbData);
+
+      return NextResponse.json({ success: true, message: 'Kullanıcının engeli kaldırıldı ve aktifleştirildi.' });
     }
 
     return NextResponse.json({ success: false, error: 'Bilinmeyen aksiyon.' }, { status: 400 });

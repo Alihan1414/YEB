@@ -12,10 +12,21 @@ import {
   Shield, Plus, User, Loader2,
   TrendingUp, LogOut, Building2, Check, X,
   Eye, EyeOff, Trash2, RefreshCw, Users,
-  AlertTriangle, Search, Edit3, UserCheck, ShieldAlert
+  AlertTriangle, Search, Edit3, UserCheck, ShieldAlert, CheckCircle,
+  Palette, Image, Sparkles, Sliders, ToggleLeft, ToggleRight
 } from 'lucide-react';
 
-const COLORS = ['#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#3b82f6'];
+const COLORS = ['#06429c', '#059669', '#7c3aed', '#ea580c', '#e11d48', '#2563eb'];
+
+const PRESET_COLORS = [
+  { name: 'Enderun Lacivert', hex: '#06429c' },
+  { name: 'Zümrüt Yeşil', hex: '#059669' },
+  { name: 'Safir Mavi', hex: '#2563eb' },
+  { name: 'Asil Mor', hex: '#7c3aed' },
+  { name: 'Sıcak Turuncu', hex: '#ea580c' },
+  { name: 'Yakut Kırmızı', hex: '#e11d48' },
+  { name: 'Koyu Gece', hex: '#0f172a' },
+];
 
 function slugify(text) {
   return text
@@ -38,13 +49,18 @@ export default function PlatformAdminPage() {
   const [searchInstQuery, setSearchInstQuery] = useState('');
   const [searchUserQuery, setSearchUserQuery] = useState('');
 
-  // New Institution modal
+  // Institution Modal (Create / Edit)
   const [showInstModal, setShowInstModal] = useState(false);
+  const [instModalMode, setInstModalMode] = useState('create'); // 'create' | 'edit'
+  const [editingInstId, setEditingInstId] = useState('');
   const [instName, setInstName] = useState('');
   const [instEmail, setInstEmail] = useState('');
   const [instPassword, setInstPassword] = useState('');
+  const [instLogoUrl, setInstLogoUrl] = useState('');
+  const [instPrimaryColor, setInstPrimaryColor] = useState('#06429c');
+  const [instModules, setInstModules] = useState({ ai: true, leave: true, tv: true, weekly: true });
   const [showPw, setShowPw] = useState(false);
-  const [creatingInst, setCreatingInst] = useState(false);
+  const [submittingInst, setSubmittingInst] = useState(false);
 
   // Manage User modal
   const [showUserModal, setShowUserModal] = useState(false);
@@ -57,9 +73,12 @@ export default function PlatformAdminPage() {
   const [userInstId, setUserInstId] = useState('');
   const [submittingUser, setSubmittingUser] = useState(false);
 
-  // Confirm modals
+  // Delete Institution Modal
   const [deleteTargetInst, setDeleteTargetInst] = useState(null);
+  const [wipeDataOption, setWipeDataOption] = useState(false);
   const [deletingInst, setDeletingInst] = useState(false);
+
+  // Delete User Modal
   const [deleteTargetUser, setDeleteTargetUser] = useState(null);
   const [deletingUser, setDeletingUser] = useState(false);
 
@@ -118,6 +137,30 @@ export default function PlatformAdminPage() {
     }
   }, [user, role, fetchGlobalStats, fetchUsers]);
 
+  const openCreateInstModal = () => {
+    setInstModalMode('create');
+    setEditingInstId('');
+    setInstName('');
+    setInstEmail('');
+    setInstPassword('');
+    setInstLogoUrl('');
+    setInstPrimaryColor('#06429c');
+    setInstModules({ ai: true, leave: true, tv: true, weekly: true });
+    setShowInstModal(true);
+  };
+
+  const openEditInstModal = (inst) => {
+    setInstModalMode('edit');
+    setEditingInstId(inst.id);
+    setInstName(inst.name || '');
+    setInstEmail(inst.email || '');
+    setInstPassword('');
+    setInstLogoUrl(inst.logoUrl || '');
+    setInstPrimaryColor(inst.primaryColor || '#06429c');
+    setInstModules(inst.enabledModules || { ai: true, leave: true, tv: true, weekly: true });
+    setShowInstModal(true);
+  };
+
   const startMasquerade = async (inst) => {
     setMasqueradeInst(inst);
     setActiveTab('masquerade');
@@ -140,55 +183,71 @@ export default function PlatformAdminPage() {
     }
   };
 
-  const handleCreateInst = async (e) => {
+  const handleSaveInst = async (e) => {
     e.preventDefault();
-    if (!instName.trim() || !instEmail.trim() || !instPassword.trim()) {
-      showToast('Tüm alanlar zorunludur.', 'error'); return;
+    if (!instName.trim()) {
+      showToast('Kurum adı zorunludur.', 'error'); return;
     }
-    setCreatingInst(true);
+    if (instModalMode === 'create' && (!instEmail.trim() || !instPassword.trim())) {
+      showToast('Yönetici e-postası ve şifre zorunludur.', 'error'); return;
+    }
+    setSubmittingInst(true);
     try {
-      const res = await fetch('/api/admin/create-institution', {
+      const url = instModalMode === 'create' ? '/api/admin/create-institution' : '/api/admin/update-institution';
+      const bodyPayload = instModalMode === 'create' ? {
+        name: instName.trim(),
+        email: instEmail.trim(),
+        password: instPassword,
+        logoUrl: instLogoUrl.trim(),
+        primaryColor: instPrimaryColor,
+        enabledModules: instModules
+      } : {
+        institutionId: editingInstId,
+        name: instName.trim(),
+        email: instEmail.trim(),
+        logoUrl: instLogoUrl.trim(),
+        primaryColor: instPrimaryColor,
+        enabledModules: instModules
+      };
+
+      const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: instName.trim(), email: instEmail.trim(), password: instPassword }),
+        body: JSON.stringify(bodyPayload),
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        setInstName(''); setInstEmail(''); setInstPassword('');
         setShowInstModal(false);
-        showToast('Kurum başarıyla oluşturuldu.');
+        showToast(instModalMode === 'create' ? 'Yeni kurum başarıyla oluşturuldu.' : 'Kurum markalama ve ayarları güncellendi.');
         fetchGlobalStats(); fetchUsers();
-      } else throw new Error(data.error || 'Kurum oluşturulamadı.');
+      } else throw new Error(data.error || 'İşlem gerçekleştirilemedi.');
     } catch (err) {
       showToast(err.message, 'error');
     } finally {
-      setCreatingInst(false);
+      setSubmittingInst(false);
     }
   };
 
-  const handleToggleInst = async (instId, disabled) => {
+  const handleDeleteInstConfirm = async () => {
+    if (!deleteTargetInst) return;
+    setDeletingInst(true);
     try {
-      const res = await fetch('/api/admin/update-institution-status', {
+      const res = await fetch('/api/admin/delete-institution', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ institutionId: instId, disabled }),
+        body: JSON.stringify({ institutionId: deleteTargetInst.id, deleteData: wipeDataOption }),
       });
       const data = await res.json();
       if (res.ok && data.success) {
-        showToast(disabled ? 'Kurum pasifleştirildi.' : 'Kurum aktifleştirildi.');
+        showToast(`"${deleteTargetInst.name}" kurumu sistemden kaldırıldı.`);
+        setDeleteTargetInst(null);
         fetchGlobalStats(); fetchUsers();
-      } else throw new Error(data.error);
+      } else throw new Error(data.error || 'Silme işlemi başarısız.');
     } catch (err) {
       showToast(err.message, 'error');
+    } finally {
+      setDeletingInst(false);
     }
-  };
-
-  const handleDeleteInst = async () => {
-    if (!deleteTargetInst) return;
-    setDeletingInst(true);
-    await handleToggleInst(deleteTargetInst.id, true);
-    setDeleteTargetInst(null);
-    setDeletingInst(false);
   };
 
   const handleManageUser = async (e) => {
@@ -228,6 +287,23 @@ export default function PlatformAdminPage() {
       showToast(err.message, 'error');
     } finally {
       setSubmittingUser(false);
+    }
+  };
+
+  const handleEnableUser = async (targetUser) => {
+    try {
+      const res = await fetch('/api/admin/manage-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'enable', userId: targetUser.id }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        showToast(`"${targetUser.name || targetUser.email}" engeli kaldırıldı.`);
+        fetchUsers(); fetchGlobalStats();
+      } else throw new Error(data.error || 'İşlem başarısız');
+    } catch (err) {
+      showToast(err.message, 'error');
     }
   };
 
@@ -282,23 +358,29 @@ export default function PlatformAdminPage() {
     <div className="min-h-screen bg-slate-100 text-slate-800 font-sans flex flex-col">
 
       {/* HEADER */}
-      <header className="bg-gradient-to-r from-[#06429c] via-[#053787] to-[#011c4d] text-white px-6 md:px-10 py-4 flex items-center justify-between shadow-2xl shrink-0">
+      <header className="bg-gradient-to-r from-[#0f172a] via-[#1e293b] to-[#0f172a] text-white px-6 md:px-10 py-4 flex items-center justify-between shadow-2xl shrink-0 border-b border-slate-800">
         <div className="flex items-center gap-4">
-          <div className="w-11 h-11 bg-white rounded-2xl flex items-center justify-center p-2.5 shadow-lg">
-            <Shield size={22} className="text-[#06429c]" />
+          <div className="w-11 h-11 bg-blue-600 rounded-2xl flex items-center justify-center p-2.5 shadow-lg text-white">
+            <Shield size={22} />
           </div>
           <div>
-            <div className="text-[9px] font-black tracking-widest text-blue-200 uppercase">Süper Yönetici Konsolu</div>
+            <div className="text-[9px] font-black tracking-widest text-blue-400 uppercase">Süper Yönetici Konsolu</div>
             <div className="text-base font-black text-white flex items-center gap-2">
-              Platform Yönetim Paneli
-              <span className="bg-blue-500/25 text-blue-200 text-[9px] font-extrabold px-2 py-0.5 rounded-full border border-blue-400/30">v2.0</span>
+              Sistem & Kurum Yönetim Merkezi
+              <span className="bg-emerald-500/20 text-emerald-400 text-[9px] font-extrabold px-2 py-0.5 rounded-full border border-emerald-500/30">White-Label Multi-Tenant</span>
             </div>
           </div>
         </div>
         <div className="flex items-center gap-3">
+          <a
+            href="/"
+            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-xs font-bold text-white transition-all shadow-md"
+          >
+            Talebe Takip Paneline Dön
+          </a>
           <button
             onClick={() => { fetchGlobalStats(); fetchUsers(); }}
-            className="p-2.5 bg-white/10 hover:bg-white/20 rounded-xl text-white/80 hover:text-white transition-all"
+            className="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-300 hover:text-white transition-all border border-slate-700"
             title="Yenile"
           >
             <RefreshCw size={15} />
@@ -314,14 +396,14 @@ export default function PlatformAdminPage() {
 
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
         {/* SIDEBAR */}
-        <aside className="w-full md:w-60 bg-slate-900 text-slate-300 flex flex-col justify-between shrink-0">
+        <aside className="w-full md:w-64 bg-slate-900 text-slate-300 flex flex-col justify-between shrink-0 border-r border-slate-800">
           <div className="p-5 space-y-5">
-            <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Kontrol Sekmeleri</p>
+            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest">Yönetim Menüsü</p>
             <nav className="space-y-1.5">
               {[
                 { tab: 'stats', icon: TrendingUp, label: 'Global Özet' },
-                { tab: 'institutions', icon: Building2, label: 'Kurum Yönetimi' },
-                { tab: 'users', icon: Users, label: 'Kullanıcı Yönetimi' },
+                { tab: 'institutions', icon: Building2, label: 'Kurumlar & Markalar' },
+                { tab: 'users', icon: Users, label: 'Kullanıcı Hesapları' },
               ].map(({ tab, icon: Icon, label }) => (
                 <button
                   key={tab}
@@ -350,10 +432,10 @@ export default function PlatformAdminPage() {
             </nav>
           </div>
           <div className="p-5 border-t border-slate-800">
-            <div className="bg-slate-800 rounded-2xl p-3.5 flex items-center gap-3">
-              <ShieldAlert size={18} className="text-amber-400 shrink-0" />
-              <div>
-                <p className="text-[9px] text-slate-500">Giriş Yapılan Hesap</p>
+            <div className="bg-slate-800 rounded-2xl p-3.5 flex items-center gap-3 border border-slate-700">
+              <ShieldAlert size={18} className="text-emerald-400 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[9px] text-slate-400">Aktif Yönetici</p>
                 <p className="text-[10px] font-bold text-white truncate">{user?.email}</p>
               </div>
             </div>
@@ -385,7 +467,7 @@ export default function PlatformAdminPage() {
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
               <div>
                 <h1 className="text-2xl font-black text-slate-900">Sistem Genel İstatistikleri</h1>
-                <p className="text-slate-400 text-xs mt-0.5">Tüm kurumları kapsayan platform özeti.</p>
+                <p className="text-slate-400 text-xs mt-0.5">Tüm kurumları kapsayan canlı platform özeti.</p>
               </div>
 
               {loadingStats ? (
@@ -400,7 +482,7 @@ export default function PlatformAdminPage() {
                       { label: 'Toplam Rapor', val: globalStats?.totalReports || 0, color: 'text-emerald-700' },
                       { label: 'Bekleyen İzin', val: globalStats?.totalPendingLeaves || 0, color: 'text-amber-600' },
                     ].map(({ label, val, color }) => (
-                      <div key={label} className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm">
+                      <div key={label} className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-sm">
                         <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">{label}</p>
                         <p className={`text-3xl font-black ${color}`}>{val}</p>
                       </div>
@@ -409,7 +491,7 @@ export default function PlatformAdminPage() {
 
                   {(globalStats?.institutions?.length || 0) > 0 && (
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                      <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
+                      <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm">
                         <h3 className="text-xs font-extrabold text-slate-700 mb-4 uppercase tracking-wider">Kurum Öğrenci Dağılımı</h3>
                         <div className="h-56">
                           <ResponsiveContainer width="100%" height="100%">
@@ -422,7 +504,7 @@ export default function PlatformAdminPage() {
                           </ResponsiveContainer>
                         </div>
                       </div>
-                      <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm">
+                      <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm">
                         <h3 className="text-xs font-extrabold text-slate-700 mb-4 uppercase tracking-wider">Rapor Aktivitesi</h3>
                         <div className="h-56">
                           <ResponsiveContainer width="100%" height="100%">
@@ -452,13 +534,13 @@ export default function PlatformAdminPage() {
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                  <h1 className="text-2xl font-black text-slate-900">Kurum Yönetimi</h1>
+                  <h1 className="text-2xl font-black text-slate-900">Kurumlar ve Markalaştırma</h1>
                   <p className="text-slate-400 text-xs mt-0.5">
-                    {globalStats?.institutions?.length || 0} kurum · {globalStats?.institutions?.filter(i => !i.disabled).length || 0} aktif
+                    {globalStats?.institutions?.length || 0} kurum kayıtlı · Tamamen bağımsız modüler yapı
                   </p>
                 </div>
                 <button
-                  onClick={() => setShowInstModal(true)}
+                  onClick={openCreateInstModal}
                   className="flex items-center gap-2 px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold text-sm transition-all shadow-lg shadow-blue-900/20 shrink-0"
                 >
                   <Plus size={16} /> Yeni Kurum Ekle
@@ -468,7 +550,7 @@ export default function PlatformAdminPage() {
               <div className="relative">
                 <Search size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
-                  type="text" placeholder="Kurum adı veya ID'ye göre ara..."
+                  type="text" placeholder="Kurum adına veya ID'ye göre ara..."
                   value={searchInstQuery} onChange={e => setSearchInstQuery(e.target.value)}
                   className="w-full bg-white border border-slate-200 rounded-2xl pl-11 pr-4 py-3 text-sm placeholder-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 shadow-sm"
                 />
@@ -477,73 +559,95 @@ export default function PlatformAdminPage() {
               {loadingStats ? (
                 <div className="flex justify-center py-20"><Loader2 size={28} className="text-blue-600 animate-spin" /></div>
               ) : filteredInsts.length === 0 ? (
-                <div className="bg-white border border-slate-100 rounded-3xl p-16 text-center">
+                <div className="bg-white border border-slate-200/80 rounded-3xl p-16 text-center">
                   <Building2 size={48} className="mx-auto text-slate-300 mb-3" />
                   <h3 className="font-extrabold text-slate-600">Kurum bulunamadı</h3>
+                  <p className="text-slate-400 text-xs mt-1">"Yeni Kurum Ekle" butonuna basarak ilk kurumunuzu oluşturun.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                  {filteredInsts.map(inst => (
-                    <motion.div key={inst.id} layout
-                      className={`bg-white rounded-3xl shadow-sm border overflow-hidden flex flex-col ${
-                        inst.disabled ? 'border-slate-200 opacity-60' : 'border-slate-100 hover:shadow-md transition-shadow'
-                      }`}
-                    >
-                      <div className={`px-6 py-5 flex items-center gap-4 ${inst.disabled ? 'bg-slate-50' : 'bg-gradient-to-r from-blue-50/50 to-indigo-50/10'}`}>
-                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg shadow-sm ${
-                          inst.disabled ? 'bg-slate-300 text-slate-600' : 'bg-blue-600 text-white'
-                        }`}>
-                          {(inst.name || inst.id)[0].toUpperCase()}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-black text-slate-900 truncate">{inst.name}</h3>
-                          <div className="flex items-center gap-2 mt-1">
-                            <code className="text-[9px] font-mono text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100">{inst.id}</code>
-                            {inst.disabled && <span className="text-[9px] bg-red-50 text-red-500 border border-red-200 px-2 py-0.5 rounded-full font-bold">DEVRE DIŞI</span>}
+                  {filteredInsts.map(inst => {
+                    const instColor = inst.primaryColor || '#06429c';
+                    return (
+                      <motion.div key={inst.id} layout
+                        className={`bg-white rounded-3xl shadow-sm border overflow-hidden flex flex-col ${
+                          inst.disabled ? 'border-slate-200 opacity-60' : 'border-slate-200/80 hover:shadow-md transition-shadow'
+                        }`}
+                      >
+                        {/* Header Banner */}
+                        <div
+                          className="px-6 py-5 flex items-center justify-between text-white relative overflow-hidden"
+                          style={{ backgroundColor: instColor }}
+                        >
+                          <div className="flex items-center gap-4 relative z-10">
+                            {inst.logoUrl ? (
+                              <img src={inst.logoUrl} alt={inst.name} className="w-12 h-12 rounded-2xl object-cover bg-white p-1 shadow-md shrink-0" />
+                            ) : (
+                              <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center font-black text-xl text-white shadow-sm shrink-0 border border-white/30">
+                                {(inst.name || inst.id)[0].toUpperCase()}
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              <h3 className="font-black text-white text-lg truncate leading-snug">{inst.name}</h3>
+                              <div className="flex items-center gap-2 mt-1">
+                                <code className="text-[9px] font-mono text-white/90 bg-black/20 px-2 py-0.5 rounded-full border border-white/20">{inst.id}</code>
+                                {inst.disabled && <span className="text-[9px] bg-red-500/80 text-white border border-red-300/40 px-2 py-0.5 rounded-full font-bold">DEVRE DIŞI</span>}
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
 
-                      <div className="px-6 py-3 grid grid-cols-4 gap-1 border-b border-slate-50 text-center">
-                        {[
-                          { label: 'Öğrenci', val: inst.studentCount || 0 },
-                          { label: 'Rapor', val: inst.reportCount || 0 },
-                          { label: 'Öğretmen', val: inst.userCount || 0 },
-                          { label: 'İzin Talebi', val: inst.pendingLeaveCount || 0 },
-                        ].map(({ label, val }) => (
-                          <div key={label}>
-                            <span className="text-[8px] font-bold text-slate-400 block uppercase">{label}</span>
-                            <span className="text-sm font-extrabold text-slate-800">{val}</span>
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="px-6 py-4 bg-slate-50/50 flex items-center justify-between gap-3">
-                        <div className="flex gap-2">
                           <button
-                            onClick={() => startMasquerade(inst)}
-                            className="flex items-center gap-1.5 px-3 py-2 bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 text-xs font-bold rounded-xl transition-all"
+                            onClick={() => openEditInstModal(inst)}
+                            title="Marka ve Ayarları Düzenle"
+                            className="p-2 bg-white/15 hover:bg-white/30 text-white rounded-xl transition-all border border-white/20 shrink-0 relative z-10"
                           >
-                            <UserCheck size={13} /> Yönet
+                            <Sliders size={16} />
                           </button>
-                          {inst.disabled ? (
-                            <button onClick={() => handleToggleInst(inst.id, false)}
-                              className="flex items-center gap-1.5 px-3 py-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-xs font-bold rounded-xl transition-all"
-                            >
-                              <Check size={13} /> Aktifleştir
-                            </button>
-                          ) : (
-                            <button onClick={() => setDeleteTargetInst(inst)}
-                              className="flex items-center gap-1.5 px-3 py-2 bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 text-xs font-bold rounded-xl transition-all"
-                            >
-                              <Trash2 size={13} /> Pasifleştir
-                            </button>
-                          )}
                         </div>
-                        <span className="text-[9px] text-slate-400 font-mono hidden sm:block">{inst.id}</span>
-                      </div>
-                    </motion.div>
-                  ))}
+
+                        {/* Counts */}
+                        <div className="px-6 py-3.5 grid grid-cols-4 gap-1 border-b border-slate-100 text-center bg-slate-50/50">
+                          {[
+                            { label: 'Öğrenci', val: inst.studentCount || 0 },
+                            { label: 'Rapor', val: inst.reportCount || 0 },
+                            { label: 'Öğretmen', val: inst.userCount || 0 },
+                            { label: 'İzin Talebi', val: inst.pendingLeaveCount || 0 },
+                          ].map(({ label, val }) => (
+                            <div key={label}>
+                              <span className="text-[8px] font-bold text-slate-400 block uppercase tracking-wider">{label}</span>
+                              <span className="text-sm font-extrabold text-slate-800">{val}</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Actions */}
+                        <div className="px-6 py-4 flex items-center justify-between gap-3 mt-auto">
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => startMasquerade(inst)}
+                              className="flex items-center gap-1.5 px-3 py-2 bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 text-xs font-bold rounded-xl transition-all"
+                            >
+                              <UserCheck size={13} /> Canlı Yönet
+                            </button>
+                            <button
+                              onClick={() => openEditInstModal(inst)}
+                              className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all"
+                            >
+                              <Edit3 size={13} /> Düzenle
+                            </button>
+                          </div>
+                          
+                          <button
+                            onClick={() => { setDeleteTargetInst(inst); setWipeDataOption(false); }}
+                            className="flex items-center gap-1 px-2.5 py-2 bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 text-xs font-bold rounded-xl transition-all"
+                            title="Kurumu Sil"
+                          >
+                            <Trash2 size={13} /> Sil
+                          </button>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
                 </div>
               )}
             </motion.div>
@@ -555,7 +659,7 @@ export default function PlatformAdminPage() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <h1 className="text-2xl font-black text-slate-900">Kullanıcı Hesap Yönetimi</h1>
-                  <p className="text-slate-400 text-xs mt-0.5">Tüm kurumlardaki yönetici ve öğretmenler.</p>
+                  <p className="text-slate-400 text-xs mt-0.5">Tüm kurumlardaki yönetici ve öğretmen hesapları.</p>
                 </div>
                 <button
                   onClick={() => {
@@ -581,7 +685,7 @@ export default function PlatformAdminPage() {
               {loadingUsers ? (
                 <div className="flex justify-center py-20"><Loader2 size={28} className="text-blue-600 animate-spin" /></div>
               ) : (
-                <div className="bg-white border border-slate-100 rounded-3xl shadow-sm overflow-hidden">
+                <div className="bg-white border border-slate-200/80 rounded-3xl shadow-sm overflow-hidden">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                       <thead>
@@ -596,7 +700,7 @@ export default function PlatformAdminPage() {
                           <tr key={usr.id} className={`text-xs ${usr.disabled ? 'opacity-50 bg-slate-50/50' : 'hover:bg-slate-50/50'}`}>
                             <td className="px-5 py-4">
                               <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center font-bold text-xs shrink-0">
+                                <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-xs shrink-0">
                                   {(usr.name || usr.email || '?')[0].toUpperCase()}
                                 </div>
                                 <div>
@@ -628,18 +732,33 @@ export default function PlatformAdminPage() {
                             <td className="px-5 py-4 text-right">
                               {usr.role !== 'super_admin' && (
                                 <div className="flex justify-end gap-1.5">
-                                  <button
-                                    onClick={() => {
-                                      setEditingUser(usr);
-                                      setUserName(usr.name || ''); setUserEmail(usr.email);
-                                      setUserRole(usr.role); setUserInstId(usr.institutionId);
-                                      setUserPassword(''); setUserModalAction('edit'); setShowUserModal(true);
-                                    }}
-                                    className="p-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-600 rounded-lg"
-                                  ><Edit3 size={12} /></button>
-                                  <button onClick={() => setDeleteTargetUser(usr)}
-                                    className="p-1.5 bg-red-50 hover:bg-red-100 border border-red-200 text-red-500 rounded-lg"
-                                  ><Trash2 size={12} /></button>
+                                  {usr.disabled ? (
+                                    <button
+                                      onClick={() => handleEnableUser(usr)}
+                                      title="Engeli Kaldır (Aktifleştir)"
+                                      className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 text-xs font-bold rounded-xl transition-all shadow-sm"
+                                    >
+                                      <CheckCircle size={13} /> Engeli Kaldır
+                                    </button>
+                                  ) : (
+                                    <>
+                                      <button
+                                        onClick={() => {
+                                          setEditingUser(usr);
+                                          setUserName(usr.name || ''); setUserEmail(usr.email);
+                                          setUserRole(usr.role); setUserInstId(usr.institutionId);
+                                          setUserPassword(''); setUserModalAction('edit'); setShowUserModal(true);
+                                        }}
+                                        title="Kullanıcıyı Düzenle"
+                                        className="p-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-600 rounded-lg transition-all"
+                                      ><Edit3 size={13} /></button>
+                                      <button
+                                        onClick={() => setDeleteTargetUser(usr)}
+                                        title="Kullanıcıyı Devre Dışı Bırak / Engelle"
+                                        className="p-1.5 bg-red-50 hover:bg-red-100 border border-red-200 text-red-500 rounded-lg transition-all"
+                                      ><Trash2 size={13} /></button>
+                                    </>
+                                  )}
                                 </div>
                               )}
                             </td>
@@ -683,7 +802,7 @@ export default function PlatformAdminPage() {
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   <div className="lg:col-span-2">
-                    <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-sm space-y-4">
+                    <div className="bg-white border border-slate-200/80 rounded-3xl p-6 shadow-sm space-y-4">
                       <div className="flex items-center justify-between">
                         <h3 className="font-extrabold text-slate-800 text-sm">Öğrenciler ({masqStudents.length})</h3>
                         <div className="relative">
@@ -722,7 +841,7 @@ export default function PlatformAdminPage() {
                   </div>
 
                   <div className="space-y-5">
-                    <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm space-y-3">
+                    <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-sm space-y-3">
                       <h3 className="font-extrabold text-slate-800 text-sm">İzin Talepleri ({masqLeaves.length})</h3>
                       <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                         {masqLeaves.map(l => (
@@ -744,7 +863,7 @@ export default function PlatformAdminPage() {
                       </div>
                     </div>
 
-                    <div className="bg-white border border-slate-100 rounded-3xl p-5 shadow-sm space-y-3">
+                    <div className="bg-white border border-slate-200/80 rounded-3xl p-5 shadow-sm space-y-3">
                       <h3 className="font-extrabold text-slate-800 text-sm">Son Raporlar ({masqReports.length})</h3>
                       <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
                         {masqReports.slice(0, 10).map(r => (
@@ -767,67 +886,140 @@ export default function PlatformAdminPage() {
         </main>
       </div>
 
-      {/* MODAL: YENİ KURUM */}
+      {/* MODAL: KURUM EKLE / DÜZENLE (WITH BRANDING & MODULES) */}
       <AnimatePresence>
         {showInstModal && (
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => !creatingInst && setShowInstModal(false)}
+              onClick={() => !submittingInst && setShowInstModal(false)}
               className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[9990]" />
             <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="fixed inset-0 z-[9995] flex items-center justify-center p-4"
+              className="fixed inset-0 z-[9995] flex items-center justify-center p-4 overflow-y-auto"
             >
-              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100">
-                <div className="bg-gradient-to-r from-[#06429c] to-[#1b63d6] p-6 text-white">
+              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100 my-8">
+                <div className="bg-gradient-to-r from-[#0f172a] via-[#1e293b] to-[#0f172a] p-6 text-white border-b border-slate-800">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center"><Building2 size={18} /></div>
+                      <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center text-white"><Building2 size={18} /></div>
                       <div>
-                        <h2 className="font-extrabold text-base">Yeni Kurum Ekle</h2>
-                        <p className="text-blue-200 text-[10px]">Bağımsız bir kurum veritabanı oluşturun.</p>
+                        <h2 className="font-extrabold text-base">
+                          {instModalMode === 'create' ? 'Yeni Kurum Ekle' : 'Kurum Ayarları ve Markalama'}
+                        </h2>
+                        <p className="text-blue-300 text-[10px]">Logo, renk teması ve modül izinlerini yapılandırın.</p>
                       </div>
                     </div>
-                    <button onClick={() => !creatingInst && setShowInstModal(false)} className="p-2 hover:bg-white/20 rounded-xl"><X size={16} /></button>
+                    <button onClick={() => !submittingInst && setShowInstModal(false)} className="p-2 hover:bg-white/10 rounded-xl"><X size={16} /></button>
                   </div>
                 </div>
-                <form onSubmit={handleCreateInst} className="p-6 space-y-4">
+
+                <form onSubmit={handleSaveInst} className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
+                  {/* Kurum Adı */}
                   <div>
-                    <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Kurum Adı</label>
-                    <input type="text" placeholder="Örn: Çınardere Enderun" value={instName}
+                    <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Kurum Adı *</label>
+                    <input type="text" placeholder="Örn: Gelişim Koleji" value={instName}
                       onChange={e => setInstName(e.target.value)} required
-                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500" />
-                    {instName.trim() && (
-                      <p className="text-[9px] text-blue-500 mt-1 font-mono">Kod: <strong>{slugify(instName)}</strong></p>
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 font-semibold" />
+                    {instName.trim() && instModalMode === 'create' && (
+                      <p className="text-[9px] text-blue-500 mt-1 font-mono">Kurum Kodu (ID): <strong>{slugify(instName)}</strong></p>
                     )}
                   </div>
-                  <div>
-                    <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Yönetici E-postası</label>
-                    <input type="text" placeholder="yonetici@kurum veya yonetici@kurum.com" value={instEmail}
-                      onChange={e => setInstEmail(e.target.value)} required
-                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500" />
-                  </div>
-                  <div>
-                    <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Yönetici Şifresi</label>
-                    <div className="relative">
-                      <input type={showPw ? 'text' : 'password'} placeholder="En az 6 karakter" value={instPassword}
-                        onChange={e => setInstPassword(e.target.value)} required minLength={6}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 pr-12 text-sm focus:outline-none focus:border-blue-500" />
-                      <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
-                        {showPw ? <EyeOff size={15} /> : <Eye size={15} />}
-                      </button>
+
+                  {/* Yönetici E-postası ve Şifre (Sadece Create modunda zorunlu) */}
+                  {instModalMode === 'create' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Yönetici E-Postası *</label>
+                        <input type="text" placeholder="yonetici@kurum" value={instEmail}
+                          onChange={e => setInstEmail(e.target.value)} required
+                          className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-blue-500" />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Yönetici Şifresi *</label>
+                        <input type="password" placeholder="En az 6 karakter" value={instPassword}
+                          onChange={e => setInstPassword(e.target.value)} required minLength={6}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-blue-500" />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* LOGO & RENK MARKA AYARLARI */}
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-3">
+                    <div className="flex items-center gap-2 text-xs font-black text-slate-700 uppercase tracking-wider">
+                      <Palette size={14} className="text-blue-600" /> Kurumsal Markalaştırma (White-Label)
+                    </div>
+
+                    {/* Logo URL */}
+                    <div>
+                      <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Logo Görsel URL'si (İsteğe Bağlı)</label>
+                      <div className="relative">
+                        <Image size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input type="url" placeholder="https://example.com/logo.png" value={instLogoUrl}
+                          onChange={e => setInstLogoUrl(e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs focus:outline-none focus:border-blue-500" />
+                      </div>
+                    </div>
+
+                    {/* Preset Colors */}
+                    <div>
+                      <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Ana Tema Rengi</label>
+                      <div className="flex items-center gap-2 flex-wrap mb-2">
+                        {PRESET_COLORS.map(c => (
+                          <button
+                            key={c.hex} type="button" onClick={() => setInstPrimaryColor(c.hex)}
+                            style={{ backgroundColor: c.hex }}
+                            title={c.name}
+                            className={`w-7 h-7 rounded-xl transition-all flex items-center justify-center text-white ${
+                              instPrimaryColor === c.hex ? 'ring-2 ring-offset-2 ring-blue-600 scale-110 shadow-md' : 'opacity-80 hover:opacity-100'
+                            }`}
+                          >
+                            {instPrimaryColor === c.hex && <Check size={12} />}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input type="color" value={instPrimaryColor} onChange={e => setInstPrimaryColor(e.target.value)}
+                          className="w-8 h-8 rounded-lg cursor-pointer border-0 bg-transparent" />
+                        <span className="text-xs font-mono font-bold text-slate-600">{instPrimaryColor}</span>
+                      </div>
                     </div>
                   </div>
-                  <p className="text-[9px] text-blue-600 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2">
-                    Bu kurum diğer kurumlardan tamamen izole çalışır. Her kurumun kendi öğrenci ve rapor veritabanı bulunur.
-                  </p>
-                  <div className="flex gap-3 pt-1">
+
+                  {/* MODÜL YETKİLERİ */}
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-3">
+                    <div className="flex items-center gap-2 text-xs font-black text-slate-700 uppercase tracking-wider">
+                      <Sparkles size={14} className="text-purple-600" /> Modül Yetkileri & Özellikler
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { key: 'ai', label: 'Sesli AI Raporlama' },
+                        { key: 'leave', label: 'İzin Yönetimi' },
+                        { key: 'tv', label: 'TV Ekranı Yayın' },
+                        { key: 'weekly', label: 'Haftalık Özet' },
+                      ].map(({ key, label }) => (
+                        <button
+                          key={key} type="button"
+                          onClick={() => setInstModules({ ...instModules, [key]: !instModules[key] })}
+                          className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-bold transition-all ${
+                            instModules[key]
+                              ? 'bg-purple-50 border-purple-200 text-purple-800'
+                              : 'bg-white border-slate-200 text-slate-400'
+                          }`}
+                        >
+                          <span>{label}</span>
+                          {instModules[key] ? <ToggleRight size={18} className="text-purple-600" /> : <ToggleLeft size={18} />}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3 pt-2">
                     <button type="button" onClick={() => setShowInstModal(false)}
                       className="flex-1 py-3 border border-slate-200 rounded-2xl text-slate-500 font-bold text-xs hover:bg-slate-50">İptal</button>
-                    <button type="submit" disabled={creatingInst}
+                    <button type="submit" disabled={submittingInst}
                       className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold text-xs flex items-center justify-center gap-1.5 disabled:opacity-55">
-                      {creatingInst ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
-                      Kurumu Oluştur
+                      {submittingInst ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
+                      {instModalMode === 'create' ? 'Kurumu Kaydet' : 'Ayarları Kaydet'}
                     </button>
                   </div>
                 </form>
@@ -849,13 +1041,13 @@ export default function PlatformAdminPage() {
               className="fixed inset-0 z-[9995] flex items-center justify-center p-4"
             >
               <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-100">
-                <div className="bg-gradient-to-r from-indigo-700 to-blue-700 p-6 text-white">
+                <div className="bg-gradient-to-r from-[#0f172a] to-[#1e293b] p-6 text-white">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center"><User size={18} /></div>
+                      <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center"><User size={18} /></div>
                       <div>
                         <h2 className="font-extrabold text-base">{userModalAction === 'create' ? 'Yeni Kullanıcı Ekle' : 'Kullanıcıyı Düzenle'}</h2>
-                        <p className="text-blue-100 text-[10px]">Sisteme öğretmen veya idareci ekleyin.</p>
+                        <p className="text-slate-300 text-[10px]">Sisteme öğretmen veya idareci ekleyin.</p>
                       </div>
                     </div>
                     <button onClick={() => !submittingUser && setShowUserModal(false)} className="p-2 hover:bg-white/20 rounded-xl"><X size={16} /></button>
@@ -866,13 +1058,13 @@ export default function PlatformAdminPage() {
                     <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Adı Soyadı</label>
                     <input type="text" placeholder="Ahmet Yılmaz" value={userName}
                       onChange={e => setUserName(e.target.value)} required
-                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500" />
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 font-semibold" />
                   </div>
                   <div>
                     <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">E-posta</label>
                     <input type="text" placeholder="ahmet@kurum veya ahmet@kurum.com" value={userEmail}
                       onChange={e => setUserEmail(e.target.value)} required disabled={userModalAction === 'edit'}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 disabled:opacity-60" />
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 disabled:opacity-60 font-semibold" />
                   </div>
                   {userModalAction === 'create' && (
                     <div>
@@ -918,7 +1110,7 @@ export default function PlatformAdminPage() {
         )}
       </AnimatePresence>
 
-      {/* CONFIRM: PASİFLEŞTİR KURUM */}
+      {/* CONFIRM / DELETE INSTITUTION MODAL */}
       <AnimatePresence>
         {deleteTargetInst && (
           <>
@@ -934,18 +1126,29 @@ export default function PlatformAdminPage() {
                   <div className="w-14 h-14 bg-red-50 border-2 border-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4 text-red-500">
                     <AlertTriangle size={24} />
                   </div>
-                  <h3 className="font-extrabold text-slate-900">Kurumu Pasifleştir</h3>
+                  <h3 className="font-extrabold text-slate-900">Kurumu Sistemden Kaldır</h3>
                   <p className="text-slate-500 text-xs mt-2 leading-relaxed">
-                    <strong>"{deleteTargetInst.name}"</strong> kurumu devre dışı bırakılacak. Kullanıcılar giriş yapamaz hale gelecektir.
+                    <strong>"{deleteTargetInst.name}"</strong> kurumu ve yöneticileri sistemden tamamen kaldırılacaktır.
                   </p>
+                  
+                  <label className="flex items-center justify-center gap-2 mt-4 p-3 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer text-left">
+                    <input
+                      type="checkbox" checked={wipeDataOption}
+                      onChange={e => setWipeDataOption(e.target.checked)}
+                      className="rounded text-red-600 focus:ring-red-500"
+                    />
+                    <span className="text-[10px] font-bold text-slate-700 leading-tight">
+                      Kuruma ait tüm öğrenci, rapor ve izin geçmişini de tamamen sil
+                    </span>
+                  </label>
                 </div>
                 <div className="flex gap-3">
                   <button onClick={() => setDeleteTargetInst(null)}
                     className="flex-1 py-3 border border-slate-200 rounded-2xl text-slate-500 font-bold text-xs hover:bg-slate-50">Vazgeç</button>
-                  <button onClick={handleDeleteInst} disabled={deletingInst}
-                    className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white rounded-2xl font-bold text-xs flex items-center justify-center gap-1.5 disabled:opacity-55">
+                  <button onClick={handleDeleteInstConfirm} disabled={deletingInst}
+                    className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-bold text-xs flex items-center justify-center gap-1.5 disabled:opacity-55 shadow-lg shadow-red-900/20">
                     {deletingInst ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
-                    Pasifleştir
+                    Kurumu Sil
                   </button>
                 </div>
               </div>

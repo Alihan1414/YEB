@@ -83,14 +83,18 @@ export async function GET(req) {
         docs.forEach(doc => {
           const f = doc.fields || {};
           const role = f.role?.stringValue || 'teacher';
-          const uInstId = f.institutionId?.stringValue || '';
+          const uInstId = (f.institutionId?.stringValue || '').toLowerCase();
+          const email = (f.email?.stringValue || '').toLowerCase();
+          const name = f.name?.stringValue || '';
           
           if (uInstId === instId) {
-            teachers.push({
-              name: f.name?.stringValue || '',
-              email: f.email?.stringValue || '',
-              role: role,
-            });
+            if (!teachers.some(t => t.email.toLowerCase() === email)) {
+              teachers.push({
+                name: name,
+                email: email,
+                role: role,
+              });
+            }
           }
         });
       }
@@ -103,8 +107,9 @@ export async function GET(req) {
       const dbData = readDb();
       const localUsers = dbData.users || [];
       localUsers.forEach(lu => {
-        if (lu.institutionId === instId) {
-          if (!teachers.some(t => t.email.toLowerCase() === lu.email.toLowerCase())) {
+        const luInstId = (lu.institutionId || '').toLowerCase();
+        if (luInstId === instId) {
+          if (!teachers.some(t => t.email.toLowerCase() === (lu.email || '').toLowerCase())) {
             teachers.push({
               name: lu.name || '',
               email: lu.email || '',
@@ -117,16 +122,23 @@ export async function GET(req) {
       console.warn("Local DB error in list-teachers:", err.message);
     }
 
-    // 3. Add seed admin to the list if the institution is 'yamanevler'
+    // 3. Ensure institution admin is present for 'yamanevler'
     if (instId === 'yamanevler') {
       if (!teachers.some(t => t.email === 'yeb@2026.com')) {
         teachers.unshift({
-          name: 'Yamanevler Admin (Kurum Yöneticisi)',
+          name: 'Yamanevler Enderun Bilişim Yöneticisi',
           email: 'yeb@2026.com',
           role: 'admin'
         });
       }
     }
+
+    // Sort: Admins first, then teachers alphabetically
+    teachers.sort((a, b) => {
+      if (a.role === 'admin' && b.role !== 'admin') return -1;
+      if (a.role !== 'admin' && b.role === 'admin') return 1;
+      return (a.name || '').localeCompare(b.name || '', 'tr');
+    });
 
     return NextResponse.json({
       success: true,

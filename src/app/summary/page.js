@@ -13,6 +13,7 @@ import {
   GraduationCap, Utensils, ClipboardList, User, Shield, LogOut,
   Heart, Sunrise, Trophy, Tv, Settings
 } from 'lucide-react';
+import Sidebar, { MobileHeader } from '@/components/Sidebar';
 
 const CATEGORY_COLORS = {
   Akademik: '#8b5cf6', Yemek: '#f59e0b',
@@ -132,84 +133,10 @@ export default function SummaryPage() {
 
   return (
     <div className="min-h-screen bg-[#eef5fc] text-slate-800 flex flex-col md:flex-row font-sans">
-      {/* Sidebar */}
-      <aside className="hidden md:flex w-64 bg-gradient-to-b from-[#06429c] via-[#053787] to-[#011c4d] text-white flex-col justify-between p-6 shrink-0 shadow-2xl">
-        <div>
-          <div className="flex flex-col items-center text-center space-y-3 pt-4 pb-8 border-b border-white/10">
-            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center p-2.5 shadow-lg">
-              <svg viewBox="0 0 100 100" className="w-full h-full text-[#06429c]" fill="currentColor">
-                <path d="M50 15 L20 30 L50 45 L80 30 Z M20 40 L20 70 L50 85 L50 55 Z M80 40 L50 55 L50 85 L80 70 Z" />
-              </svg>
-            </div>
-            <div>
-              <h2 className="text-xs font-black tracking-widest text-blue-200 uppercase">{(institutionName || 'Kurumsal Rapor').toUpperCase()}</h2>
-              <h1 className="text-sm font-extrabold tracking-wider text-white">YÖNETİCİ PANELİ</h1>
-            </div>
-          </div>
-          <nav className="mt-8 space-y-2">
-            <a
-              href="/"
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-white hover:bg-white/10 font-semibold text-sm transition-all"
-            >
-              <User size={18} />
-              Öğrenciler
-            </a>
-            <a
-              href="/haftalik"
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-white hover:bg-white/10 font-semibold text-sm transition-all"
-            >
-              <Trophy size={18} />
-              Haftalık Özet
-            </a>
-            <a
-              href="/tv"
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-white hover:bg-white/10 font-semibold text-sm transition-all"
-            >
-              <Tv size={18} />
-              TV Ekranı
-            </a>
+      <Sidebar leaveEnabled={leaveEnabled} />
+      <MobileHeader title="Özet" />
 
-            {leaveEnabled && (
-              <a
-                href="/izinler"
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-white hover:bg-white/10 font-semibold text-sm transition-all"
-              >
-                <Calendar size={18} />
-                İzin Yönetimi
-              </a>
-            )}
 
-            <a
-              href="/ayarlar"
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-white hover:bg-white/10 font-semibold text-sm transition-all"
-            >
-              <Settings size={18} />
-              Ayarlar
-            </a>
-
-            <button
-              onClick={logout}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-red-300 hover:bg-red-500/10 font-semibold text-sm transition-all"
-            >
-              <LogOut size={18} />
-              Çıkış
-            </button>
-          </nav>
-        </div>
-
-        {/* Bottom Logo Branding */}
-        <div className="pt-6 border-t border-white/10 flex items-center gap-3">
-          <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center p-2 text-white">
-            <svg viewBox="0 0 100 100" className="w-full h-full" fill="currentColor">
-              <path d="M50 15 L20 30 L50 45 L80 30 Z M20 40 L20 70 L50 85 L50 55 Z M80 40 L50 55 L50 85 L80 70 Z" />
-            </svg>
-          </div>
-          <div className="text-[11px] leading-tight">
-            <div className="font-bold text-white">{(institutionName || 'Sistem Yönetimi').toUpperCase()}</div>
-            <div className="text-blue-200 text-[10px]">Aktif Kurum</div>
-          </div>
-        </div>
-      </aside>
 
       {/* Main Content */}
       <main className="flex-1 pb-10 overflow-y-auto">

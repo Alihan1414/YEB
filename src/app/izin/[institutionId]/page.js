@@ -21,11 +21,9 @@ export default function StudentLeaveForm() {
   const [submitted, setSubmitted]     = useState(false);
   const [error, setError]             = useState('');
 
-  // Settings state
   const [settings, setSettings] = useState({ enabled: true, assignedTeacherId: '' });
   const [loadingSettings, setLoadingSettings] = useState(true);
 
-  // Fetch settings on mount
   useEffect(() => {
     const fetchSettings = async () => {
       try {
@@ -35,7 +33,7 @@ export default function StudentLeaveForm() {
           setSettings(data.settings);
         }
       } catch (err) {
-        console.error("Failed to load settings:", err);
+        console.error('Failed to load settings:', err);
       } finally {
         setLoadingSettings(false);
       }
@@ -47,23 +45,12 @@ export default function StudentLeaveForm() {
     e.preventDefault();
     setError('');
     setLoading(true);
-
     try {
       const res = await fetch('/api/leave', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentName,
-          parentPhone,
-          startDate,
-          startTime,
-          endDate,
-          endTime,
-          reason,
-          institutionId
-        })
+        body: JSON.stringify({ studentName, parentPhone, startDate, startTime, endDate, endTime, reason, institutionId })
       });
-
       const data = await res.json();
       if (res.ok && data.success) {
         setSubmitted(true);
@@ -77,11 +64,14 @@ export default function StudentLeaveForm() {
     }
   };
 
+  const inputCls = "w-full bg-white/6 border border-white/12 rounded-xl text-white placeholder-white/25 focus:outline-none focus:border-blue-400/60 focus:ring-2 focus:ring-blue-400/20 transition-all font-medium";
+
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden px-4 py-12"
-      style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #0f172a 100%)' }}>
-      
-      {/* Background decoration */}
+    <div
+      className="min-h-screen flex items-start justify-center relative overflow-x-hidden px-3 pt-6 pb-10 sm:px-4 sm:py-12"
+      style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 50%, #0f172a 100%)' }}
+    >
+      {/* Background blobs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] rounded-full bg-blue-500/8 blur-[120px]" />
         <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] rounded-full bg-emerald-600/10 blur-[120px]" />
@@ -96,225 +86,170 @@ export default function StudentLeaveForm() {
         className="w-full max-w-xl relative z-10"
       >
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-xl mb-4 text-emerald-400">
-            <Calendar size={28} />
+        <div className="text-center mb-5 sm:mb-8">
+          <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-xl mb-3 text-emerald-400">
+            <Calendar size={22} />
           </div>
-          <h1 className="text-3xl font-black text-white tracking-tight uppercase">Öğrenci İzin Talep Formu</h1>
-          <p className="text-blue-200/70 text-sm mt-2">İzin talebinizi oluşturup değerlendirilmek üzere gönderin.</p>
+          <h1 className="text-xl sm:text-3xl font-black text-white tracking-tight uppercase leading-tight">
+            Öğrenci İzin Talep Formu
+          </h1>
+          <p className="text-blue-200/70 text-xs sm:text-sm mt-1.5">
+            İzin talebinizi oluşturup değerlendirilmek üzere gönderin.
+          </p>
         </div>
 
-        {/* Card Form */}
-        <div className="bg-white/8 backdrop-blur-2xl border border-white/12 rounded-3xl p-8 shadow-[0_32px_80px_rgba(0,0,0,0.5)]">
+        {/* Card */}
+        <div className="bg-white/8 backdrop-blur-2xl border border-white/12 rounded-2xl sm:rounded-3xl p-4 sm:p-8 shadow-[0_32px_80px_rgba(0,0,0,0.5)]">
           <AnimatePresence mode="wait">
+
+            {/* Loading state */}
             {loadingSettings ? (
-              <motion.div
-                key="loading-settings"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="flex flex-col items-center justify-center py-12"
-              >
-                <Loader2 size={32} className="text-emerald-400 animate-spin mb-3" />
+              <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="flex flex-col items-center justify-center py-10">
+                <Loader2 size={28} className="text-emerald-400 animate-spin mb-3" />
                 <p className="text-blue-200 text-xs font-semibold">Ayarlar yükleniyor...</p>
               </motion.div>
+
             ) : !settings.enabled ? (
-              <motion.div
-                key="disabled"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0 }}
-                className="text-center py-8 space-y-4"
-              >
-                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 animate-pulse mb-2">
-                  <AlertTriangle size={44} />
+              /* Disabled state */
+              <motion.div key="disabled" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0 }} className="text-center py-8 space-y-4">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 animate-pulse mb-2">
+                  <AlertTriangle size={36} />
                 </div>
-                <h2 className="text-2xl font-black text-white">İzin Talepleri Kapatılmıştır</h2>
+                <h2 className="text-xl font-black text-white">İzin Talepleri Kapatılmıştır</h2>
                 <p className="text-blue-200/70 text-sm max-w-sm mx-auto leading-relaxed">
                   Kurumumuz şu anda yeni izin taleplerini kabul etmemektedir. Lütfen doğrudan kurum yetkilileri ile iletişime geçiniz.
                 </p>
               </motion.div>
+
             ) : !submitted ? (
-              <motion.form
-                key="leave-form"
-                onSubmit={handleSubmit}
-                className="space-y-5"
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.3 }}
-              >
-                {/* Student Name */}
+              /* Form */
+              <motion.form key="form" onSubmit={handleSubmit} className="space-y-4"
+                exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.3 }}>
+
+                {/* Öğrenci Adı */}
                 <div>
-                  <label className="text-xs font-bold text-blue-200/80 uppercase tracking-widest mb-2 block">
+                  <label className="text-[10px] sm:text-xs font-bold text-blue-200/80 uppercase tracking-widest mb-1.5 block">
                     Öğrenci Adı Soyadı <span className="text-red-400">*</span>
                   </label>
                   <div className="relative">
-                    <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-300/50" />
-                    <input
-                      type="text"
-                      required
-                      value={studentName}
+                    <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-300/50" />
+                    <input type="text" required value={studentName}
                       onChange={e => setStudentName(e.target.value)}
                       placeholder="Adı ve Soyadı"
-                      className="w-full bg-white/6 border border-white/12 rounded-2xl pl-11 pr-4 py-3.5 text-white placeholder-white/20 focus:outline-none focus:border-blue-400/60 focus:ring-2 focus:ring-blue-400/20 transition-all text-sm font-medium"
-                    />
+                      className={`${inputCls} pl-9 pr-3 py-3 text-sm`} />
                   </div>
                 </div>
 
-                {/* Parent Phone */}
+                {/* Veli Telefon */}
                 <div>
-                  <label className="text-xs font-bold text-blue-200/80 uppercase tracking-widest mb-2 block">
+                  <label className="text-[10px] sm:text-xs font-bold text-blue-200/80 uppercase tracking-widest mb-1.5 block">
                     Veli Telefon Numarası <span className="text-red-400">*</span>
                   </label>
                   <div className="relative">
-                    <Phone size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-300/50" />
-                    <input
-                      type="tel"
-                      required
-                      value={parentPhone}
+                    <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-300/50" />
+                    <input type="tel" required value={parentPhone}
                       onChange={e => setParentPhone(e.target.value)}
                       placeholder="05xxxxxxxxx"
-                      className="w-full bg-white/6 border border-white/12 rounded-2xl pl-11 pr-4 py-3.5 text-white placeholder-white/20 focus:outline-none focus:border-blue-400/60 focus:ring-2 focus:ring-blue-400/20 transition-all text-sm font-medium"
-                    />
+                      className={`${inputCls} pl-9 pr-3 py-3 text-sm`} />
                   </div>
                 </div>
 
-                {/* Dates & Hours */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* Start Date */}
+                {/* Tarih / Saat — 2 sütun her boyutta */}
+                <div className="grid grid-cols-2 gap-2.5">
                   <div>
-                    <label className="text-xs font-bold text-blue-200/80 uppercase tracking-widest mb-2 block">
-                      İzin Başlangıç Tarihi <span className="text-red-400">*</span>
+                    <label className="text-[10px] font-bold text-blue-200/80 uppercase tracking-widest mb-1.5 block">
+                      Başlangıç Tarihi <span className="text-red-400">*</span>
                     </label>
                     <div className="relative">
-                      <Calendar size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-300/50" />
-                      <input
-                        type="date"
-                        required
-                        value={startDate}
+                      <Calendar size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-blue-300/50" />
+                      <input type="date" required value={startDate}
                         onChange={e => setStartDate(e.target.value)}
-                        className="w-full bg-white/6 border border-white/12 rounded-2xl pl-11 pr-4 py-3.5 text-white focus:outline-none focus:border-blue-400/60 focus:ring-2 focus:ring-blue-400/20 transition-all text-sm font-medium"
-                      />
+                        className={`${inputCls} pl-8 pr-1 py-2.5 text-xs`} />
                     </div>
                   </div>
 
-                  {/* Start Time */}
                   <div>
-                    <label className="text-xs font-bold text-blue-200/80 uppercase tracking-widest mb-2 block">
-                      İzin Başlangıç Saati
+                    <label className="text-[10px] font-bold text-blue-200/80 uppercase tracking-widest mb-1.5 block">
+                      Başlangıç Saati
                     </label>
                     <div className="relative">
-                      <Clock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-300/50" />
-                      <input
-                        type="time"
-                        value={startTime}
+                      <Clock size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-blue-300/50" />
+                      <input type="time" value={startTime}
                         onChange={e => setStartTime(e.target.value)}
-                        className="w-full bg-white/6 border border-white/12 rounded-2xl pl-11 pr-4 py-3.5 text-white focus:outline-none focus:border-blue-400/60 focus:ring-2 focus:ring-blue-400/20 transition-all text-sm font-medium"
-                      />
+                        className={`${inputCls} pl-8 pr-1 py-2.5 text-xs`} />
                     </div>
                   </div>
 
-                  {/* End Date */}
                   <div>
-                    <label className="text-xs font-bold text-blue-200/80 uppercase tracking-widest mb-2 block">
-                      İzin Bitiş Tarihi
+                    <label className="text-[10px] font-bold text-blue-200/80 uppercase tracking-widest mb-1.5 block">
+                      Bitiş Tarihi
                     </label>
                     <div className="relative">
-                      <Calendar size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-300/50" />
-                      <input
-                        type="date"
-                        value={endDate}
+                      <Calendar size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-blue-300/50" />
+                      <input type="date" value={endDate}
                         onChange={e => setEndDate(e.target.value)}
-                        className="w-full bg-white/6 border border-white/12 rounded-2xl pl-11 pr-4 py-3.5 text-white focus:outline-none focus:border-blue-400/60 focus:ring-2 focus:ring-blue-400/20 transition-all text-sm font-medium"
-                      />
+                        className={`${inputCls} pl-8 pr-1 py-2.5 text-xs`} />
                     </div>
                   </div>
 
-                  {/* End Time */}
                   <div>
-                    <label className="text-xs font-bold text-blue-200/80 uppercase tracking-widest mb-2 block">
-                      İzin Bitiş Saati
+                    <label className="text-[10px] font-bold text-blue-200/80 uppercase tracking-widest mb-1.5 block">
+                      Bitiş Saati
                     </label>
                     <div className="relative">
-                      <Clock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-blue-300/50" />
-                      <input
-                        type="time"
-                        value={endTime}
+                      <Clock size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-blue-300/50" />
+                      <input type="time" value={endTime}
                         onChange={e => setEndTime(e.target.value)}
-                        className="w-full bg-white/6 border border-white/12 rounded-2xl pl-11 pr-4 py-3.5 text-white focus:outline-none focus:border-blue-400/60 focus:ring-2 focus:ring-blue-400/20 transition-all text-sm font-medium"
-                      />
+                        className={`${inputCls} pl-8 pr-1 py-2.5 text-xs`} />
                     </div>
                   </div>
                 </div>
 
-                {/* Reason */}
+                {/* Neden */}
                 <div>
-                  <label className="text-xs font-bold text-blue-200/80 uppercase tracking-widest mb-2 block">
+                  <label className="text-[10px] sm:text-xs font-bold text-blue-200/80 uppercase tracking-widest mb-1.5 block">
                     İzin Talep Nedeni <span className="text-red-400">*</span>
                   </label>
                   <div className="relative">
-                    <FileText size={16} className="absolute left-4 top-4 text-blue-300/50" />
-                    <textarea
-                      required
-                      rows={3}
-                      value={reason}
+                    <FileText size={14} className="absolute left-3 top-3.5 text-blue-300/50" />
+                    <textarea required rows={3} value={reason}
                       onChange={e => setReason(e.target.value)}
                       placeholder="İzin talep gerekçesini detaylıca açıklayınız..."
-                      className="w-full bg-white/6 border border-white/12 rounded-2xl pl-11 pr-4 py-3 text-white placeholder-white/20 focus:outline-none focus:border-blue-400/60 focus:ring-2 focus:ring-blue-400/20 transition-all text-sm font-medium resize-none"
-                    />
+                      className={`${inputCls} pl-9 pr-3 py-3 text-sm resize-none`} />
                   </div>
                 </div>
 
-                {/* Error message */}
+                {/* Hata */}
                 {error && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="text-sm text-red-300 bg-red-500/10 border border-red-400/20 rounded-xl px-4 py-3 text-center font-semibold"
-                  >
+                  <motion.div initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }}
+                    className="text-xs text-red-300 bg-red-500/10 border border-red-400/20 rounded-xl px-3 py-2.5 text-center font-semibold">
                     ⚠ {error}
                   </motion.div>
                 )}
 
-                {/* Submit button */}
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-extrabold text-sm hover:from-emerald-400 hover:to-teal-500 transition-all duration-300 shadow-lg hover:shadow-emerald-500/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {loading ? (
-                    <Loader2 size={18} className="animate-spin" />
-                  ) : (
-                    'İzin Talebini Gönder'
-                  )}
+                {/* Gönder */}
+                <button type="submit" disabled={loading}
+                  className="w-full py-3.5 mt-1 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-extrabold text-sm hover:from-emerald-400 hover:to-teal-500 transition-all duration-300 shadow-lg hover:shadow-emerald-500/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                  {loading ? <Loader2 size={18} className="animate-spin" /> : 'İzin Talebini Gönder'}
                 </button>
               </motion.form>
+
             ) : (
-              <motion.div
-                key="submitted-success"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="text-center py-8 space-y-4"
-              >
-                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 animate-bounce mb-2">
-                  <CheckCircle size={44} />
+              /* Başarı */
+              <motion.div key="success" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+                className="text-center py-8 space-y-4">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 animate-bounce mb-2">
+                  <CheckCircle size={36} />
                 </div>
-                <h2 className="text-2xl font-black text-white">İzin Talebiniz Alındı!</h2>
+                <h2 className="text-xl font-black text-white">İzin Talebiniz Alındı!</h2>
                 <p className="text-blue-200/70 text-sm max-w-sm mx-auto leading-relaxed">
                   Talebiniz sistemdeki görevli öğretmenlerimize başarıyla iletilmiştir. Onay veya red durumunda velinize WhatsApp üzerinden bilgi gönderilecektir.
                 </p>
                 <button
-                  onClick={() => {
-                    setStudentName('');
-                    setParentPhone('');
-                    setStartDate('');
-                    setStartTime('');
-                    setEndDate('');
-                    setEndTime('');
-                    setReason('');
-                    setSubmitted(false);
-                  }}
-                  className="mt-6 px-6 py-3 bg-white/10 hover:bg-white/16 border border-white/20 text-white text-xs font-bold rounded-xl transition-all"
-                >
+                  onClick={() => { setStudentName(''); setParentPhone(''); setStartDate(''); setStartTime(''); setEndDate(''); setEndTime(''); setReason(''); setSubmitted(false); }}
+                  className="mt-4 px-6 py-3 bg-white/10 hover:bg-white/16 border border-white/20 text-white text-xs font-bold rounded-xl transition-all">
                   Yeni İzin Talebi Oluştur
                 </button>
               </motion.div>
@@ -322,8 +257,8 @@ export default function StudentLeaveForm() {
           </AnimatePresence>
         </div>
 
-        <p className="text-center text-blue-200/40 text-xs mt-6">
-          Enderun Bilişim Raporlama ve İzin Takip Sistemi © 2026
+        <p className="text-center text-blue-200/40 text-xs mt-5">
+          Talebe Takip Ve Raporlama Sistemi © 2026
         </p>
       </motion.div>
     </div>

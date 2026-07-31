@@ -92,8 +92,10 @@ export async function GET(req) {
     }
 
     // --- 5. Merge local DB ---
+    let localInsts = [];
     try {
       const dbData = readDb();
+      localInsts = dbData.institutions || [];
       
       // Merge local users
       (dbData.users || []).forEach(lu => {
@@ -172,15 +174,6 @@ export async function GET(req) {
         institutionId: 'platform',
         institutionName: 'Sistem Yönetimi',
         disabled: false
-      },
-      {
-        id: 'yeb-admin',
-        name: 'Yamanevler Admin',
-        email: 'yeb@2026.com',
-        role: 'admin',
-        institutionId: 'yamanevler',
-        institutionName: 'Yamanevler Enderun Bilişim',
-        disabled: false
       }
     ];
     seedAccounts.forEach(sa => {
@@ -192,6 +185,23 @@ export async function GET(req) {
     // --- 6. Group and Calculate ---
     const instGroup = {};
 
+    // First populate from localInsts database
+    localInsts.forEach(li => {
+      instGroup[li.id] = {
+        id: li.id,
+        name: li.name || li.id,
+        email: li.email || '',
+        logoUrl: li.logoUrl || '',
+        primaryColor: li.primaryColor || '#06429c',
+        enabledModules: li.enabledModules || { ai: true, leave: true, tv: true, weekly: true },
+        studentCount: 0,
+        reportCount: 0,
+        userCount: 0,
+        pendingLeaveCount: 0,
+        disabled: !!li.disabled
+      };
+    });
+
     // Group from users to find all institutions
     allUsers.forEach(u => {
       if (u.institutionId === 'platform') return;
@@ -200,6 +210,10 @@ export async function GET(req) {
         instGroup[key] = {
           id: key,
           name: u.institutionName || key,
+          email: u.email || '',
+          logoUrl: '',
+          primaryColor: '#06429c',
+          enabledModules: { ai: true, leave: true, tv: true, weekly: true },
           studentCount: 0,
           reportCount: 0,
           userCount: 0,

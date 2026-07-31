@@ -1,6 +1,6 @@
 {
-  "name": "Öğrenci Günlük Rapor Sistemi",
-  "short_name": "YEB Rapor",
+  "name": "Talebe Takip Ve Raporlama Sistemi",
+  "short_name": "Talebe Takip Ve Raporlama Sistemi",
   "description": "Enderun Bilişim Yapay Zekâ Destekli Öğrenci Raporlama Paneli",
   "start_url": "/",
   "display": "standalone",

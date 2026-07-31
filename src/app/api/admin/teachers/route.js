@@ -85,28 +85,34 @@ export async function GET(req) {
 
 export async function POST(req) {
   try {
-    const { name, surname, password, institutionId, institutionName } = await req.json();
+    const { name, surname, email: customEmail, password, institutionId, institutionName } = await req.json();
 
-    if (!name || !surname || !password || !institutionId) {
-      return NextResponse.json({ success: false, error: 'İsim, soyisim, şifre ve kurum ID gereklidir.' }, { status: 400 });
+    if (!name || !password || !institutionId) {
+      return NextResponse.json({ success: false, error: 'Öğretmen adı, şifre ve kurum ID gereklidir.' }, { status: 400 });
     }
 
     const instId = institutionId.trim().toLowerCase();
-    const cleanName = name.trim();
-    const cleanSurname = surname.trim();
-    const slugName = slugifyName(cleanName);
-    const slugSurname = slugifyName(cleanSurname);
+    const cleanName = surname ? `${name.trim()} ${surname.trim()}` : name.trim();
     
-    // Automatically generate email
-    const email = `${slugName}.${slugSurname}@${instId}.com`;
+    let email = (customEmail || '').trim().toLowerCase();
+    if (!email) {
+      const slugName = slugifyName(name);
+      const slugSurname = surname ? slugifyName(surname) : '';
+      email = `${slugName}${slugSurname ? '.' + slugSurname : ''}@${instId}.com`;
+    }
 
-    // 1. Check teacher limit (max 20 teachers per institution)
+    // 1. Check teacher limit (max 30 teachers per institution)
     const dbData = readDb();
     const localUsers = dbData.users || [];
-    const currentTeachers = localUsers.filter(u => u.institutionId === instId && u.role === 'teacher');
+    const currentTeachers = localUsers.filter(u => (u.institutionId || '').toLowerCase() === instId && u.role === 'teacher');
     
-    if (currentTeachers.length >= 20) {
-      return NextResponse.json({ success: false, error: 'Maksimum 20 öğretmen limitine ulaşıldı.' }, { status: 400 });
+    if (currentTeachers.length >= 30) {
+      return NextResponse.json({ success: false, error: 'Maksimum öğretmen limitine ulaşıldı.' }, { status: 400 });
+    }
+
+    // Check email uniqueness
+    if (localUsers.some(u => u.email.toLowerCase() === email)) {
+      return NextResponse.json({ success: false, error: 'Bu e-posta adresi ile zaten kayıtlı bir kullanıcı var.' }, { status: 400 });
     }
 
     // 2. Try to register user in Firebase Auth
@@ -132,7 +138,7 @@ export async function POST(req) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               fields: {
-                name:            { stringValue: `${cleanName} ${cleanSurname}` },
+                name:            { stringValue: cleanName },
                 email:           { stringValue: email },
                 role:            { stringValue: 'teacher' },
                 institutionId:   { stringValue: instId },
@@ -150,7 +156,7 @@ export async function POST(req) {
     // 3. Save to local DB (always, as source of truth and fallback)
     const newTeacher = {
       id: firebaseUid || `teacher-${Date.now()}`,
-      name: `${cleanName} ${cleanSurname}`,
+      name: cleanName,
       email: email,
       password: password, // For local DB auth fallback
       role: 'teacher',

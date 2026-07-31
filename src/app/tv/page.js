@@ -36,7 +36,7 @@ function Clock() {
 }
 
 export default function TVPage() {
-  const { user, institutionId, institutionName, loading: authLoading } = useAuth();
+  const { user, institutionId, institutionName, logoUrl, primaryColor, loading: authLoading } = useAuth();
   const router = useRouter();
   const [reports, setReports]   = useState([]);
   const [students, setStudents] = useState([]);
@@ -93,18 +93,27 @@ export default function TVPage() {
     </div>
   );
 
+  const pc = primaryColor || '#06429c';
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0a1628] via-[#06429c] to-[#011c4d] text-white p-8 flex flex-col gap-8 select-none">
+    <div
+      className="min-h-screen text-white p-8 flex flex-col gap-8 select-none"
+      style={{ background: `linear-gradient(135deg, #0a1628 0%, ${pc} 50%, #011c4d 100%)` }}
+    >
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center p-3 shadow-2xl">
-            <svg viewBox="0 0 100 100" className="w-full h-full text-[#06429c]" fill="currentColor">
-              <path d="M50 15 L20 30 L50 45 L80 30 Z M20 40 L20 70 L50 85 L50 55 Z M80 40 L50 55 L50 85 L80 70 Z" />
-            </svg>
+          <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center p-2 shadow-2xl overflow-hidden shrink-0">
+            {logoUrl ? (
+              <img src={logoUrl} alt="" className="w-full h-full object-contain" />
+            ) : (
+              <div className="w-full h-full rounded-xl flex items-center justify-center font-black text-2xl text-white" style={{ backgroundColor: pc }}>
+                {(institutionName || 'K')[0].toUpperCase()}
+              </div>
+            )}
           </div>
           <div>
-            <div className="text-2xl font-black tracking-wide">{institutionName || 'Enderun Bilişim'}</div>
+            <div className="text-2xl font-black tracking-wide">{institutionName || 'Kurumsal Dashboard'}</div>
             <div className="text-blue-200 text-sm">Öğrenci Takip Sistemi · Canlı Dashboard</div>
           </div>
         </div>
@@ -177,25 +186,29 @@ export default function TVPage() {
           )}
         </div>
 
-        {/* Right — Son Raporlar */}
+        {/* Right — Program ve İlim Meclisleri Hadis-i Şerif */}
         <div className="col-span-4 flex flex-col gap-4">
-          <div className="text-xs font-black uppercase tracking-widest text-blue-200">📋 Son Raporlar</div>
-          <div className="space-y-3 flex-1">
-            {recentReports.map((rep, i) => {
-              const st = studentMap[rep.student_id];
-              const color = CATEGORY_COLORS[rep.category] || '#6b7280';
-              return (
-                <div key={rep.id || i} className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/10">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-bold text-sm">{rep.student_name || (st ? `${st.name} ${st.surname}` : '?')}</span>
-                    <span className="text-xs px-2 py-0.5 rounded-full font-bold" style={{ backgroundColor: `${color}30`, color }}>
-                      {rep.category}
-                    </span>
-                  </div>
-                  <p className="text-xs text-blue-200 line-clamp-2">{rep.content}</p>
-                </div>
-              );
-            })}
+          <div className="text-xs font-black uppercase tracking-widest text-blue-200 flex items-center gap-2">
+            <span>✨</span> Hadis-i Şerif
+          </div>
+          <div className="bg-gradient-to-br from-emerald-500/20 via-blue-600/20 to-purple-600/20 backdrop-blur-md rounded-3xl p-7 border border-white/20 flex flex-col justify-between flex-1 shadow-2xl relative overflow-hidden group">
+            <div className="absolute -right-8 -bottom-8 opacity-10 text-white font-serif text-9xl select-none pointer-events-none">
+              📖
+            </div>
+            
+            <div className="space-y-4 relative z-10">
+              <div className="w-12 h-12 rounded-2xl bg-amber-400/20 border border-amber-400/30 flex items-center justify-center text-2xl shadow-inner">
+                🕌
+              </div>
+              <p className="text-lg md:text-xl font-serif italic leading-relaxed text-blue-50 font-medium tracking-wide">
+                &ldquo;Bir topluluk Allah&apos;ın evlerinden bir evde toplanır, Allah&apos;ın kitabını okur ve onu aralarında müzakere ederlerse, üzerlerine sekîne (huzur) iner, onları rahmet kaplar, melekler etraflarını kuşatır ve Allah onları kendi katındakilerin arasında anar.&rdquo;
+              </p>
+            </div>
+
+            <div className="pt-6 border-t border-white/10 relative z-10 flex items-center justify-between">
+              <span className="text-xs font-extrabold tracking-wider text-amber-300 uppercase">Programlara İştirak &amp; İlim Meclisleri</span>
+              <span className="text-xs text-blue-200 font-semibold bg-white/10 px-3 py-1 rounded-full border border-white/10">Müslim, Zikir 38</span>
+            </div>
           </div>
         </div>
       </div>

@@ -5,13 +5,15 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Calendar, Check, X, Loader2, Search, User, Clock, FileText,
-  Phone, Trophy, Tv, TrendingUp, LogOut, Settings, ToggleLeft, ToggleRight,
+  Calendar, Check, X, Loader2, Search, Clock, FileText, User, Trophy, Tv,
+  Phone, ToggleLeft, ToggleRight, Settings,
   ShieldCheck, AlertCircle, CheckCircle2, XCircle, Copy, ExternalLink, Link2
 } from 'lucide-react';
+import Sidebar, { MobileHeader } from '@/components/Sidebar';
 
 export default function LeaveManagementPage() {
   const { user, role, institutionId, institutionName, loading: authLoading, logout } = useAuth();
+  const [leaveEnabled] = useState(true); // this page IS leave management
   const router = useRouter();
 
   // Requests state
@@ -180,85 +182,8 @@ export default function LeaveManagementPage() {
   return (
     <div className="min-h-screen bg-[#eef5fc] text-slate-800 flex flex-col md:flex-row font-sans">
       
-      {/* Sidebar Layout */}
-      <aside className="hidden md:flex w-64 bg-gradient-to-b from-[#06429c] via-[#053787] to-[#011c4d] text-white flex-col justify-between p-6 shrink-0 shadow-2xl">
-        <div>
-          <div className="flex flex-col items-center text-center space-y-3 pt-4 pb-8 border-b border-white/10">
-            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center p-2.5 shadow-lg">
-              <svg viewBox="0 0 100 100" className="w-full h-full text-[#06429c]" fill="currentColor">
-                <path d="M50 15 L20 30 L50 45 L80 30 Z M20 40 L20 70 L50 85 L50 55 Z M80 40 L50 55 L50 85 L80 70 Z" />
-              </svg>
-            </div>
-            <div>
-              <h2 className="text-xs font-black tracking-widest text-blue-200 uppercase">{institutionName || 'Kurumsal Rapor'}</h2>
-              <h1 className="text-sm font-extrabold tracking-wider text-white">YÖNETİCİ PANELİ</h1>
-            </div>
-          </div>
-          <nav className="mt-8 space-y-2">
-            <a
-              href="/"
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-white hover:bg-white/10 font-semibold text-sm transition-all"
-            >
-              <User size={18} />
-              Öğrenciler
-            </a>
-            <a href="/haftalik" className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-white hover:bg-white/10 font-semibold text-sm transition-all">
-              <Trophy size={18} />
-              Haftalık Özet
-            </a>
-            <a href="/tv" className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-white hover:bg-white/10 font-semibold text-sm transition-all">
-              <Tv size={18} />
-              TV Ekranı
-            </a>
-            <a href="/izinler" className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-600/90 text-white font-bold text-sm shadow-md transition-all border border-blue-400/30">
-              <Calendar size={18} />
-              İzin Yönetimi
-            </a>
-            <a href="/ayarlar" className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-white hover:bg-white/10 font-semibold text-sm transition-all">
-              <Settings size={18} />
-              Ayarlar
-            </a>
-
-            <button
-              onClick={logout}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-red-300 hover:bg-red-500/10 font-semibold text-sm transition-all"
-            >
-              <LogOut size={18} />
-              Çıkış
-            </button>
-          </nav>
-        </div>
-
-        <div className="pt-6 border-t border-white/10 flex items-center gap-3">
-          <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center p-2 text-white">
-            <svg viewBox="0 0 100 100" className="w-full h-full" fill="currentColor">
-              <path d="M50 15 L20 30 L50 45 L80 30 Z M20 40 L20 70 L50 85 L50 55 Z M80 40 L50 55 L50 85 L80 70 Z" />
-            </svg>
-          </div>
-          <div className="text-[11px] leading-tight">
-            <div className="font-bold text-white">{institutionName || 'Yamanevler Enderun Bilişim'}</div>
-            <div className="text-blue-200 text-[10px]">Aktif Kurum</div>
-          </div>
-        </div>
-      </aside>
-
-      {/* Mobile Top Header */}
-      <header className="md:hidden bg-white px-5 py-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-[#06429c] rounded-xl flex items-center justify-center p-1.5 text-white">
-            <svg viewBox="0 0 100 100" className="w-full h-full" fill="currentColor">
-              <path d="M50 15 L20 30 L50 45 L80 30 Z M20 40 L20 70 L50 85 L50 55 Z M80 40 L50 55 L50 85 L80 70 Z" />
-            </svg>
-          </div>
-          <div className="text-left">
-            <div className="text-[9px] font-bold text-blue-900 leading-none">{institutionId?.toUpperCase() || 'YAMANEVLER'}</div>
-            <div className="text-[11px] font-extrabold text-blue-800 leading-none">{institutionName || 'ENDERUN BİLİŞİM'}</div>
-          </div>
-        </div>
-        <button onClick={logout} className="p-2 bg-red-50 text-red-600 rounded-xl">
-          <LogOut size={18} />
-        </button>
-      </header>
+      <Sidebar leaveEnabled={true} />
+      <MobileHeader title="İzin Yönetimi" />
 
       {/* Toast Notifications */}
       <AnimatePresence>
@@ -525,24 +450,6 @@ export default function LeaveManagementPage() {
                   </div>
                 ) : (
                   <form onSubmit={handleSaveSettings} className="space-y-5">
-                    {/* Active toggle */}
-                    <div className="flex items-center justify-between bg-slate-50 border border-slate-100 p-3 rounded-2xl">
-                      <div>
-                        <label className="font-bold text-xs text-slate-700 block">İzin Başvuruları</label>
-                        <span className="text-[10px] text-slate-400 font-medium">Veli formu yeni taleplere açık mı?</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setSettings(s => ({ ...s, enabled: !s.enabled }))}
-                        className="text-blue-600 transition-all focus:outline-none"
-                      >
-                        {settings.enabled ? (
-                          <ToggleRight size={40} className="text-emerald-500" />
-                        ) : (
-                          <ToggleLeft size={40} className="text-slate-300" />
-                        )}
-                      </button>
-                    </div>
 
                     {/* Assigned teacher */}
                     <div>

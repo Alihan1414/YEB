@@ -48,6 +48,19 @@ function formatPhoneForWa(phone) {
   return cleaned;
 }
 
+function formatTeacherName(nameOrEmail) {
+  if (!nameOrEmail) return 'Öğretmen';
+  if (nameOrEmail === 'yeb@2026.com' || nameOrEmail === 'yeb@2026') return 'Yamanevler Admin';
+  if (nameOrEmail === 'admin@yeb.local' || nameOrEmail === 'alihan@2026') return 'Sistem Yöneticisi';
+  
+  if (nameOrEmail.includes('@')) {
+    const prefix = nameOrEmail.split('@')[0];
+    const parts = prefix.split('.');
+    return parts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
+  }
+  return nameOrEmail;
+}
+
 function tsToString(ts) {
   if (!ts) return '';
   if (typeof ts === 'string') return new Date(ts).toLocaleString('tr-TR');
@@ -58,7 +71,7 @@ function tsToString(ts) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function StudentsPage() {
-  const { user, role, institutionId, institutionName, loading: authLoading, logout } = useAuth();
+  const { user, userName, role, institutionId, institutionName, logoUrl, primaryColor, enabledModules, loading: authLoading, logout } = useAuth();
   const router = useRouter();
 
   const [students, setStudents]               = useState([]);
@@ -67,7 +80,7 @@ export default function StudentsPage() {
   const [searchQuery, setSearchQuery]         = useState('');
   const [selectedClass, setSelectedClass]     = useState('All');
   const [dataLoading, setDataLoading]         = useState(true);
-  const [activeView, setActiveView]           = useState('students'); // 'students' | 'ai'
+  const [activeView, setActiveView]           = useState('ai'); // 'ai' | 'students'
 
   // Voice & AI
   const [isListening, setIsListening]  = useState(false);
@@ -109,14 +122,10 @@ export default function StudentsPage() {
 
   // Auth redirect
   useEffect(() => {
-    if (!authLoading) {
-      if (!user) {
-        router.push('/login');
-      } else if (role === 'super_admin') {
-        router.push('/admin');
-      }
+    if (!authLoading && !user) {
+      router.push('/login');
     }
-  }, [user, role, authLoading, router]);
+  }, [user, authLoading, router]);
 
   useEffect(() => {
     if (user) {
@@ -254,7 +263,7 @@ export default function StudentsPage() {
           category: directCategory,
           notifyParent: !!notifyParent,
           institutionId: institutionId || 'yamanevler',
-          createdBy: user?.email || 'Bilinmeyen Öğretmen',
+          createdBy: userName || user?.displayName || user?.name || user?.email || 'Öğretmen',
         }),
       });
       const data = await res.json();
@@ -311,7 +320,7 @@ export default function StudentsPage() {
           category: aiMatch.category || 'Diğer',
           notifyParent: !!notifyParent,
           institutionId: institutionId || 'yamanevler',
-          createdBy: user?.email || 'Bilinmeyen Öğretmen',
+          createdBy: userName || user?.displayName || user?.name || user?.email || 'Öğretmen',
         }),
       });
       const data = await res.json();
@@ -533,38 +542,35 @@ export default function StudentsPage() {
 
 
 
+  const sidebarColor = primaryColor || '#06429c';
+
   return (
     <div className="min-h-screen bg-[#eef5fc] text-slate-800 flex flex-col md:flex-row font-sans selection:bg-blue-500 selection:text-white">
       {/* ── Desktop Left Sidebar (Visible on md+) ── */}
-      <aside className="hidden md:flex w-64 bg-gradient-to-b from-[#06429c] via-[#053787] to-[#011c4d] text-white flex-col justify-between p-6 shrink-0 shadow-2xl relative z-20">
+      <aside
+        className="hidden md:flex w-64 text-white flex-col justify-between p-6 shrink-0 shadow-2xl relative z-20"
+        style={{ background: `linear-gradient(180deg, ${sidebarColor} 0%, #0f172a 100%)` }}
+      >
         <div>
           {/* Logo Header */}
           <div className="flex flex-col items-center text-center space-y-3 pt-4 pb-8 border-b border-white/10">
-            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center p-2.5 shadow-lg shadow-black/20">
-              <svg viewBox="0 0 100 100" className="w-full h-full text-[#06429c]" fill="currentColor">
-                <path d="M50 15 L20 30 L50 45 L80 30 Z M20 40 L20 70 L50 85 L50 55 Z M80 40 L50 55 L50 85 L80 70 Z" />
-              </svg>
-            </div>
+            {logoUrl ? (
+              <img src={logoUrl} alt={institutionName} className="w-16 h-16 rounded-2xl object-cover bg-white p-1 shadow-lg" />
+            ) : (
+              <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center p-2.5 shadow-lg shadow-black/20">
+                <svg viewBox="0 0 100 100" className="w-full h-full" style={{ color: sidebarColor }} fill="currentColor">
+                  <path d="M50 15 L20 30 L50 45 L80 30 Z M20 40 L20 70 L50 85 L50 55 Z M80 40 L50 55 L50 85 L80 70 Z" />
+                </svg>
+              </div>
+            )}
             <div>
-              <h2 className="text-xs font-black tracking-widest text-blue-200 uppercase">YAMANEVLER</h2>
-              <h1 className="text-sm font-extrabold tracking-wider text-white">ENDERUN BİLİŞİM</h1>
+              <h2 className="text-xs font-black tracking-widest text-blue-200 uppercase">KURUM PORTALI</h2>
+              <h1 className="text-sm font-extrabold tracking-wider text-white uppercase">{institutionName || 'Talebe Takip'}</h1>
             </div>
           </div>
 
           {/* Navigation Links */}
           <nav className="mt-8 space-y-2">
-            <button
-              onClick={() => { setActiveView('students'); setSelectedStudent(null); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${
-                activeView === 'students'
-                  ? 'bg-blue-600/90 text-white shadow-md border border-blue-400/30'
-                  : 'text-blue-100/70 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <User size={18} />
-              Öğrenciler
-            </button>
-            
             <button
               onClick={() => { setActiveView('ai'); setSelectedStudent(null); }}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${
@@ -575,6 +581,18 @@ export default function StudentsPage() {
             >
               <Sparkles size={18} />
               Sesli AI Giriş
+            </button>
+
+            <button
+              onClick={() => { setActiveView('students'); setSelectedStudent(null); }}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${
+                activeView === 'students'
+                  ? 'bg-blue-600/90 text-white shadow-md border border-blue-400/30'
+                  : 'text-blue-100/70 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              <User size={18} />
+              Öğrenciler
             </button>
 
             <a
@@ -648,14 +666,18 @@ export default function StudentsPage() {
       {/* ── Mobile Top Header (Visible on Mobile only) ── */}
       <header className="md:hidden bg-white px-5 py-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-[#06429c] rounded-xl flex items-center justify-center p-1.5 text-white">
-            <svg viewBox="0 0 100 100" className="w-full h-full" fill="currentColor">
-              <path d="M50 15 L20 30 L50 45 L80 30 Z M20 40 L20 70 L50 85 L50 55 Z M80 40 L50 55 L50 85 L80 70 Z" />
-            </svg>
-          </div>
-          <div className="text-left">
-            <div className="text-[9px] font-bold text-blue-900 leading-none">{institutionId?.toUpperCase() || 'YAMANEVLER'}</div>
-            <div className="text-[11px] font-extrabold text-blue-800 leading-none">{institutionName || 'ENDERUN BİLİŞİM'}</div>
+          {logoUrl ? (
+            <img src={logoUrl} alt={institutionName} className="w-8 h-8 rounded-xl object-cover border border-slate-200" />
+          ) : (
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center p-1.5 text-white" style={{ backgroundColor: sidebarColor }}>
+              <svg viewBox="0 0 100 100" className="w-full h-full" fill="currentColor">
+                <path d="M50 15 L20 30 L50 45 L80 30 Z M20 40 L20 70 L50 85 L50 55 Z M80 40 L50 55 L50 85 L80 70 Z" />
+              </svg>
+            </div>
+          )}
+          <div className="text-left min-w-0">
+            <div className="text-[9px] font-bold text-slate-400 leading-none uppercase">{institutionId || 'KURUM'}</div>
+            <div className="text-[11px] font-extrabold text-slate-800 leading-none truncate uppercase">{institutionName || 'Talebe Takip'}</div>
           </div>
         </div>
 
@@ -994,10 +1016,36 @@ export default function StudentsPage() {
                   </div>
 
                   <div>
-                    <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">CANLI TRANSCRIPT</div>
-                    <div className="bg-[#f2f6fa] border border-slate-200/70 rounded-2xl p-3.5 min-h-[48px] text-xs text-slate-600">
-                      {voiceText || <span className="text-slate-400 italic">Henüz ses kaydı yok...</span>}
+                    <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">
+                      <span>CANLI TRANSCRIPT (Düzenlenebilir)</span>
+                      {voiceText && (
+                        <button
+                          type="button"
+                          onClick={() => analyzeWithAI(voiceText)}
+                          disabled={isAnalyzing}
+                          className="text-[10px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-lg border border-blue-200 transition-all flex items-center gap-1"
+                        >
+                          <Sparkles size={11} /> Yeniden Analiz Et
+                        </button>
+                      )}
                     </div>
+                    <textarea
+                      value={voiceText}
+                      onChange={e => {
+                        const newText = e.target.value;
+                        setVoiceText(newText);
+                        // Trigger AI re-analysis automatically if text has meaningful content (> 3 chars)
+                        if (newText.trim().length >= 3) {
+                          clearTimeout(window._transcriptTimer);
+                          window._transcriptTimer = setTimeout(() => {
+                            analyzeWithAI(newText);
+                          }, 800);
+                        }
+                      }}
+                      placeholder="Henüz ses kaydı yok... Buraya metni yazabilir veya ses kaydını düzeltebilirsiniz."
+                      rows={3}
+                      className="w-full bg-[#f2f6fa] border border-slate-200/70 rounded-2xl p-3.5 text-xs text-slate-700 focus:outline-none focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100 transition-all font-medium resize-y"
+                    />
                   </div>
                 </div>
 
@@ -1317,10 +1365,18 @@ export default function StudentsPage() {
                               <p className="text-xs text-slate-700 font-medium leading-relaxed">
                                 {rep.content}
                               </p>
-                              <div className="flex items-center gap-2 text-[10px] text-slate-400">
+                              <div className="flex items-center gap-2 text-[10px] text-slate-400 flex-wrap">
                                 <span className="font-semibold text-slate-500">{rep.category}</span>
                                 <span>•</span>
                                 <span>{tsToString(rep.created_at)}</span>
+                                {(rep.created_by || rep.createdBy) && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="text-slate-600 font-bold bg-slate-100/80 px-1.5 py-0.5 rounded border border-slate-200/80 inline-flex items-center gap-1">
+                                      👤 {formatTeacherName(rep.created_by || rep.createdBy)}
+                                    </span>
+                                  </>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -1365,19 +1421,19 @@ export default function StudentsPage() {
       {/* ── Mobile Bottom Navigation Bar (Visible on Mobile only) ── */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex items-center justify-around py-2.5 px-2 z-40 shadow-lg">
         <button
-          onClick={() => { setActiveView('students'); setSelectedStudent(null); }}
-          className={`flex flex-col items-center gap-1 ${activeView === 'students' ? 'text-blue-600' : 'text-slate-400'}`}
-        >
-          <User size={18} />
-          <span className="text-[10px] font-bold">Öğrenciler</span>
-        </button>
-
-        <button
           onClick={() => { setActiveView('ai'); setSelectedStudent(null); }}
           className={`flex flex-col items-center gap-1 ${activeView === 'ai' ? 'text-blue-600' : 'text-slate-400'}`}
         >
           <Sparkles size={18} />
           <span className="text-[10px] font-bold">Sesli AI</span>
+        </button>
+
+        <button
+          onClick={() => { setActiveView('students'); setSelectedStudent(null); }}
+          className={`flex flex-col items-center gap-1 ${activeView === 'students' ? 'text-blue-600' : 'text-slate-400'}`}
+        >
+          <User size={18} />
+          <span className="text-[10px] font-bold">Öğrenciler</span>
         </button>
 
         <a href="/haftalik" className="flex flex-col items-center gap-1 text-slate-400 hover:text-amber-500">

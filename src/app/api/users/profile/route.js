@@ -5,6 +5,28 @@ import { readDb } from '@/lib/db';
 const FIREBASE_API_KEY    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY    || 'AIzaSyA1UmjpiDX47qk8c6tJoM1xkJbRMGIsqfg';
 const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'student-687f2';
 
+// Helper: get institution branding from local DB
+function getInstBranding(instId) {
+  try {
+    const dbData = readDb();
+    const inst = (dbData.institutions || []).find(i => i.id === instId);
+    if (inst) {
+      return {
+        logoUrl: inst.logoUrl || '',
+        primaryColor: inst.primaryColor || '#06429c',
+        enabledModules: inst.enabledModules || { ai: true, leave: true, tv: true, weekly: true },
+        institutionName: inst.name || instId,
+      };
+    }
+  } catch {}
+  return {
+    logoUrl: '',
+    primaryColor: '#06429c',
+    enabledModules: { ai: true, leave: true, tv: true, weekly: true },
+    institutionName: null,
+  };
+}
+
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
@@ -42,19 +64,31 @@ export async function GET(req) {
 
           let instId = fields.institutionId?.stringValue;
           if (!instId) {
-            instId = (email === 'admin@yeb.local' || role === 'super_admin') ? 'platform' : 'yamanevler';
+            instId = (email === 'admin@yeb.local' || role === 'super_admin') ? 'platform' : 'unknown';
           }
 
           let instName = fields.institutionName?.stringValue;
+          
+          // Get branding from local DB (authoritative source for branding)
+          const branding = getInstBranding(instId);
+          
           if (!instName) {
-            if (instId === 'platform') instName = 'Sistem Yönetimi';
-            else if (instId === 'yamanevler') instName = 'Yamanevler Enderun Bilişim';
-            else instName = instId.toUpperCase();
+            instName = branding.institutionName || (instId === 'platform' ? 'Sistem Yönetimi' : instId);
           }
 
           return NextResponse.json({
             success: true,
-            profile: { uid, name, email: fields.email?.stringValue || email, role, institutionId: instId, institutionName: instName }
+            profile: {
+              uid,
+              name,
+              email: fields.email?.stringValue || email,
+              role,
+              institutionId: instId,
+              institutionName: instName,
+              logoUrl: fields.logoUrl?.stringValue || branding.logoUrl,
+              primaryColor: fields.primaryColor?.stringValue || branding.primaryColor,
+              enabledModules: branding.enabledModules,
+            }
           });
         }
       } catch (err) {
@@ -65,7 +99,7 @@ export async function GET(req) {
     // 2. Fallback to local DB
     const dbData = readDb();
     const localUsers = dbData.users || [];
-    let found = localUsers.find(u => u.id === uid || u.email === email);
+    let found = localUsers.find(u => u.id === uid || (email && u.email?.toLowerCase() === email.toLowerCase()));
 
     if (!found && email) {
       // Auto-register known seed admin accounts
@@ -76,32 +110,26 @@ export async function GET(req) {
           email: email,
           role: 'super_admin',
           institutionId: 'platform',
-          institutionName: 'Sistem Yönetimi'
-        };
-      } else if (email === 'yeb@2026.com') {
-        found = {
-          id: uid || 'yeb-admin',
-          name: 'Yamanevler Admin',
-          email: email,
-          role: 'admin',
-          institutionId: 'yamanevler',
-          institutionName: 'Yamanevler Enderun Bilişim'
+          institutionName: 'Sistem Yönetimi',
+          logoUrl: '',
+          primaryColor: '#06429c',
         };
       }
     }
 
     if (found) {
-      let instId = found.institutionId;
-      if (!instId) {
-        instId = (found.role === 'super_admin' || found.email === 'admin@yeb.local') ? 'platform' : 'yamanevler';
+      if (found.disabled === true) {
+        return NextResponse.json(
+          { success: false, error: 'Bu hesap devre dışı bırakılmıştır.' },
+          { status: 403 }
+        );
       }
 
-      let instName = found.institutionName;
-      if (!instName) {
-        if (instId === 'platform') instName = 'Sistem Yönetimi';
-        else if (instId === 'yamanevler') instName = 'Yamanevler Enderun Bilişim';
-        else instName = instId.toUpperCase();
-      }
+      const instId = found.institutionId || (found.role === 'super_admin' ? 'platform' : 'unknown');
+      const branding = getInstBranding(instId);
+
+      const instName = found.institutionName || branding.institutionName ||
+        (instId === 'platform' ? 'Sistem Yönetimi' : instId);
 
       return NextResponse.json({
         success: true,
@@ -111,23 +139,19 @@ export async function GET(req) {
           email: found.email || '',
           role: found.role || 'teacher',
           institutionId: instId,
-          institutionName: instName
+          institutionName: instName,
+          logoUrl: found.logoUrl || branding.logoUrl,
+          primaryColor: found.primaryColor || branding.primaryColor,
+          enabledModules: branding.enabledModules,
         }
       });
     }
 
-    // Default fallback if user not found at all
-    return NextResponse.json({
-      success: true,
-      profile: {
-        uid: uid || 'guest',
-        name: 'Misafir Öğretmen',
-        email: email || '',
-        role: 'teacher',
-        institutionId: 'yamanevler',
-        institutionName: 'Yamanevler Enderun Bilişim'
-      }
-    });
+    // 3. Not found → return error (no default institution fallback)
+    return NextResponse.json(
+      { success: false, error: 'Kullanıcı profili bulunamadı.' },
+      { status: 404 }
+    );
 
   } catch (error) {
     console.error("Profile API Error:", error);

@@ -7,7 +7,7 @@ const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'stud
 
 export async function POST(req) {
   try {
-    const { name, email, password } = await req.json();
+    const { name, email, password, logoUrl, primaryColor, enabledModules } = await req.json();
 
     if (!name || !email || !password) {
       return NextResponse.json({ success: false, error: 'Tüm alanlar zorunludur.' }, { status: 400 });
@@ -22,8 +22,6 @@ export async function POST(req) {
       .replace(/[^a-z0-9-]/g, '')
       .slice(0, 40);
 
-    // Normalize e-posta: Firebase Auth requires a valid TLD.
-    // If the domain part has no dot (e.g. kiliaslan@2026) append .com
     const rawEmail = email.trim();
     const normalizeEmail = (addr) => {
       const parts = addr.split('@');
@@ -34,50 +32,96 @@ export async function POST(req) {
     };
     const firebaseEmail = normalizeEmail(rawEmail);
 
-    // Firebase Auth: User creation
-    const signUpRes = await fetch(
-      `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FIREBASE_API_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: firebaseEmail, password: password, returnSecureToken: true }),
-      }
-    );
+    let uid = `admin-${instId}-${Date.now()}`;
+    let firebaseSuccess = false;
 
-    const signUpData = await signUpRes.json();
-    if (signUpData.error) {
-      const errMsg = signUpData.error.message === 'EMAIL_EXISTS'
-        ? 'Bu e-posta zaten kayıtlı.'
-        : signUpData.error.message;
-      return NextResponse.json({ success: false, error: errMsg }, { status: 400 });
+    // 1. Try Firebase Auth
+    try {
+      const signUpRes = await fetch(
+        `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FIREBASE_API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: firebaseEmail, password: password, returnSecureToken: true }),
+        }
+      );
+      const signUpData = await signUpRes.json();
+      if (!signUpData.error && signUpData.localId) {
+        uid = signUpData.localId;
+        firebaseSuccess = true;
+
+        // Save profile in Firestore
+        await fetch(
+          `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users/${uid}?key=${FIREBASE_API_KEY}`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              fields: {
+                name:            { stringValue: name.trim() + ' Yöneticisi' },
+                email:           { stringValue: rawEmail },
+                role:            { stringValue: 'admin' },
+                institutionId:   { stringValue: instId },
+                institutionName: { stringValue: name.trim() },
+                logoUrl:         { stringValue: logoUrl || '' },
+                primaryColor:    { stringValue: primaryColor || '#06429c' },
+                disabled:        { booleanValue: false },
+              },
+            }),
+          }
+        );
+      }
+    } catch (fbErr) {
+      console.warn("Firebase signup failed, relying on local DB:", fbErr.message);
     }
 
-    const { localId: uid, idToken } = signUpData;
+    // 2. Save in Local DB (users & institutions)
+    const dbData = readDb();
+    if (!dbData.institutions) dbData.institutions = [];
+    if (!dbData.users) dbData.users = [];
 
-    // Firestore: Save user profile (no Authorization header needed in test mode)
-    const firestoreRes = await fetch(
-      `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users/${uid}?key=${FIREBASE_API_KEY}`,
-      {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fields: {
-            name:            { stringValue: name.trim() + ' Yöneticisi' },
-            email:           { stringValue: rawEmail },
-            role:            { stringValue: 'admin' },
-            institutionId:   { stringValue: instId },
-            institutionName: { stringValue: name.trim() },
-            disabled:        { booleanValue: false },
-          },
-        }),
-      }
-    );
+    // Add or update institution record
+    const existingInstIdx = dbData.institutions.findIndex(i => i.id === instId);
+    const instRecord = {
+      id: instId,
+      name: name.trim(),
+      email: rawEmail,
+      logoUrl: logoUrl || '',
+      primaryColor: primaryColor || '#06429c',
+      enabledModules: enabledModules || { ai: true, leave: true, tv: true, weekly: true },
+      disabled: false,
+      created_at: new Date().toISOString()
+    };
 
-    if (!firestoreRes.ok) {
-      const errText = await firestoreRes.text();
-      console.error("Firestore save error:", errText);
-      return NextResponse.json({ success: false, error: 'Kullanıcı oluşturuldu ama profil kaydedilemedi.' }, { status: 500 });
+    if (existingInstIdx >= 0) {
+      dbData.institutions[existingInstIdx] = instRecord;
+    } else {
+      dbData.institutions.push(instRecord);
     }
+
+    // Add user record for institution admin
+    const existingUserIdx = dbData.users.findIndex(u => u.email === rawEmail);
+    const userRecord = {
+      id: uid,
+      name: name.trim() + ' Yöneticisi',
+      email: rawEmail,
+      password: password,
+      role: 'admin',
+      institutionId: instId,
+      institutionName: name.trim(),
+      logoUrl: logoUrl || '',
+      primaryColor: primaryColor || '#06429c',
+      disabled: false,
+      created_at: new Date().toISOString()
+    };
+
+    if (existingUserIdx >= 0) {
+      dbData.users[existingUserIdx] = userRecord;
+    } else {
+      dbData.users.push(userRecord);
+    }
+
+    writeDb(dbData);
 
     return NextResponse.json({
       success: true,

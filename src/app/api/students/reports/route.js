@@ -3,61 +3,76 @@ import { readDb, writeDb } from '@/lib/db';
 
 // ─── GET ─────────────────────────────────────────────────────────────────────
 export async function GET(req) {
+  const { searchParams } = new URL(req.url);
+  const studentId     = searchParams.get('studentId');
+  const institutionId = (searchParams.get('institutionId') || 'yamanevler').trim().toLowerCase();
+
+  let reportsMap = new Map();
+
+  // 1. Local DB Read
   try {
-    const { searchParams } = new URL(req.url);
-    const studentId     = searchParams.get('studentId');
-    const institutionId = searchParams.get('institutionId') || 'yamanevler';
+    const dbData = readDb();
+    const localReports = dbData.reports || [];
+    localReports.forEach(r => {
+      const rInst = (r.institution_id || 'yamanevler').trim().toLowerCase();
+      if (rInst === institutionId) {
+        if (!studentId || r.student_id === studentId) {
+          reportsMap.set(r.id, { ...r });
+        }
+      }
+    });
+  } catch (e) {
+    console.warn('Local DB read warning in reports GET:', e.message);
+  }
 
-    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-    const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+  // 2. Firestore Sync
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+  const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
-    if (projectId && apiKey) {
+  if (projectId && apiKey) {
+    try {
       const res = await fetch(
         `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/reports?key=${apiKey}`,
         { cache: 'no-store' }
       );
-      const data = await res.json();
+      if (res.ok) {
+        const data = await res.json();
+        if (data.documents) {
+          data.documents.forEach(doc => {
+            const fields = doc.fields || {};
+            const id = doc.name.split('/').pop();
+            const rInst = (fields.institution_id?.stringValue || 'yamanevler').trim().toLowerCase();
+            const rStudentId = fields.student_id?.stringValue || '';
 
-      if (!data.error && data.documents) {
-        let reports = data.documents.map(doc => {
-          const fields = doc.fields || {};
-          const id = doc.name.split('/').pop();
-          return {
-            id,
-            student_id:     fields.student_id?.stringValue || '',
-            student_name:   fields.student_name?.stringValue || '',
-            class:          fields.class?.stringValue || '',
-            parent_phone:   fields.parent_phone?.stringValue || fields.parent_email?.stringValue || '',
-            content:        fields.content?.stringValue || '',
-            category:       fields.category?.stringValue || 'Diğer',
-            notified:       fields.notified?.booleanValue || false,
-            institution_id: fields.institution_id?.stringValue || 'yamanevler',
-            created_at:     fields.created_at?.timestampValue || null,
-            created_by:     fields.created_by?.stringValue || 'Bilinmeyen Öğretmen',
-          };
-        });
-
-        // Filter by institution
-        reports = reports.filter(r => (r.institution_id || 'yamanevler') === institutionId);
-        if (studentId) reports = reports.filter(r => r.student_id === studentId);
-
-        reports.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-        return NextResponse.json({ success: true, reports });
+            if (rInst === institutionId) {
+              if (!studentId || rStudentId === studentId) {
+                const fsReport = {
+                  id,
+                  student_id:     rStudentId,
+                  student_name:   fields.student_name?.stringValue || '',
+                  class:          fields.class?.stringValue || '',
+                  parent_phone:   fields.parent_phone?.stringValue || '',
+                  content:        fields.content?.stringValue || '',
+                  category:       fields.category?.stringValue || 'Diğer',
+                  notified:       fields.notified?.booleanValue || false,
+                  institution_id: rInst,
+                  created_at:     fields.created_at?.timestampValue || fields.created_at?.stringValue || new Date().toISOString(),
+                  created_by:     fields.created_by?.stringValue || 'Bilinmeyen Öğretmen',
+                };
+                reportsMap.set(id, fsReport);
+              }
+            }
+          });
+        }
       }
+    } catch (err) {
+      console.warn('Firestore GET REPORTS warning:', err.message);
     }
-  } catch (err) {
-    console.error('GET REPORTS API ERROR:', err);
   }
 
-  // ── Local DB fallback ──────────────────────────────────────────────────────
-  const { searchParams } = new URL(req.url);
-  const studentId     = searchParams.get('studentId');
-  const institutionId = searchParams.get('institutionId') || 'yamanevler';
-  const dbData = readDb();
-  let reports = (dbData.reports || [])
-    .filter(r => (r.institution_id || 'yamanevler') === institutionId);
-  if (studentId) reports = reports.filter(r => r.student_id === studentId);
+  const reports = Array.from(reportsMap.values());
   reports.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+
   return NextResponse.json({ success: true, reports });
 }
 
@@ -74,41 +89,12 @@ export async function POST(req) {
       return NextResponse.json({ success: false, error: 'Eksik bilgi.' }, { status: 400 });
     }
 
-    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-    const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+    const instId = (institutionId || 'yamanevler').trim().toLowerCase();
+    const reportId = `report-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const nowIso = new Date().toISOString();
 
-    if (projectId && apiKey) {
-      const res = await fetch(
-        `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/reports?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            fields: {
-              student_id:     { stringValue: studentId },
-              student_name:   { stringValue: studentName || '' },
-              class:          { stringValue: className || '' },
-              parent_phone:   { stringValue: parentPhone || '' },
-              content:        { stringValue: content },
-              category:       { stringValue: category || 'Diğer' },
-              notified:       { booleanValue: !!notifyParent },
-              institution_id: { stringValue: institutionId },
-              created_at:     { timestampValue: new Date().toISOString() },
-              created_by:     { stringValue: createdBy || 'Bilinmeyen Öğretmen' },
-            },
-          }),
-        }
-      );
-      const data = await res.json();
-      if (!data.error && data.name) {
-        return NextResponse.json({ success: true, id: data.name.split('/').pop() });
-      }
-    }
-
-    // Local DB fallback
-    const dbData = readDb();
     const newReport = {
-      id: `report-${Date.now()}`,
+      id: reportId,
       student_id:     studentId,
       student_name:   studentName || '',
       class:          className || '',
@@ -116,15 +102,50 @@ export async function POST(req) {
       content,
       category:       category || 'Diğer',
       notified:       !!notifyParent,
-      institution_id: institutionId,
-      created_at:     new Date().toISOString(),
+      institution_id: instId,
+      created_at:     nowIso,
       created_by:     createdBy || 'Bilinmeyen Öğretmen',
     };
+
+    // 1. Local DB Save
+    const dbData = readDb();
     dbData.reports = dbData.reports || [];
     dbData.reports.push(newReport);
     writeDb(dbData);
 
-    return NextResponse.json({ success: true, id: newReport.id, report: newReport });
+    // 2. Firestore Save
+    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+    const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+
+    if (projectId && apiKey) {
+      try {
+        await fetch(
+          `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/reports/${reportId}?key=${apiKey}`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              fields: {
+                student_id:     { stringValue: studentId },
+                student_name:   { stringValue: studentName || '' },
+                class:          { stringValue: className || '' },
+                parent_phone:   { stringValue: parentPhone || '' },
+                content:        { stringValue: content },
+                category:       { stringValue: category || 'Diğer' },
+                notified:       { booleanValue: !!notifyParent },
+                institution_id: { stringValue: instId },
+                created_at:     { timestampValue: nowIso },
+                created_by:     { stringValue: createdBy || 'Bilinmeyen Öğretmen' },
+              },
+            }),
+          }
+        );
+      } catch (err) {
+        console.warn('Firestore POST REPORT warning:', err.message);
+      }
+    }
+
+    return NextResponse.json({ success: true, id: reportId, report: newReport });
   } catch (err) {
     console.error('ADD REPORT API ERROR:', err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
@@ -138,19 +159,27 @@ export async function DELETE(req) {
     const id = searchParams.get('id');
     if (!id) return NextResponse.json({ success: false, error: 'Rapor ID eksik.' }, { status: 400 });
 
+    // 1. Local DB Delete
+    const dbData = readDb();
+    if (dbData.reports) {
+      dbData.reports = dbData.reports.filter(r => r.id !== id);
+      writeDb(dbData);
+    }
+
+    // 2. Firestore Delete
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
     const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
     if (projectId && apiKey) {
-      await fetch(
-        `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/reports/${id}?key=${apiKey}`,
-        { method: 'DELETE' }
-      );
+      try {
+        await fetch(
+          `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/reports/${id}?key=${apiKey}`,
+          { method: 'DELETE' }
+        );
+      } catch (err) {
+        console.warn('Firestore DELETE REPORT warning:', err.message);
+      }
     }
-
-    const dbData = readDb();
-    if (dbData.reports) dbData.reports = dbData.reports.filter(r => r.id !== id);
-    writeDb(dbData);
 
     return NextResponse.json({ success: true, id });
   } catch (err) {
@@ -170,8 +199,8 @@ export async function PUT(req) {
       dbData.reports = dbData.reports.map(r =>
         r.id === id ? { ...r, notified: !!notified } : r
       );
+      writeDb(dbData);
     }
-    writeDb(dbData);
 
     return NextResponse.json({ success: true });
   } catch (err) {

@@ -12,17 +12,25 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser]                       = useState(null);
+  const [userName, setUserName]               = useState(null);
   const [role, setRole]                       = useState(null);
   const [institutionId, setInstitutionId]     = useState(null);
   const [institutionName, setInstitutionName] = useState(null);
+  const [logoUrl, setLogoUrl]                 = useState('');
+  const [primaryColor, setPrimaryColor]       = useState('#06429c');
+  const [enabledModules, setEnabledModules]   = useState({ ai: true, leave: true, tv: true, weekly: true });
   const [loading, setLoading]                 = useState(true);
 
   // Apply a local profile (from localStorage fallback session)
   const applyLocalProfile = (profile) => {
-    setUser({ uid: profile.uid, email: profile.email, _local: true });
+    setUser({ uid: profile.uid, email: profile.email, name: profile.name, _local: true });
+    setUserName(profile.name || '');
     setRole(profile.role || 'teacher');
     setInstitutionId(profile.institutionId);
     setInstitutionName(profile.institutionName);
+    setLogoUrl(profile.logoUrl || '');
+    setPrimaryColor(profile.primaryColor || '#06429c');
+    if (profile.enabledModules) setEnabledModules(profile.enabledModules);
   };
 
   useEffect(() => {
@@ -53,35 +61,48 @@ export function AuthProvider({ children }) {
             // Disabled account — sign out immediately
             await signOut(auth);
             setUser(null);
+            setUserName(null);
             setRole(null);
             setInstitutionId(null);
             setInstitutionName(null);
+            setLogoUrl('');
+            setPrimaryColor('#06429c');
             setLoading(false);
             return;
           }
           const data = await res.json();
           if (data.success && data.profile) {
+            setUserName(data.profile.name || firebaseUser.displayName || '');
             setRole(data.profile.role || 'teacher');
             setInstitutionId(data.profile.institutionId);
             setInstitutionName(data.profile.institutionName);
+            setLogoUrl(data.profile.logoUrl || '');
+            setPrimaryColor(data.profile.primaryColor || '#06429c');
+            if (data.profile.enabledModules) setEnabledModules(data.profile.enabledModules);
           } else {
+            // Profile not found - use minimal defaults based on Firebase user
             const isSuper = firebaseUser.email === 'admin@yeb.local';
-            setRole(isSuper ? 'super_admin' : 'admin');
-            setInstitutionId(isSuper ? 'platform' : 'yamanevler');
-            setInstitutionName(isSuper ? 'Sistem Yönetimi' : 'Yamanevler Enderun Bilişim');
+            setUserName(isSuper ? 'Sistem Yöneticisi' : (firebaseUser.displayName || ''));
+            setRole(isSuper ? 'super_admin' : 'teacher');
+            setInstitutionId(isSuper ? 'platform' : null);
+            setInstitutionName(isSuper ? 'Sistem Yönetimi' : null);
           }
         } catch (err) {
-          console.error("Auth context load profile error:", err);
+          console.error('Auth context load profile error:', err);
           const isSuper = firebaseUser.email === 'admin@yeb.local';
-          setRole(isSuper ? 'super_admin' : 'admin');
-          setInstitutionId(isSuper ? 'platform' : 'yamanevler');
-          setInstitutionName(isSuper ? 'Sistem Yönetimi' : 'Yamanevler Enderun Bilişim');
+          setUserName(isSuper ? 'Sistem Yöneticisi' : (firebaseUser.displayName || ''));
+          setRole(isSuper ? 'super_admin' : 'teacher');
+          setInstitutionId(isSuper ? 'platform' : null);
+          setInstitutionName(isSuper ? 'Sistem Yönetimi' : null);
         }
       } else {
         setUser(null);
+        setUserName(null);
         setRole(null);
         setInstitutionId(null);
         setInstitutionName(null);
+        setLogoUrl('');
+        setPrimaryColor('#06429c');
       }
       setLoading(false);
     });
@@ -89,8 +110,6 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = (email, password) => {
-    // Firebase SDK requires a valid TLD — normalize non-standard emails
-    // e.g. kiliaslan@2026 → kiliaslan@2026.com
     const parts = email.split('@');
     const firebaseEmail = (parts.length === 2 && !parts[1].includes('.'))
       ? `${parts[0]}@${parts[1]}.com`
@@ -106,7 +125,11 @@ export function AuthProvider({ children }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, role, institutionId, institutionName, loading, login, logout }}>
+    <AuthContext.Provider value={{
+      user, userName, role, institutionId, institutionName,
+      logoUrl, primaryColor, enabledModules,
+      loading, login, logout
+    }}>
       {children}
     </AuthContext.Provider>
   );

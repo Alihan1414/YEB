@@ -4,6 +4,29 @@ import { NextResponse } from 'next/server';
 const FIREBASE_API_KEY    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY    || 'AIzaSyA1UmjpiDX47qk8c6tJoM1xkJbRMGIsqfg';
 const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'student-687f2';
 
+// Helper: get institution branding from local DB
+function getInstBranding(instId) {
+  try {
+    const { readDb } = require('@/lib/db');
+    const dbData = readDb();
+    const inst = (dbData.institutions || []).find(i => i.id === instId);
+    if (inst) {
+      return {
+        logoUrl: inst.logoUrl || '',
+        primaryColor: inst.primaryColor || '#06429c',
+        enabledModules: inst.enabledModules || { ai: true, leave: true, tv: true, weekly: true },
+        institutionName: inst.name || instId,
+      };
+    }
+  } catch {}
+  return {
+    logoUrl: '',
+    primaryColor: '#06429c',
+    enabledModules: { ai: true, leave: true, tv: true, weekly: true },
+    institutionName: null,
+  };
+}
+
 export async function POST(req) {
   try {
     const { email, password } = await req.json();
@@ -61,13 +84,20 @@ export async function POST(req) {
                 { status: 403 }
               );
             }
+            const instId = f.institutionId?.stringValue || 'unknown';
+            const branding = getInstBranding(instId);
+            const instName = f.institutionName?.stringValue || branding.institutionName || instId;
+
             profile = {
               uid,
               name:            f.name?.stringValue            || '',
               email:           f.email?.stringValue           || trimmedEmail,
               role:            f.role?.stringValue            || 'teacher',
-              institutionId:   f.institutionId?.stringValue   || 'yamanevler',
-              institutionName: f.institutionName?.stringValue || 'Yamanevler Enderun Bilişim',
+              institutionId:   instId,
+              institutionName: instName,
+              logoUrl:         f.logoUrl?.stringValue         || branding.logoUrl,
+              primaryColor:    f.primaryColor?.stringValue    || branding.primaryColor,
+              enabledModules:  branding.enabledModules,
             };
           }
         }
@@ -95,13 +125,20 @@ export async function POST(req) {
                 { status: 403 }
               );
             }
+            const instId = foundLocal.institutionId || 'unknown';
+            const branding = getInstBranding(instId);
+            const instName = foundLocal.institutionName || branding.institutionName || instId;
+
             profile = {
               uid: foundLocal.id || foundLocal.email,
               name:            foundLocal.name || '',
               email:           foundLocal.email || trimmedEmail,
               role:            foundLocal.role || 'teacher',
-              institutionId:   foundLocal.institutionId || 'yamanevler',
-              institutionName: foundLocal.institutionName || 'Yamanevler Enderun Bilişim',
+              institutionId:   instId,
+              institutionName: instName,
+              logoUrl:         foundLocal.logoUrl         || branding.logoUrl,
+              primaryColor:    foundLocal.primaryColor    || branding.primaryColor,
+              enabledModules:  branding.enabledModules,
             };
           }
         }
@@ -110,18 +147,21 @@ export async function POST(req) {
       }
     }
 
-    // 3. Fallback: seed accounts if not matched but matches hardcoded values
+    // 3. Fallback: seed accounts (super admin only)
     if (!profile) {
-      const isSuper = (trimmedEmail === 'alihan@2026' || trimmedEmail === 'admin@yeb.local') && (password === 'alihan1434' || password === 'admin123');
-      const isYeb   = trimmedEmail === 'yeb@2026.com' && password === 'yeb2026';
-      if (isSuper || isYeb) {
+      const isSuper = (trimmedEmail === 'alihan@2026' || trimmedEmail === 'admin@yeb.local') &&
+                      (password === 'alihan1434' || password === 'admin123');
+      if (isSuper) {
         profile = {
-          uid: isSuper ? 'super-admin' : 'yeb-admin',
-          name:            isSuper ? 'Sistem Yöneticisi' : 'Yamanevler Admin',
-          email:           trimmedEmail,
-          role:            isSuper ? 'super_admin' : 'admin',
-          institutionId:   isSuper ? 'platform' : 'yamanevler',
-          institutionName: isSuper ? 'Sistem Yönetimi' : 'Yamanevler Enderun Bilişim',
+          uid: 'super-admin',
+          name: 'Sistem Yöneticisi',
+          email: 'admin@yeb.local',
+          role: 'super_admin',
+          institutionId: 'platform',
+          institutionName: 'Sistem Yönetimi',
+          logoUrl: '',
+          primaryColor: '#06429c',
+          enabledModules: { ai: true, leave: true, tv: true, weekly: true },
         };
       }
     }

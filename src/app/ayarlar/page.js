@@ -10,6 +10,7 @@ import {
   Bell, BellOff, Target, Building2, ChevronRight, ExternalLink,
   Info, RefreshCw, Lock
 } from 'lucide-react';
+import Sidebar, { MobileHeader } from '@/components/Sidebar';
 
 export default function AyarlarPage() {
   const { user, role, institutionId, institutionName, loading: authLoading, logout } = useAuth();
@@ -26,13 +27,70 @@ export default function AyarlarPage() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [savingGeneral, setSavingGeneral] = useState(false);
 
-  // ── Toast ───────────────────────────────────────────────────────────────────
+  // ── Toast & Links ───────────────────────────────────────────────────────────
   const [toast, setToast] = useState(null);
   const [linkCopied, setLinkCopied] = useState(false);
+
+  // ── Öğretmen Yönetimi ───────────────────────────────────────────────────────
+  const [newTeacherName, setNewTeacherName] = useState('');
+  const [newTeacherEmail, setNewTeacherEmail] = useState('');
+  const [newTeacherPassword, setNewTeacherPassword] = useState('');
+  const [addingTeacher, setAddingTeacher] = useState(false);
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleAddTeacher = async (e) => {
+    e.preventDefault();
+    if (!newTeacherName || !newTeacherPassword) {
+      showToast('Lütfen öğretmen adını ve şifresini girin.', 'error');
+      return;
+    }
+    setAddingTeacher(true);
+    const instId = institutionId || 'yamanevler';
+    try {
+      const res = await fetch('/api/admin/teachers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newTeacherName,
+          email: newTeacherEmail || undefined,
+          password: newTeacherPassword,
+          institutionId: instId,
+          institutionName: institutionName || 'Enderun Bilişim'
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Öğretmen hesabı başarıyla eklendi.');
+        setNewTeacherName(''); setNewTeacherEmail(''); setNewTeacherPassword('');
+        fetchTeachers();
+      } else {
+        throw new Error(data.error || 'Öğretmen eklenemedi.');
+      }
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setAddingTeacher(false);
+    }
+  };
+
+  const handleDeleteTeacher = async (teacherId) => {
+    if (!confirm('Bu öğretmen hesabını silmek istediğinize emin misiniz?')) return;
+    try {
+      const res = await fetch(`/api/admin/teachers?id=${encodeURIComponent(teacherId)}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Öğretmen hesabı silindi.');
+        fetchTeachers();
+      } else {
+        throw new Error(data.error || 'Silinemedi.');
+      }
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
   };
 
   // ── Auth guard ──────────────────────────────────────────────────────────────
@@ -171,76 +229,8 @@ export default function AyarlarPage() {
   return (
     <div className="min-h-screen bg-[#eef5fc] text-slate-800 flex flex-col md:flex-row font-sans">
 
-      {/* ── Sidebar ── */}
-      <aside className="hidden md:flex w-64 bg-gradient-to-b from-[#06429c] via-[#053787] to-[#011c4d] text-white flex-col justify-between p-6 shrink-0 shadow-2xl">
-        <div>
-          {/* Logo */}
-          <div className="flex flex-col items-center text-center space-y-3 pt-4 pb-8 border-b border-white/10">
-            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center p-2.5 shadow-lg">
-              <svg viewBox="0 0 100 100" className="w-full h-full text-[#06429c]" fill="currentColor">
-                <path d="M50 15 L20 30 L50 45 L80 30 Z M20 40 L20 70 L50 85 L50 55 Z M80 40 L50 55 L50 85 L80 70 Z" />
-              </svg>
-            </div>
-            <div>
-              <h2 className="text-xs font-black tracking-widest text-blue-200 uppercase">{institutionName || 'Kurumsal Rapor'}</h2>
-              <p className="text-sm font-extrabold tracking-wider text-white">YÖNETİCİ PANELİ</p>
-            </div>
-          </div>
-
-          <nav className="mt-8 space-y-2">
-            <a href="/" className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-white hover:bg-white/10 font-semibold text-sm transition-all">
-              <User size={18} /> Öğrenciler
-            </a>
-            <a href="/haftalik" className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-white hover:bg-white/10 font-semibold text-sm transition-all">
-              <Trophy size={18} /> Haftalık Özet
-            </a>
-            <a href="/tv" className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-white hover:bg-white/10 font-semibold text-sm transition-all">
-              <Tv size={18} /> TV Ekranı
-            </a>
-            {leaveSettings.enabled && (
-              <a href="/izinler" className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-white hover:bg-white/10 font-semibold text-sm transition-all">
-                <Calendar size={18} /> İzin Yönetimi
-              </a>
-            )}
-            <a href="/ayarlar" className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-600/90 text-white font-bold text-sm shadow-md transition-all border border-blue-400/30">
-              <Settings size={18} /> Ayarlar
-            </a>
-            <button onClick={logout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-red-300 hover:bg-red-500/10 font-semibold text-sm transition-all">
-              <LogOut size={18} /> Çıkış
-            </button>
-          </nav>
-        </div>
-
-        <div className="pt-6 border-t border-white/10 flex items-center gap-3">
-          <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center p-2 text-white">
-            <svg viewBox="0 0 100 100" className="w-full h-full" fill="currentColor">
-              <path d="M50 15 L20 30 L50 45 L80 30 Z M20 40 L20 70 L50 85 L50 55 Z M80 40 L50 55 L50 85 L80 70 Z" />
-            </svg>
-          </div>
-          <div className="text-[11px] leading-tight">
-            <div className="font-bold text-white">{institutionName || 'Yamanevler Enderun'}</div>
-            <div className="text-blue-200 text-[10px]">Aktif Kurum</div>
-          </div>
-        </div>
-      </aside>
-
-      {/* ── Mobile Header ── */}
-      <header className="md:hidden bg-white px-5 py-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-[#06429c] rounded-xl flex items-center justify-center p-1.5 text-white">
-            <svg viewBox="0 0 100 100" className="w-full h-full" fill="currentColor">
-              <path d="M50 15 L20 30 L50 45 L80 30 Z M20 40 L20 70 L50 85 L50 55 Z M80 40 L50 55 L50 85 L80 70 Z" />
-            </svg>
-          </div>
-          <div className="text-left">
-            <div className="text-[9px] font-bold text-blue-900 leading-none">{institutionId?.toUpperCase() || 'YAMANEVLER'}</div>
-            <div className="text-[11px] font-extrabold text-blue-800 leading-none">{institutionName || 'ENDERUN BİLİŞİM'}</div>
-          </div>
-        </div>
-        <button onClick={logout} className="p-2 bg-red-50 text-red-600 rounded-xl">
-          <LogOut size={18} />
-        </button>
-      </header>
+      <Sidebar leaveEnabled={leaveSettings.enabled} />
+      <MobileHeader title="Ayarlar" />
 
       {/* ── Toast ── */}
       <AnimatePresence>
@@ -455,6 +445,114 @@ export default function AyarlarPage() {
               )}
             </div>
           </motion.section>
+
+          {/* ── Section: Öğretmen Yönetimi (Admin Only) ── */}
+          {role === 'admin' && (
+            <motion.section
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.22 }}
+              className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden"
+            >
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <User className="text-blue-600" size={18} />
+                  <h2 className="font-extrabold text-slate-800 text-sm">Öğretmen Hesabı Kaydet &amp; Yönet</h2>
+                </div>
+                <span className="text-[10px] bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full font-bold border border-blue-100">
+                  {teachers.length} Kayıtlı Öğretmen
+                </span>
+              </div>
+
+              <div className="p-6 space-y-6">
+                {/* Öğretmen Ekleme Formu */}
+                <form onSubmit={handleAddTeacher} className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-4">
+                  <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider">Yeni Öğretmen Ekle</h3>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Öğretmen Adı Soyadı *</label>
+                      <input
+                        type="text"
+                        placeholder="Örn: Ahmet Yılmaz"
+                        value={newTeacherName}
+                        onChange={e => setNewTeacherName(e.target.value)}
+                        required
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500 font-semibold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">E-Posta Adresi (Opsiyonel)</label>
+                      <input
+                        type="email"
+                        placeholder="Boş bırakılırsa otomatik üretilir"
+                        value={newTeacherEmail}
+                        onChange={e => setNewTeacherEmail(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500 font-semibold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Şifre *</label>
+                      <input
+                        type="password"
+                        placeholder="Giriş şifresi belirleyin"
+                        value={newTeacherPassword}
+                        onChange={e => setNewTeacherPassword(e.target.value)}
+                        required
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500 font-semibold"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={addingTeacher}
+                    className="w-full sm:w-auto px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {addingTeacher ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
+                    Öğretmen Hesabını Kaydet
+                  </button>
+                </form>
+
+                {/* Öğretmen Listesi */}
+                <div className="space-y-3">
+                  <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider">Kurum Öğretmenleri Listesi</h3>
+                  
+                  {teachers.length === 0 ? (
+                    <div className="text-center py-6 bg-slate-50 rounded-2xl border border-slate-100 text-slate-400 text-xs italic">
+                      Henüz eklenmiş öğretmen kaydı bulunmuyor.
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-slate-100 border border-slate-100 rounded-2xl overflow-hidden">
+                      {teachers.map(t => (
+                        <div key={t.id || t.email} className="px-4 py-3 bg-white flex items-center justify-between hover:bg-slate-50/60 transition-all">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">
+                              {(t.name || '?')[0].toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-extrabold text-slate-800 text-xs">{t.name}</p>
+                              <p className="text-[10px] text-slate-400 font-mono">{t.email}</p>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => handleDeleteTeacher(t.id || t.email)}
+                            className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs transition-all font-bold"
+                            title="Öğretmeni Sil"
+                          >
+                            Sil
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.section>
+          )}
 
           {/* ── Section: Genel Ayarlar ── */}
           <motion.section
