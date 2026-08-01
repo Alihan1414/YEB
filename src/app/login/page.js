@@ -98,26 +98,25 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (res.ok && data.success && data.profile) {
-        // Save user session to localStorage
+        // Clear any stale session before writing new one
+        localStorage.clear();
         localStorage.setItem('localUser', JSON.stringify(data.profile));
         
-        // Redirect super admin to /admin, others to /
+        // Hard redirect to prevent stale context from previous session
         if (data.profile.role === 'super_admin') {
-          router.push('/admin');
+          window.location.href = '/admin';
         } else {
-          router.push('/');
+          window.location.href = '/';
         }
-        window.location.reload();
         return;
       }
 
-      // 2. If server API returned error (e.g. Firebase Auth user), try client-side Firebase Auth
+      // 2. If server API returned error, try client-side Firebase Auth
       await login(email, password);
-      router.push('/');
+      window.location.href = '/';
     } catch (err) {
       console.warn("Login attempt error:", err);
       setError(err.message || 'Kullanıcı adı/E-posta veya şifre hatalı.');
-    } finally {
       setLoading(false);
     }
   };

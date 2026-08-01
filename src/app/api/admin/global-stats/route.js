@@ -10,6 +10,7 @@ export async function GET(req) {
     let allStudents = [];
     let allReports = [];
     let allLeaves = [];
+    let allFirestoreInsts = [];
 
     // --- 1. Fetch Users ---
     try {
@@ -31,6 +32,27 @@ export async function GET(req) {
       }
     } catch (err) {
       console.warn("Firestore fetch users failed in global-stats:", err.message);
+    }
+
+    // --- 1b. Fetch Institutions collection directly ---
+    try {
+      const res = await fetch(`https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/institutions?key=${FIREBASE_API_KEY}`, { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        allFirestoreInsts = (data.documents || []).map(doc => {
+          const f = doc.fields || {};
+          return {
+            id: doc.name.split('/').pop(),
+            name: f.name?.stringValue || '',
+            email: f.email?.stringValue || '',
+            logoUrl: f.logoUrl?.stringValue || '',
+            primaryColor: f.primaryColor?.stringValue || '#06429c',
+            disabled: f.disabled?.booleanValue || false,
+          };
+        });
+      }
+    } catch (err) {
+      console.warn("Firestore fetch institutions failed in global-stats:", err.message);
     }
 
     // --- 2. Fetch Students ---
@@ -185,21 +207,44 @@ export async function GET(req) {
     // --- 6. Group and Calculate ---
     const instGroup = {};
 
-    // First populate from localInsts database
-    localInsts.forEach(li => {
-      instGroup[li.id] = {
-        id: li.id,
-        name: li.name || li.id,
-        email: li.email || '',
-        logoUrl: li.logoUrl || '',
-        primaryColor: li.primaryColor || '#06429c',
-        enabledModules: li.enabledModules || { ai: true, leave: true, tv: true, weekly: true },
+    // First populate from Firestore institutions collection (highest priority)
+    allFirestoreInsts.forEach(fi => {
+      instGroup[fi.id] = {
+        id: fi.id,
+        name: fi.name || fi.id,
+        email: fi.email || '',
+        logoUrl: fi.logoUrl || '',
+        primaryColor: fi.primaryColor || '#06429c',
+        enabledModules: { ai: true, leave: true, tv: true, weekly: true },
         studentCount: 0,
         reportCount: 0,
         userCount: 0,
         pendingLeaveCount: 0,
-        disabled: !!li.disabled
+        disabled: !!fi.disabled
       };
+    });
+
+    // Then merge from localInsts (fills in enabledModules and any local-only kurumlar)
+    localInsts.forEach(li => {
+      if (instGroup[li.id]) {
+        // Already from Firestore — supplement missing fields only
+        instGroup[li.id].enabledModules = li.enabledModules || instGroup[li.id].enabledModules;
+        if (!instGroup[li.id].logoUrl && li.logoUrl) instGroup[li.id].logoUrl = li.logoUrl;
+      } else {
+        instGroup[li.id] = {
+          id: li.id,
+          name: li.name || li.id,
+          email: li.email || '',
+          logoUrl: li.logoUrl || '',
+          primaryColor: li.primaryColor || '#06429c',
+          enabledModules: li.enabledModules || { ai: true, leave: true, tv: true, weekly: true },
+          studentCount: 0,
+          reportCount: 0,
+          userCount: 0,
+          pendingLeaveCount: 0,
+          disabled: !!li.disabled
+        };
+      }
     });
 
     // Group from users to find all institutions
