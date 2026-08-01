@@ -21,58 +21,75 @@ function buildStatusAndDate(studentId, allReports) {
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
-    // institutionId defaults to 'yamanevler' for backward compatibility
-    const institutionId = searchParams.get('institutionId') || 'yamanevler';
+    const rawInstId = searchParams.get('institutionId') || 'yamanevler';
+    const normInstId = rawInstId.trim().toLowerCase();
 
     const dbData = readDb();
     const allReports = dbData.reports || [];
+    let combinedStudents = [];
 
+    // 1. Fetch Firestore students
     const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 
     if (projectId && apiKey) {
-      const res = await fetch(
-        `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/students?key=${apiKey}`,
-        { cache: 'no-store' }
-      );
-      const data = await res.json();
-
-      if (!data.error && data.documents) {
-        let students = data.documents.map(doc => {
-          const fields = doc.fields || {};
-          const id = doc.name.split('/').pop();
-          const info = buildStatusAndDate(id, allReports);
-          return {
-            id,
-            name:           fields.name?.stringValue || '',
-            surname:        fields.surname?.stringValue || '',
-            class:          fields.class?.stringValue || '',
-            parent_phone:   fields.parent_phone?.stringValue || '',
-            institution_id: fields.institution_id?.stringValue || 'yamanevler',
-            created_at:     fields.created_at?.timestampValue || null,
-            last_report_date: info.last_report_date,
-            status:         info.status,
-          };
-        });
-
-        // Filter by institution
-        students = students.filter(s => s.institution_id === institutionId);
-        students.sort((a, b) => (a.surname || '').localeCompare(b.surname || '', 'tr'));
-        return NextResponse.json({ success: true, students });
+      try {
+        const res = await fetch(
+          `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/students?key=${apiKey}`,
+          { cache: 'no-store' }
+        );
+        const data = await res.json();
+        if (!data.error && data.documents) {
+          data.documents.forEach(doc => {
+            const fields = doc.fields || {};
+            const id = doc.name.split('/').pop();
+            const inst = (fields.institution_id?.stringValue || 'yamanevler').trim().toLowerCase();
+            if (inst === normInstId) {
+              const info = buildStatusAndDate(id, allReports);
+              combinedStudents.push({
+                id,
+                name:           fields.name?.stringValue || '',
+                surname:        fields.surname?.stringValue || '',
+                class:          fields.class?.stringValue || '',
+                parent_phone:   fields.parent_phone?.stringValue || '',
+                institution_id: fields.institution_id?.stringValue || rawInstId,
+                created_at:     fields.created_at?.timestampValue || null,
+                last_report_date: info.last_report_date,
+                status:         info.status,
+              });
+            }
+          });
+        }
+      } catch (err) {
+        console.warn('Firestore GET students error:', err.message);
       }
     }
 
-    // ── Local DB fallback ───────────────────────────────────────────────────
-    const students = (dbData.students || [])
-      .filter(s => (s.institution_id || 'yamanevler') === institutionId)
-      .map(s => ({ ...s, ...buildStatusAndDate(s.id, allReports) }))
-      .sort((a, b) => (a.surname || '').localeCompare(b.surname || '', 'tr'));
+    // 2. Merge local DB students (ensures locally added students are never missed)
+    const localStudents = dbData.students || [];
+    localStudents.forEach(ls => {
+      const inst = (ls.institution_id || 'yamanevler').trim().toLowerCase();
+      if (inst === normInstId) {
+        if (!combinedStudents.some(s => s.id === ls.id)) {
+          const info = buildStatusAndDate(ls.id, allReports);
+          combinedStudents.push({
+            ...ls,
+            ...info,
+          });
+        }
+      }
+    });
 
-    return NextResponse.json({ success: true, students });
+    combinedStudents.sort((a, b) => (a.surname || '').localeCompare(b.surname || '', 'tr'));
+    return NextResponse.json({ success: true, students: combinedStudents });
   } catch (err) {
     console.error('GET STUDENTS API ERROR:', err);
     const dbData = readDb();
-    const students = (dbData.students || []).map(s => ({ ...s, last_report_date: null, status: 'Rapor Yok' }));
+    const rawInstId = new URL(req.url).searchParams.get('institutionId') || 'yamanevler';
+    const normInstId = rawInstId.trim().toLowerCase();
+    const students = (dbData.students || [])
+      .filter(s => (s.institution_id || 'yamanevler').trim().toLowerCase() === normInstId)
+      .map(s => ({ ...s, last_report_date: null, status: 'Rapor Yok' }));
     return NextResponse.json({ success: true, students });
   }
 }
