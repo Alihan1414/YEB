@@ -80,7 +80,67 @@ export async function GET(req) {
 // ─── POST ────────────────────────────────────────────────────────────────────
 export async function POST(req) {
   try {
-    const { name, surname, studentClass, parentPhone, institutionId = 'yamanevler' } = await req.json();
+    const body = await req.json();
+
+    // Check if bulk insert (array of students)
+    if (body.students && Array.isArray(body.students)) {
+      const { students, institutionId = 'yamanevler' } = body;
+      const createdStudents = [];
+      const dbData = readDb();
+      dbData.students = dbData.students || [];
+
+      const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+      const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+
+      for (let i = 0; i < students.length; i++) {
+        const item = students[i];
+        if (!item.name || !item.surname || !item.studentClass) continue;
+
+        const stId = `student-${Date.now()}-${i}-${Math.floor(Math.random()*1000)}`;
+        const newSt = {
+          id: stId,
+          name: item.name.trim(),
+          surname: item.surname.trim(),
+          class: item.studentClass.trim(),
+          parent_phone: item.parentPhone ? item.parentPhone.trim() : '',
+          institution_id: institutionId,
+          created_at: new Date().toISOString(),
+        };
+
+        if (projectId && apiKey) {
+          try {
+            await fetch(
+              `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/students/${stId}?key=${apiKey}`,
+              {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  fields: {
+                    name:           { stringValue: newSt.name },
+                    surname:        { stringValue: newSt.surname },
+                    class:          { stringValue: newSt.class },
+                    parent_phone:   { stringValue: newSt.parent_phone },
+                    institution_id: { stringValue: institutionId },
+                    created_at:     { timestampValue: newSt.created_at },
+                  },
+                }),
+              }
+            );
+          } catch (e) {
+            console.warn("Firestore bulk student add error for item:", item, e.message);
+          }
+        }
+
+        dbData.students.push(newSt);
+        createdStudents.push(newSt);
+      }
+
+      writeDb(dbData);
+      return NextResponse.json({ success: true, count: createdStudents.length, students: createdStudents });
+    }
+
+    // Single student creation
+    const { name, surname, studentClass, parentPhone, institutionId = 'yamanevler' } = body;
 
     if (!name || !surname || !studentClass) {
       return NextResponse.json({ success: false, error: 'Eksik bilgi.' }, { status: 400 });
@@ -88,43 +148,47 @@ export async function POST(req) {
 
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
     const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+    const stId = `student-${Date.now()}-${Math.floor(Math.random()*1000)}`;
 
-    if (projectId && apiKey) {
-      const res = await fetch(
-        `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/students?key=${apiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            fields: {
-              name:           { stringValue: name },
-              surname:        { stringValue: surname },
-              class:          { stringValue: studentClass },
-              parent_phone:   { stringValue: parentPhone || '' },
-              institution_id: { stringValue: institutionId },
-              created_at:     { timestampValue: new Date().toISOString() },
-            },
-          }),
-        }
-      );
-      const data = await res.json();
-      if (!data.error && data.name) {
-        return NextResponse.json({ success: true, id: data.name.split('/').pop() });
-      }
-    }
-
-    // Local DB fallback
-    const dbData = readDb();
     const newStudent = {
-      id: `student-${Date.now()}`,
-      name,
-      surname,
-      class: studentClass,
-      parent_phone: parentPhone || '',
+      id: stId,
+      name: name.trim(),
+      surname: surname.trim(),
+      class: studentClass.trim(),
+      parent_phone: parentPhone ? parentPhone.trim() : '',
       institution_id: institutionId,
       created_at: new Date().toISOString(),
     };
+
+    if (projectId && apiKey) {
+      try {
+        await fetch(
+          `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/students/${stId}?key=${apiKey}`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              fields: {
+                name:           { stringValue: newStudent.name },
+                surname:        { stringValue: newStudent.surname },
+                class:          { stringValue: newStudent.class },
+                parent_phone:   { stringValue: newStudent.parent_phone },
+                institution_id: { stringValue: institutionId },
+                created_at:     { timestampValue: newStudent.created_at },
+              },
+            }),
+          }
+        );
+      } catch (e) {
+        console.warn("Firestore single student add error:", e.message);
+      }
+    }
+
+    // Always sync with Local DB
+    const dbData = readDb();
     dbData.students = dbData.students || [];
+    // remove duplicate if exists
+    dbData.students = dbData.students.filter(s => s.id !== stId);
     dbData.students.push(newStudent);
     writeDb(dbData);
 

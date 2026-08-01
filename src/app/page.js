@@ -378,25 +378,14 @@ export default function StudentsPage() {
 
       setNewName(''); setNewSurname(''); setNewClass(''); setNewParentPhone('');
       setShowAddStudent(false);
+      if (data.student) {
+        setStudents(prev => [...prev.filter(s => s.id !== data.student.id), data.student]);
+      }
       await fetchStudents();
       showToast('Öğrenci başarıyla eklendi!');
     } catch (e) {
-      console.error(e);
-      try {
-        await addDoc(collection(db, 'students'), {
-          name: newName,
-          surname: newSurname,
-          class: newClass,
-          parent_phone: newParentPhone || '',
-          created_at: serverTimestamp(),
-        });
-        setNewName(''); setNewSurname(''); setNewClass(''); setNewParentPhone('');
-        setShowAddStudent(false);
-        await fetchStudents();
-        showToast('Öğrenci başarıyla eklendi!');
-      } catch (err) {
-        showToast('Hata: ' + err.message, 'error');
-      }
+      console.error('handleAddStudent error:', e);
+      showToast('Hata: ' + e.message, 'error');
     }
   };
 
@@ -410,6 +399,7 @@ export default function StudentsPage() {
       if (!data.success) throw new Error(data.error || 'Silme başarısız');
       showToast('Öğrenci silindi');
       if (selectedStudent?.id === id) setSelectedStudent(null);
+      setStudents(prev => prev.filter(s => s.id !== id));
       await fetchStudents();
     } catch (err) {
       showToast('Hata: ' + err.message, 'error');
@@ -443,9 +433,16 @@ export default function StudentsPage() {
       window.open(waUrl, '_blank');
       
       await fetch('/api/students/reports', {
-        method: 'PUT',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: report.id, notified: true }),
+        body: JSON.stringify({
+          student_id: selectedStudent.id,
+          student_name: `${selectedStudent.name} ${selectedStudent.surname}`,
+          class_name: selectedStudent.class,
+          content: `[WhatsApp İletildi] ${report.content}`,
+          category: report.category,
+          institutionId: institutionId || 'yamanevler',
+        }),
       });
       
       await fetch('/api/notify', {
@@ -485,7 +482,7 @@ export default function StudentsPage() {
     }
   };
 
-  // ─── CSV Import ────────────────────────────────────────────────────────────
+  // ─── CSV / Excel Toplu İçe Aktarma ──────────────────────────────────────────
   const handleCSVImport = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
