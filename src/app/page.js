@@ -138,7 +138,7 @@ export default function StudentsPage() {
         .then(d => { if (d.success && d.settings) setLeaveEnabled(!!d.settings.enabled); })
         .catch(() => {});
     }
-  }, [user]);
+  }, [user, institutionId]);
   useEffect(() => {
     if (selectedStudent) {
       fetchReports(selectedStudent.id);
@@ -153,20 +153,15 @@ export default function StudentsPage() {
     try {
       const res = await fetch(`/api/students?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' });
       const apiData = await res.json();
-      if (apiData.success && apiData.students && apiData.students.length > 0) {
+      if (apiData.success && Array.isArray(apiData.students)) {
         setStudents(apiData.students);
         return;
       }
-      
-      const snap = await getDocs(collection(db, 'students'));
-      const list = snap.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      list.sort((a, b) => (a.surname || '').localeCompare(b.surname || '', 'tr'));
-      setStudents(list);
-    } catch (e) { console.error('fetchStudents error:', e); }
-    finally { setDataLoading(false); }
+    } catch (e) {
+      console.error('fetchStudents API error:', e);
+    } finally {
+      setDataLoading(false);
+    }
   };
 
   const fetchReports = async (studentId) => {
