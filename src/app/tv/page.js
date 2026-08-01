@@ -115,11 +115,10 @@ export default function TVPage() {
   const [mottoIdx, setMottoIdx] = useState(0);
   const [hadithVisible, setHadithVisible] = useState(true);
 
-  // Audio
+  // Audio - Pure Web Audio API (yağmur + kristal kase ambient)
   const [isPlaying, setIsPlaying] = useState(false);
-  const audioRef = useRef(null);
   const audioCtxRef = useRef(null);
-  const oscillatorsRef = useRef([]);
+  const nodesRef = useRef([]);
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/login');
@@ -138,72 +137,126 @@ export default function TVPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Web Audio API ambient ses sentezi (fallback)
+  const stopAllNodes = () => {
+    nodesRef.current.forEach(n => { try { n.stop ? n.stop() : n.disconnect(); } catch {} });
+    nodesRef.current = [];
+  };
+
   const startAmbient = () => {
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!audioCtxRef.current) audioCtxRef.current = new AudioCtx();
       const ctx = audioCtxRef.current;
       if (ctx.state === 'suspended') ctx.resume();
+      stopAllNodes();
 
-      // Hepsini durdur
-      oscillatorsRef.current.forEach(o => { try { o.stop(); } catch {} });
-      oscillatorsRef.current = [];
+      const masterGain = ctx.createGain();
+      masterGain.gain.value = 0.55;
+      masterGain.connect(ctx.destination);
 
-      // Huzur verici frekanslarda çoklu osc.
-      const freqs = [174, 285, 396, 528];
-      freqs.forEach((freq, i) => {
+      // --- 1. Yağmur Sesi: Beyaz Gürültü + Bandpass Filtre ---
+      const bufferSize = ctx.sampleRate * 3;
+      const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
+
+      const rainSource = ctx.createBufferSource();
+      rainSource.buffer = noiseBuffer;
+      rainSource.loop = true;
+
+      const rainFilter = ctx.createBiquadFilter();
+      rainFilter.type = 'bandpass';
+      rainFilter.frequency.value = 1200;
+      rainFilter.Q.value = 0.5;
+
+      const rainFilter2 = ctx.createBiquadFilter();
+      rainFilter2.type = 'highpass';
+      rainFilter2.frequency.value = 400;
+
+      const rainGain = ctx.createGain();
+      rainGain.gain.value = 0.18;
+
+      rainSource.connect(rainFilter);
+      rainFilter.connect(rainFilter2);
+      rainFilter2.connect(rainGain);
+      rainGain.connect(masterGain);
+      rainSource.start();
+      nodesRef.current.push(rainSource);
+
+      // --- 2. Kristal Kase (Singing Bowl) Harmonikleri ---
+      const bowFreqs = [
+        { freq: 220, gain: 0.06, vibrato: 0.8 },
+        { freq: 330, gain: 0.04, vibrato: 1.1 },
+        { freq: 440, gain: 0.03, vibrato: 0.6 },
+        { freq: 528, gain: 0.025, vibrato: 0.9 },
+        { freq: 660, gain: 0.015, vibrato: 1.3 },
+      ];
+
+      bowFreqs.forEach(({ freq, gain, vibrato }, i) => {
         const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
+        const gainNode = ctx.createGain();
         const lfo = ctx.createOscillator();
         const lfoGain = ctx.createGain();
 
-        lfo.frequency.value = 0.3 + i * 0.1;
-        lfoGain.gain.value = 3;
+        // Hafif vibrato ile canlı hissiyat
+        lfo.type = 'sine';
+        lfo.frequency.value = vibrato;
+        lfoGain.gain.value = 1.5;
         lfo.connect(lfoGain);
         lfoGain.connect(osc.frequency);
         lfo.start();
 
         osc.type = 'sine';
         osc.frequency.value = freq;
-        gain.gain.value = 0.04;
-        osc.connect(gain);
-        gain.connect(ctx.destination);
+        gainNode.gain.value = gain;
+
+        // Yavaş nefes eden volume (LFO ile)
+        const volLfo = ctx.createOscillator();
+        const volLfoGain = ctx.createGain();
+        volLfo.type = 'sine';
+        volLfo.frequency.value = 0.12 + i * 0.03;
+        volLfoGain.gain.value = gain * 0.5;
+        volLfo.connect(volLfoGain);
+        volLfoGain.connect(gainNode.gain);
+        volLfo.start();
+
+        osc.connect(gainNode);
+        gainNode.connect(masterGain);
         osc.start();
-        oscillatorsRef.current.push(osc);
+        nodesRef.current.push(osc, lfo, volLfo);
       });
+
+      // --- 3. Derin Sub-bass Pedal (hafif zemin hissi) ---
+      const bass = ctx.createOscillator();
+      const bassGain = ctx.createGain();
+      bass.type = 'sine';
+      bass.frequency.value = 55;
+      bassGain.gain.value = 0.04;
+      bass.connect(bassGain);
+      bassGain.connect(masterGain);
+      bass.start();
+      nodesRef.current.push(bass);
+
     } catch (e) {
-      console.warn('Web Audio fallback failed:', e);
+      console.warn('Ambient audio error:', e);
     }
   };
 
-  const stopAmbient = () => {
-    oscillatorsRef.current.forEach(o => { try { o.stop(); } catch {} });
-    oscillatorsRef.current = [];
-  };
-
-  const toggleAudio = async () => {
+  const toggleAudio = () => {
     if (isPlaying) {
-      // Durdur
-      if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
-      stopAmbient();
+      stopAllNodes();
+      if (audioCtxRef.current) {
+        audioCtxRef.current.suspend();
+      }
       setIsPlaying(false);
     } else {
-      // Önce MP3 dene
-      if (audioRef.current) {
-        try {
-          await audioRef.current.play();
-          setIsPlaying(true);
-          return;
-        } catch (e) {
-          console.warn('MP3 play failed, using ambient synth:', e);
-        }
-      }
-      // MP3 başarısızsa Web Audio sentezi
       startAmbient();
       setIsPlaying(true);
     }
   };
+
+  // Sayfa kapandığında temizle
+  useEffect(() => () => stopAllNodes(), []);
 
   const fetchData = useCallback(async () => {
     const instId = institutionId || 'yamanevler';
@@ -239,14 +292,6 @@ export default function TVPage() {
     <div className="min-h-screen text-white select-none relative overflow-hidden font-sans flex flex-col"
       style={{ background: 'linear-gradient(180deg, #020c1e 0%, #041530 25%, #061d40 50%, #071a35 75%, #030d1f 100%)' }}>
 
-      {/* İlahi Sesi - yerel dosya, CORS sorunu yok */}
-      <audio
-        ref={audioRef}
-        loop
-        preload="auto"
-      >
-        <source src="/ilahi.mp3" type="audio/mpeg" />
-      </audio>
 
       {/* CSS Animasyonları */}
       <style>{`
@@ -373,7 +418,7 @@ export default function TVPage() {
               ? <Volume2 size={18} className="text-emerald-200" />
               : <VolumeX size={18} className="text-blue-300" />
             }
-            <span>{isPlaying ? 'İlahi Açık' : 'İlahi Aç'}</span>
+            <span>{isPlaying ? 'Ses Açık' : 'Dinlendirici Ses'}</span>
           </button>
           <Clock />
           <button onClick={fetchData} className="p-3 bg-white/8 hover:bg-white/15 border border-white/15 rounded-xl transition-all active:scale-95">
