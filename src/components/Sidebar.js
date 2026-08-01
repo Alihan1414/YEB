@@ -56,16 +56,7 @@ export default function Sidebar({ leaveEnabled = false }) {
         {/* Logo / Institution */}
         <div className="flex flex-col items-center text-center space-y-3 pt-4 pb-8 border-b border-white/10">
           <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center p-1.5 shadow-lg overflow-hidden shrink-0">
-            {logoUrl ? (
-              <img src={logoUrl} alt={institutionName} className="w-full h-full object-contain" />
-            ) : (
-              <div
-                className="w-full h-full rounded-xl flex items-center justify-center font-black text-2xl text-white"
-                style={{ backgroundColor: pc }}
-              >
-                {(institutionName || 'K')[0].toUpperCase()}
-              </div>
-            )}
+            <img src={logoUrl || '/logo.png'} alt={institutionName || 'Logo'} className="w-full h-full object-contain" />
           </div>
           <div>
             <h2 className="text-xs font-black tracking-widest text-white/70 uppercase">
@@ -104,14 +95,8 @@ export default function Sidebar({ leaveEnabled = false }) {
 
       {/* Bottom branding */}
       <div className="pt-6 border-t border-white/10 flex items-center gap-3">
-        <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center overflow-hidden shrink-0">
-          {logoUrl ? (
-            <img src={logoUrl} alt="" className="w-full h-full object-contain p-1" />
-          ) : (
-            <span className="text-white font-bold text-sm">
-              {(institutionName || 'K')[0].toUpperCase()}
-            </span>
-          )}
+        <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center overflow-hidden shrink-0 p-0.5">
+          <img src={logoUrl || '/logo.png'} alt="" className="w-full h-full object-contain" />
         </div>
         <div className="text-[11px] leading-tight min-w-0">
           <div className="font-bold text-white truncate">{institutionName || '—'}</div>
@@ -131,16 +116,9 @@ export function MobileHeader({ title }) {
     <header className="md:hidden bg-white px-5 py-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
       <div className="flex items-center gap-2">
         <div
-          className="w-8 h-8 rounded-xl flex items-center justify-center overflow-hidden shrink-0"
-          style={{ backgroundColor: pc }}
+          className="w-8 h-8 rounded-xl bg-white flex items-center justify-center overflow-hidden shrink-0 p-0.5 border border-slate-100"
         >
-          {logoUrl ? (
-            <img src={logoUrl} alt="" className="w-full h-full object-contain p-0.5" />
-          ) : (
-            <span className="text-white font-bold text-sm">
-              {(institutionName || 'K')[0].toUpperCase()}
-            </span>
-          )}
+          <img src={logoUrl || '/logo.png'} alt="" className="w-full h-full object-contain" />
         </div>
         <div className="text-left">
           <div className="text-[9px] font-bold leading-none" style={{ color: pc }}>
