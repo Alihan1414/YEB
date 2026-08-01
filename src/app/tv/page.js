@@ -118,6 +118,8 @@ export default function TVPage() {
   // Audio
   const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef(null);
+  const audioCtxRef = useRef(null);
+  const oscillatorsRef = useRef([]);
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/login');
@@ -136,13 +138,69 @@ export default function TVPage() {
     return () => clearInterval(interval);
   }, []);
 
-  const toggleAudio = () => {
-    if (!audioRef.current) return;
+  // Web Audio API ambient ses sentezi (fallback)
+  const startAmbient = () => {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!audioCtxRef.current) audioCtxRef.current = new AudioCtx();
+      const ctx = audioCtxRef.current;
+      if (ctx.state === 'suspended') ctx.resume();
+
+      // Hepsini durdur
+      oscillatorsRef.current.forEach(o => { try { o.stop(); } catch {} });
+      oscillatorsRef.current = [];
+
+      // Huzur verici frekanslarda çoklu osc.
+      const freqs = [174, 285, 396, 528];
+      freqs.forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        const lfo = ctx.createOscillator();
+        const lfoGain = ctx.createGain();
+
+        lfo.frequency.value = 0.3 + i * 0.1;
+        lfoGain.gain.value = 3;
+        lfo.connect(lfoGain);
+        lfoGain.connect(osc.frequency);
+        lfo.start();
+
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.value = 0.04;
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        oscillatorsRef.current.push(osc);
+      });
+    } catch (e) {
+      console.warn('Web Audio fallback failed:', e);
+    }
+  };
+
+  const stopAmbient = () => {
+    oscillatorsRef.current.forEach(o => { try { o.stop(); } catch {} });
+    oscillatorsRef.current = [];
+  };
+
+  const toggleAudio = async () => {
     if (isPlaying) {
-      audioRef.current.pause();
+      // Durdur
+      if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
+      stopAmbient();
       setIsPlaying(false);
     } else {
-      audioRef.current.play().catch(() => {});
+      // Önce MP3 dene
+      if (audioRef.current) {
+        try {
+          await audioRef.current.play();
+          setIsPlaying(true);
+          return;
+        } catch (e) {
+          console.warn('MP3 play failed, using ambient synth:', e);
+        }
+      }
+      // MP3 başarısızsa Web Audio sentezi
+      startAmbient();
       setIsPlaying(true);
     }
   };
@@ -181,12 +239,14 @@ export default function TVPage() {
     <div className="min-h-screen text-white select-none relative overflow-hidden font-sans flex flex-col"
       style={{ background: 'linear-gradient(180deg, #020c1e 0%, #041530 25%, #061d40 50%, #071a35 75%, #030d1f 100%)' }}>
 
-      {/* İlahi Sesi */}
+      {/* İlahi Sesi - yerel dosya, CORS sorunu yok */}
       <audio
         ref={audioRef}
         loop
-        src="https://ia803404.us.archive.org/33/items/surah-al-fatiha-mishary/Surah%20Al%20Fatihah%20-%20Mishary.mp3"
-      />
+        preload="auto"
+      >
+        <source src="/ilahi.mp3" type="audio/mpeg" />
+      </audio>
 
       {/* CSS Animasyonları */}
       <style>{`
