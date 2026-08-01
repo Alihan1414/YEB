@@ -5,7 +5,8 @@ import { readDb, writeDb } from '@/lib/db';
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const studentId     = searchParams.get('studentId');
-  const institutionId = (searchParams.get('institutionId') || 'yamanevler').trim().toLowerCase();
+  const rawInstId     = searchParams.get('institutionId') || '';
+  const institutionId = rawInstId.trim().toLowerCase();
 
   let reportsMap = new Map();
 
@@ -14,10 +15,11 @@ export async function GET(req) {
     const dbData = readDb();
     const localReports = dbData.reports || [];
     localReports.forEach(r => {
-      const rInst = (r.institution_id || 'yamanevler').trim().toLowerCase();
-      if (rInst === institutionId) {
+      const rInst = (r.institution_id || r.institutionId || 'yamanevler').trim().toLowerCase();
+      // Match institution (or match all if platform / empty inst)
+      if (!institutionId || institutionId === 'platform' || rInst === institutionId) {
         if (!studentId || r.student_id === studentId) {
-          reportsMap.set(r.id, { ...r });
+          reportsMap.set(r.id, { ...r, institution_id: rInst });
         }
       }
     });
@@ -41,10 +43,10 @@ export async function GET(req) {
           data.documents.forEach(doc => {
             const fields = doc.fields || {};
             const id = doc.name.split('/').pop();
-            const rInst = (fields.institution_id?.stringValue || 'yamanevler').trim().toLowerCase();
-            const rStudentId = fields.student_id?.stringValue || '';
+            const rInst = (fields.institution_id?.stringValue || fields.institutionId?.stringValue || 'yamanevler').trim().toLowerCase();
+            const rStudentId = fields.student_id?.stringValue || fields.studentId?.stringValue || '';
 
-            if (rInst === institutionId) {
+            if (!institutionId || institutionId === 'platform' || rInst === institutionId) {
               if (!studentId || rStudentId === studentId) {
                 const fsReport = {
                   id,
@@ -86,7 +88,7 @@ export async function POST(req) {
     } = await req.json();
 
     if (!studentId || !content) {
-      return NextResponse.json({ success: false, error: 'Eksik bilgi.' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Eksik bilgi: Öğrenci ve içerik gereklidir.' }, { status: 400 });
     }
 
     const instId = (institutionId || 'yamanevler').trim().toLowerCase();

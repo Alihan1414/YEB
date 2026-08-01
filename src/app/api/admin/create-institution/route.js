@@ -33,7 +33,6 @@ export async function POST(req) {
     const firebaseEmail = normalizeEmail(rawEmail);
 
     let uid = `admin-${instId}-${Date.now()}`;
-    let firebaseSuccess = false;
 
     // 1. Try Firebase Auth
     try {
@@ -48,31 +47,49 @@ export async function POST(req) {
       const signUpData = await signUpRes.json();
       if (!signUpData.error && signUpData.localId) {
         uid = signUpData.localId;
-        firebaseSuccess = true;
-
-        // Save profile in Firestore
-        await fetch(
-          `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users/${uid}?key=${FIREBASE_API_KEY}`,
-          {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              fields: {
-                name:            { stringValue: name.trim() + ' Yöneticisi' },
-                email:           { stringValue: rawEmail },
-                role:            { stringValue: 'admin' },
-                institutionId:   { stringValue: instId },
-                institutionName: { stringValue: name.trim() },
-                logoUrl:         { stringValue: logoUrl || '' },
-                primaryColor:    { stringValue: primaryColor || '#06429c' },
-                disabled:        { booleanValue: false },
-              },
-            }),
-          }
-        );
       }
+
+      // Save user profile in Firestore
+      await fetch(
+        `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users/${uid}?key=${FIREBASE_API_KEY}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fields: {
+              name:            { stringValue: name.trim() + ' Yöneticisi' },
+              email:           { stringValue: rawEmail },
+              role:            { stringValue: 'admin' },
+              institutionId:   { stringValue: instId },
+              institutionName: { stringValue: name.trim() },
+              logoUrl:         { stringValue: logoUrl || '' },
+              primaryColor:    { stringValue: primaryColor || '#06429c' },
+              disabled:        { booleanValue: false },
+            },
+          }),
+        }
+      );
+
+      // Save institution record in Firestore
+      await fetch(
+        `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/institutions/${instId}?key=${FIREBASE_API_KEY}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fields: {
+              id:              { stringValue: instId },
+              name:            { stringValue: name.trim() },
+              email:           { stringValue: rawEmail },
+              logoUrl:         { stringValue: logoUrl || '' },
+              primaryColor:    { stringValue: primaryColor || '#06429c' },
+              disabled:        { booleanValue: false },
+            },
+          }),
+        }
+      );
     } catch (fbErr) {
-      console.warn("Firebase signup failed, relying on local DB:", fbErr.message);
+      console.warn("Firebase signup/institution create failed, relying on local DB:", fbErr.message);
     }
 
     // 2. Save in Local DB (users & institutions)
@@ -126,6 +143,8 @@ export async function POST(req) {
     return NextResponse.json({
       success: true,
       institutionId: instId,
+      institution: instRecord,
+      user: userRecord,
       message: 'Kurum ve yönetici başarıyla oluşturuldu.'
     });
 

@@ -59,15 +59,7 @@ export function AuthProvider({ children }) {
           );
           if (res.status === 403) {
             // Disabled account — sign out immediately
-            await signOut(auth);
-            setUser(null);
-            setUserName(null);
-            setRole(null);
-            setInstitutionId(null);
-            setInstitutionName(null);
-            setLogoUrl('');
-            setPrimaryColor('#06429c');
-            setLoading(false);
+            await logout();
             return;
           }
           const data = await res.json();
@@ -117,11 +109,26 @@ export function AuthProvider({ children }) {
     return signInWithEmailAndPassword(auth, firebaseEmail, password);
   };
 
-  const logout = () => {
+  const logout = async () => {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('localUser');
+      localStorage.clear();
     }
-    return signOut(auth);
+    setUser(null);
+    setUserName(null);
+    setRole(null);
+    setInstitutionId(null);
+    setInstitutionName(null);
+    setLogoUrl('');
+    setPrimaryColor('#06429c');
+    try {
+      await signOut(auth);
+    } catch (e) {
+      // ignore
+    }
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login';
+    }
   };
 
   return (

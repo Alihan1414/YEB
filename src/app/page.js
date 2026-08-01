@@ -287,8 +287,12 @@ export default function StudentsPage() {
       }
 
       setDirectText('');
+      if (data.report) {
+        setReports(prev => [data.report, ...prev.filter(r => r.id !== data.report.id)]);
+      }
       await fetchReports(selectedStudent.id);
       await fetchStudents();
+      await fetchWeeklyReports();
       showToast('Rapor başarıyla eklendi.');
     } catch (e) {
       console.error(e);
@@ -343,8 +347,13 @@ export default function StudentsPage() {
       }
 
       setAiMatch(null); setVoiceText(''); setTextInput(''); setNotifyParent(false);
-      showToast('Rapor başarıyla kaydedildi!');
+      showToast(`Rapor ${student.name} ${student.surname} için başarıyla kaydedildi!`);
+      if (data.report) {
+        setReports(prev => [data.report, ...prev.filter(r => r.id !== data.report.id)]);
+      }
+      await fetchReports(student.id);
       await fetchStudents();
+      await fetchWeeklyReports();
     } catch (e) { showToast('Kayıt hatası: ' + e.message, 'error'); }
   };
 

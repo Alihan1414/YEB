@@ -183,6 +183,37 @@ export default function PlatformAdminPage() {
     }
   };
 
+  const handleLogoPaste = (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf('image') !== -1) {
+        const blob = items[i].getAsFile();
+        if (blob) {
+          const reader = new FileReader();
+          reader.onload = (event) => {
+            setInstLogoUrl(event.target.result);
+            showToast('Logo görseli panodan yapıştırıldı! 📋');
+          };
+          reader.readAsDataURL(blob);
+          break;
+        }
+      }
+    }
+  };
+
+  const handleLogoFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setInstLogoUrl(event.target.result);
+        showToast('Logo görseli dosyadan yüklendi!');
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSaveInst = async (e) => {
     e.preventDefault();
     if (!instName.trim()) {
@@ -949,15 +980,55 @@ export default function PlatformAdminPage() {
                       <Palette size={14} className="text-blue-600" /> Kurumsal Markalaştırma (White-Label)
                     </div>
 
-                    {/* Logo URL */}
-                    <div>
-                      <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Logo Görsel URL'si (İsteğe Bağlı)</label>
-                      <div className="relative">
-                        <Image size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                        <input type="url" placeholder="https://example.com/logo.png" value={instLogoUrl}
-                          onChange={e => setInstLogoUrl(e.target.value)}
-                          className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs focus:outline-none focus:border-blue-500" />
+                    {/* Logo URL & Clipboard Paste & File Upload */}
+                    <div onPaste={handleLogoPaste}>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block">
+                          Logo Görseli (URL veya Panodan Yapıştır / Dosya Seç)
+                        </label>
+                        <span className="text-[9px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
+                          📋 Ctrl+V ile Görsel Yapıştırın
+                        </span>
                       </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <div className="relative flex-1">
+                          <Image size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                          <input
+                            type="text"
+                            placeholder="Resim URL'si veya buraya tıklayıp Ctrl+V ile ekran görüntüsü yapıştırın"
+                            value={instLogoUrl}
+                            onChange={e => setInstLogoUrl(e.target.value)}
+                            onPaste={handleLogoPaste}
+                            className="w-full bg-white border border-slate-200 rounded-xl pl-9 pr-3 py-2 text-xs focus:outline-none focus:border-blue-500 font-mono"
+                          />
+                        </div>
+                        <label className="cursor-pointer bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs px-3 py-2 rounded-xl transition-all flex items-center gap-1 shrink-0 border border-slate-300">
+                          📁 Görsel Seç
+                          <input type="file" accept="image/*" onChange={handleLogoFileUpload} className="hidden" />
+                        </label>
+                      </div>
+
+                      {/* Live Preview Box */}
+                      {instLogoUrl && (
+                        <div className="mt-2.5 p-2 bg-white rounded-xl border border-slate-200 flex items-center justify-between gap-3 shadow-xs">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-10 h-10 rounded-lg border border-slate-200 p-0.5 overflow-hidden flex items-center justify-center bg-slate-50 shrink-0">
+                              <img src={instLogoUrl} alt="Logo Önizleme" className="w-full h-full object-contain" />
+                            </div>
+                            <div className="text-[10px] text-slate-600 font-semibold truncate">
+                              Logo Önizleme Aktif ({instLogoUrl.startsWith('data:') ? 'Özel Görsel' : 'Harici URL'})
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setInstLogoUrl('')}
+                            className="text-red-500 hover:text-red-700 text-xs font-bold px-2 py-1 rounded-lg hover:bg-red-50 shrink-0"
+                          >
+                            Kaldır
+                          </button>
+                        </div>
+                      )}
                     </div>
 
                     {/* Preset Colors */}
