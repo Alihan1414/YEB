@@ -356,6 +356,9 @@ export default function StudentsPage() {
   const handleAddStudent = async (e) => {
     e.preventDefault();
     if (!newName || !newSurname || !newClass) return;
+
+    const currentInstId = institutionId || 'yamanevler';
+
     try {
       const res = await fetch('/api/students', {
         method: 'POST',
@@ -365,18 +368,32 @@ export default function StudentsPage() {
           surname: newSurname,
           studentClass: newClass,
           parentPhone: newParentPhone || '',
-          institutionId: institutionId || 'yamanevler',
+          institutionId: currentInstId,
         }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Ekleme başarısız');
 
+      const addedStudent = data.student || {
+        id: data.id || `student-${Date.now()}`,
+        name: newName.trim(),
+        surname: newSurname.trim(),
+        class: newClass.trim(),
+        parent_phone: newParentPhone ? newParentPhone.trim() : '',
+        institution_id: currentInstId,
+        status: 'Rapor Yok',
+        last_report_date: null
+      };
+
+      // Instantly update UI state so student never disappears
+      setStudents(prev => {
+        const exists = prev.some(s => s.id === addedStudent.id);
+        if (exists) return prev.map(s => s.id === addedStudent.id ? addedStudent : s);
+        return [addedStudent, ...prev];
+      });
+
       setNewName(''); setNewSurname(''); setNewClass(''); setNewParentPhone('');
       setShowAddStudent(false);
-      if (data.student) {
-        setStudents(prev => [...prev.filter(s => s.id !== data.student.id), data.student]);
-      }
-      await fetchStudents();
       showToast('Öğrenci başarıyla eklendi!');
     } catch (e) {
       console.error('handleAddStudent error:', e);
