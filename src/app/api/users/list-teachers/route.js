@@ -4,6 +4,17 @@ import { readDb } from '@/lib/db';
 const FIREBASE_API_KEY    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY    || 'AIzaSyA1UmjpiDX47qk8c6tJoM1xkJbRMGIsqfg';
 const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'student-687f2';
 
+// Normalize Turkish characters to ASCII for mobile keyboard compatibility
+function turkishToAscii(str) {
+  return (str || '')
+    .replace(/ı/g, 'i').replace(/İ/g, 'I')
+    .replace(/ğ/g, 'g').replace(/Ğ/g, 'G')
+    .replace(/ş/g, 's').replace(/Ş/g, 'S')
+    .replace(/ç/g, 'c').replace(/Ç/g, 'C')
+    .replace(/ö/g, 'o').replace(/Ö/g, 'O')
+    .replace(/ü/g, 'u').replace(/Ü/g, 'U');
+}
+
 // Resolve institution ID from email or directly from input
 async function getInstitutionId(emailOrInst) {
   const input = emailOrInst.trim().toLowerCase();
@@ -18,12 +29,14 @@ async function getInstitutionId(emailOrInst) {
   let institutionId = input;
   let isEmail = input.includes('@');
 
+  const normalizedInput = turkishToAscii(input);
+  const dbData = readDb();
+  const localUsers = dbData.users || [];
+
   if (isEmail) {
-    // 1. Try to find the user profile in Firestore to get institutionId
+    // 1. Try to find the user profile in local DB by email (normalized)
     try {
-      // First find if there's any user in local DB with this email
-      const dbData = readDb();
-      const localUser = (dbData.users || []).find(u => u.email.toLowerCase() === input);
+      const localUser = localUsers.find(u => turkishToAscii(u.email.toLowerCase()) === normalizedInput);
       if (localUser && localUser.institutionId) {
         return localUser.institutionId;
       }
@@ -39,7 +52,7 @@ async function getInstitutionId(emailOrInst) {
         for (const doc of users) {
           const fields = doc.fields || {};
           const email = fields.email?.stringValue || '';
-          if (email.toLowerCase() === input) {
+          if (turkishToAscii(email.toLowerCase()) === normalizedInput) {
             return fields.institutionId?.stringValue || 'yamanevler';
           }
         }
@@ -53,6 +66,16 @@ async function getInstitutionId(emailOrInst) {
     if (domain) {
       const parts = domain.split('.');
       if (parts[0]) return parts[0];
+    }
+  } else {
+    // No @ — try matching as the local part of an email (e.g. "kilicaslan" → "kilicaslan@2026")
+    // This lets users type just their username without the domain
+    const localUser = localUsers.find(u => {
+      const emailLocal = turkishToAscii((u.email || '').toLowerCase().split('@')[0]);
+      return emailLocal === normalizedInput;
+    });
+    if (localUser && localUser.institutionId) {
+      return localUser.institutionId;
     }
   }
 

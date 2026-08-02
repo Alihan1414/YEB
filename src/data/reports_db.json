@@ -143,8 +143,8 @@
     {
       "id": "1PkNaCnMiIY03dk4jiMsvMuexby2",
       "name": "Bolu Kılıçaslan Yöneticisi",
-      "email": "kılıçaslan@2026",
-      "password": "bolukılıçaslan",
+      "email": "kilicaslan@2026",
+      "password": "bolukilicaslan",
       "role": "admin",
       "institutionId": "bolu-kilicaslan",
       "institutionName": "Bolu Kılıçaslan",
@@ -196,7 +196,7 @@
     {
       "id": "bolu-kilicaslan",
       "name": "Bolu Kılıçaslan",
-      "email": "kılıçaslan@2026",
+      "email": "kilicaslan@2026",
       "logoUrl": "/kilicaslan-logo.png",
       "primaryColor": "#0f172a",
       "enabledModules": {

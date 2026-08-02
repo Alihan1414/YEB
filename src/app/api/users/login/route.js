@@ -27,6 +27,18 @@ function getInstBranding(instId) {
   };
 }
 
+// Normalize Turkish characters to ASCII equivalents for mobile keyboard compatibility
+// e.g. "kılıçaslan" → "kilicaslan"
+function turkishToAscii(str) {
+  return str
+    .replace(/ı/g, 'i').replace(/İ/g, 'I')
+    .replace(/ğ/g, 'g').replace(/Ğ/g, 'G')
+    .replace(/ş/g, 's').replace(/Ş/g, 'S')
+    .replace(/ç/g, 'c').replace(/Ç/g, 'C')
+    .replace(/ö/g, 'o').replace(/Ö/g, 'O')
+    .replace(/ü/g, 'u').replace(/Ü/g, 'U');
+}
+
 export async function POST(req) {
   try {
     const { email, password } = await req.json();
@@ -112,13 +124,21 @@ export async function POST(req) {
         const { readDb } = require('@/lib/db');
         const dbData = readDb();
         const localUsers = dbData.users || [];
-        const foundLocal = localUsers.find(
-          u => u.email && u.email.toLowerCase() === trimmedEmail.toLowerCase()
-        );
+        // Normalize both sides to ASCII to handle Turkish characters from mobile keyboards
+        // e.g. phone typing "kilicaslan" matches DB entry "kılıçaslan"
+        const normalizedInput = turkishToAscii(trimmedEmail.toLowerCase());
+        const foundLocal = localUsers.find(u => {
+          if (!u.email) return false;
+          const normalizedDbEmail = turkishToAscii(u.email.toLowerCase());
+          // Match full email OR just the local-part before @ (so "kilicaslan" matches "kilicaslan@2026")
+          return normalizedDbEmail === normalizedInput ||
+                 normalizedDbEmail.split('@')[0] === normalizedInput;
+        });
 
         if (foundLocal) {
-          // Verify password (plain text check for local mock accounts)
-          if (foundLocal.password === password) {
+          // Verify password — normalize Turkish chars on both sides so mobile English keyboards work
+          // e.g. user typing "bolukilicaslan" matches DB "bolukılıçaslan"
+          if (turkishToAscii(foundLocal.password || '') === turkishToAscii(password)) {
             if (foundLocal.disabled === true) {
               return NextResponse.json(
                 { success: false, error: 'Bu hesap devre dışı bırakılmıştır.' },

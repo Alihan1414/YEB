@@ -12,14 +12,22 @@ const USERNAME_MAP = {
   'yeb@2026': 'yeb@2026.com',
 };
 
+// Normalize Turkish characters to ASCII so mobile keyboards work correctly
+// e.g. "kılıçaslan" → "kilicaslan"
+function turkishToAscii(str) {
+  return (str || '')
+    .replace(/ı/g, 'i').replace(/İ/g, 'I')
+    .replace(/ğ/g, 'g').replace(/Ğ/g, 'G')
+    .replace(/ş/g, 's').replace(/Ş/g, 'S')
+    .replace(/ç/g, 'c').replace(/Ç/g, 'C')
+    .replace(/ö/g, 'o').replace(/Ö/g, 'O')
+    .replace(/ü/g, 'u').replace(/Ü/g, 'U');
+}
+
 function resolveEmail(input) {
   const trimmed = input.trim().toLowerCase();
-  if (trimmed.includes('@')) {
-    // If it maps to a mapped username like yeb@2026 -> yeb@2026.com
-    if (USERNAME_MAP[trimmed]) return USERNAME_MAP[trimmed];
-    return trimmed;
-  }
   if (USERNAME_MAP[trimmed]) return USERNAME_MAP[trimmed];
+  if (trimmed.includes('@')) return trimmed;
   return trimmed;
 }
 
@@ -60,7 +68,7 @@ export default function LoginPage() {
     const delayDebounceFn = setTimeout(async () => {
       setResolvingTeachers(true);
       try {
-        const resolvedMail = resolveEmail(term);
+        const resolvedMail = turkishToAscii(resolveEmail(term));
         const res = await fetch(`/api/users/list-teachers?emailOrInst=${encodeURIComponent(resolvedMail)}`);
         const data = await res.json();
         if (data.success && data.teachers && data.teachers.length > 0) {
@@ -86,7 +94,9 @@ export default function LoginPage() {
     setLoading(true);
     
     // Log in as selected teacher or fall back to resolved email input
-    const email = selectedTeacherEmail || resolveEmail(username);
+    // Normalize Turkish chars so mobile keyboards (which type ASCII) still match DB entries
+    const rawEmail = selectedTeacherEmail || resolveEmail(username);
+    const email = turkishToAscii(rawEmail);
     
     try {
       // 1. Try server-side authentication API first (handles seed super admin & local accounts)
