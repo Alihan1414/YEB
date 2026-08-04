@@ -161,7 +161,7 @@ export default function WeeklySummaryPage() {
 
   return (
     <div className="min-h-screen bg-[#eef5fc] text-slate-800 flex flex-col md:flex-row font-sans print:bg-white print:text-black">
-      <Sidebar leaveEnabled={leaveEnabled} />
+      <Sidebar />
 
 
       {/* Main Content */}

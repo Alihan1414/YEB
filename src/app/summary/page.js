@@ -133,7 +133,7 @@ export default function SummaryPage() {
 
   return (
     <div className="min-h-screen bg-[#eef5fc] text-slate-800 flex flex-col md:flex-row font-sans">
-      <Sidebar leaveEnabled={leaveEnabled} />
+      <Sidebar />
       <MobileHeader title="Özet" />
 
 

@@ -147,7 +147,9 @@ export default function AyarlarPage() {
       const data = await res.json();
       if (data.success) {
         showToast('İzin ayarları kaydedildi.');
-        fetchLeaveSettings();
+        await fetchLeaveSettings();
+        // Refresh the page so Sidebar re-fetches and immediately shows/hides the menu item
+        router.refresh();
       } else throw new Error(data.error || 'Kayıt başarısız.');
     } catch (err) {
       showToast(err.message, 'error');
@@ -229,7 +231,7 @@ export default function AyarlarPage() {
   return (
     <div className="min-h-screen bg-[#eef5fc] text-slate-800 flex flex-col md:flex-row font-sans">
 
-      <Sidebar leaveEnabled={leaveSettings.enabled} />
+      <Sidebar />
       <MobileHeader title="Ayarlar" />
 
       {/* ── Toast ── */}

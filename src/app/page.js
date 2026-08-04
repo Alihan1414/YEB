@@ -346,6 +346,7 @@ export default function StudentsPage() {
       if (data.report) {
         setReports(prev => [data.report, ...prev.filter(r => r.id !== data.report.id)]);
       }
+      setSelectedStudent(student);
       await fetchReports(student.id);
       await fetchStudents();
       await fetchWeeklyReports();

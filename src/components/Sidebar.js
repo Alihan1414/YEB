@@ -2,17 +2,16 @@
 
 import { useAuth } from '@/lib/AuthContext';
 import { usePathname } from 'next/navigation';
+import { useState, useEffect } from 'react';
 import {
   User, Trophy, Tv, Calendar, Settings, LogOut, Shield
 } from 'lucide-react';
 
 /**
- * Shared Sidebar — automatically uses the institution's primaryColor & logoUrl.
- * Props:
- *   leaveEnabled?: boolean  — show the leave management link
- *   extraLinks?: {href, icon, label}[]  — additional nav links
+ * Shared Sidebar — fetches leave settings internally from the API.
+ * No longer depends on a leaveEnabled prop from parent pages.
  */
-export default function Sidebar({ leaveEnabled = false }) {
+export default function Sidebar() {
   const {
     institutionName, institutionId, logoUrl, primaryColor,
     role, user, logout
@@ -20,6 +19,20 @@ export default function Sidebar({ leaveEnabled = false }) {
 
   const pathname = usePathname();
   const pc = primaryColor || '#06429c';
+
+  // Self-managed leave enabled state — fetched directly from API
+  const [leaveEnabled, setLeaveEnabled] = useState(false);
+
+  useEffect(() => {
+    if (!user || !institutionId) return;
+    const instId = institutionId || 'yamanevler';
+    fetch(`/api/admin/leave-settings?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && d.settings) setLeaveEnabled(!!d.settings.enabled);
+      })
+      .catch(() => {});
+  }, [user, institutionId, pathname]); // Re-check on every page navigation
 
   // Darken for gradient: create a slightly darker shade by mixing with black
   const hexToRgb = (hex) => {

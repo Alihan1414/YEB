@@ -1,6 +1,22 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { readDb } from '@/lib/db';
 
+function trClean(str) {
+  if (!str) return '';
+  return str
+    .replace(/İ/g, 'i')
+    .replace(/I/g, 'ı')
+    .toLowerCase()
+    .replace(/ç/g, 'c')
+    .replace(/ğ/g, 'g')
+    .replace(/ı/g, 'i')
+    .replace(/ö/g, 'o')
+    .replace(/ş/g, 's')
+    .replace(/ü/g, 'u')
+    .replace(/[^a-z0-9\s]/g, '')
+    .trim();
+}
 
 export async function POST(req) {
   try {
@@ -9,8 +25,30 @@ export async function POST(req) {
       return NextResponse.json({ success: false, error: 'Metin girişi zorunludur.' }, { status: 400 });
     }
 
-    // 1. Get current students (with local DB fallback)
-    let students = [];
+    const normInstId = (institutionId || 'yamanevler').trim().toLowerCase();
+
+    // 1. Get current students (Combining Firestore + Local DB for absolute complete list)
+    const studentMap = new Map();
+
+    // A. Fetch Local DB students first
+    try {
+      const dbData = readDb();
+      (dbData.students || []).forEach(s => {
+        const sInst = (s.institution_id || 'yamanevler').trim().toLowerCase();
+        if (sInst === normInstId) {
+          const fullName = `${s.name || ''} ${s.surname || ''}`.trim();
+          studentMap.set(s.id, {
+            id: s.id,
+            fullName,
+            class: s.class || ''
+          });
+        }
+      });
+    } catch (e) {
+      console.warn("AI Local DB fetch warning:", e.message);
+    }
+
+    // B. Fetch Firestore students and merge
     try {
       const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
       const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
@@ -21,61 +59,52 @@ export async function POST(req) {
         );
         const data = await res.json();
         if (data.documents) {
-          students = data.documents
-            .filter(doc => {
-              const f = doc.fields || {};
-              return (f.institution_id?.stringValue || 'yamanevler') === institutionId;
-            })
-            .map(doc => {
-              const fields = doc.fields || {};
-              return {
-                id: doc.name.split('/').pop(),
-                fullName: `${fields.name?.stringValue || ''} ${fields.surname?.stringValue || ''}`.trim(),
+          data.documents.forEach(doc => {
+            const fields = doc.fields || {};
+            const docInst = (fields.institution_id?.stringValue || 'yamanevler').trim().toLowerCase();
+            if (docInst === normInstId) {
+              const id = doc.name.split('/').pop();
+              const fullName = `${fields.name?.stringValue || ''} ${fields.surname?.stringValue || ''}`.trim();
+              studentMap.set(id, {
+                id,
+                fullName,
                 class: fields.class?.stringValue || ''
-              };
-            });
+              });
+            }
+          });
         }
       }
     } catch (e) {
-      console.error("AI student fetch error:", e);
+      console.warn("AI Firestore student fetch warning:", e.message);
     }
 
-    if (students.length === 0) {
-      const { readDb } = await import('@/lib/db');
-      const dbData = readDb();
-      students = (dbData.students || [])
-        .filter(s => (s.institution_id || 'yamanevler') === institutionId)
-        .map(s => ({
-          id: s.id,
-          fullName: `${s.name} ${s.surname}`.trim(),
-          class: s.class || ''
-        }));
-    }
+    const students = Array.from(studentMap.values());
 
     const geminiKey = process.env.GEMINI_API_KEY;
 
-    // A. If Gemini Key is present, try Google Generative AI
+    // 2. Try Gemini API first
     if (geminiKey && geminiKey.trim() !== '') {
       try {
         const genAI = new GoogleGenerativeAI(geminiKey);
         const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
         const prompt = `
-Sen bir okul öğrenci takip uygulaması için akıllı bir asistansın. Görevin, Türkçe doğal dil girişini analiz ederek öğrenci raporu oluşturmaktır.
+Sen bir okul öğrenci takip uygulaması için akıllı bir asistansın. Görevin, Türkçe ses/metin rapor girişini analiz ederek öğrenci raporu oluşturmaktır.
 
-Kayıtlı öğrenciler:
+Kayıtlı Öğrenciler (Sadece bu listeden eşleştirme yap):
 ${JSON.stringify(students, null, 2)}
 
-Kategoriler: "Akademik", "Yemek", "Sağlık", "Davranış", "Diğer"
+Geçerli Kategoriler (YALNIZCA şu 6 kategoriden birini seç):
+"Akademik", "Yemek", "Program", "Sağlık", "Namaz", "Diğer"
 
-Yapman gerekenler:
-1. Girişte geçen öğrenci adını/soyadını listedeki öğrencilerle eşleştir (yakın eşleşme yap).
-2. Eşleşen öğrencinin ID'sini "matchedStudentId" olarak, tam adını "matchedStudentName" olarak döndür. Eşleşme yoksa null.
-3. Rapor metnini profesyonel ve kısa bir şekilde temizle (örneğin "öğle yemeğine gelmedi, rapora gir" yerine "Öğle yemeğine katılmadı.").
-4. Kategoriyi belirle.
-5. 0.0-1.0 arasında güven skoru ver.
+Kurallar:
+1. Öğrenci Adı Eşleştirme: Girişte geçen ismi listedeki öğrencilerle esnek bir şekilde (Türkçe karakter uyuşmazlığı "ergon" -> "Ergön" veya konuşma-metin ses dönüşüm hataları dahil) en doğru şekilde eşleştir.
+2. Eşleşen öğrencinin ID'sini "matchedStudentId" olarak, tam adını "matchedStudentName" olarak döndür. Listedeki hiç kimseyle eşleşmezse null ver.
+3. Rapor Metni: Rapor içeriğini dilbilgisine uygun, temiz ve profesyonel Türkçe ile düzelt ("ali yemeğe katılmadı kaydet" -> "Öğle yemeğine katılmadı.").
+4. Kategori: Rapor içeriğine en uygun kategoriyi yukarıdaki 6 kategoriden birisi olarak belirle (örn: namaz kıldı -> Namaz, revir/ilaç -> Sağlık, ders/sınav -> Akademik, yemek -> Yemek, sohbet/etkinlik -> Program).
+5. Güven Skoru: 0.0 ile 1.0 arasında güven skoru ver.
 
-SADECE şu JSON formatında yanıt ver, başka hiçbir şey yazma:
+SADECE geçerli şu JSON formatında yanıt ver:
 {
   "matchedStudentId": "student-id veya null",
   "matchedStudentName": "tam ad veya null",
@@ -89,52 +118,65 @@ SADECE şu JSON formatında yanıt ver, başka hiçbir şey yazma:
         const resultText = result.response.text().trim();
         const cleanedText = resultText.replace(/^```json\s*/, '').replace(/\s*```$/, '').trim();
         const parsed = JSON.parse(cleanedText);
+        
+        // Ensure category is strictly valid
+        const validCategories = ['Akademik', 'Yemek', 'Program', 'Sağlık', 'Namaz', 'Diğer'];
+        if (!validCategories.includes(parsed.category)) {
+          parsed.category = 'Diğer';
+        }
+
         return NextResponse.json({ success: true, data: parsed });
       } catch (err) {
-        console.warn("Gemini execution failed, falling back to regex parser:", err);
+        console.warn("Gemini execution failed, falling back to local matcher:", err);
       }
     }
 
-    // B. Local Fallback/Regex Parser when Gemini key is not configured or rate-limited
+    // 3. Robust Local Fallback Matcher (Normalized & Fuzzy)
+    const cleanedInput = trClean(text);
     let matchedStudent = null;
-    const lowerInput = text.toLowerCase();
+    let maxMatchScore = 0;
 
     for (const student of students) {
-      const nameParts = student.fullName.toLowerCase().split(' ');
-      // Check if all or most name parts are present in the text input
-      const matchCount = nameParts.filter(part => lowerInput.includes(part)).length;
-      if (matchCount > 0 && matchCount === nameParts.length) {
+      const cleanedFullName = trClean(student.fullName);
+      const nameParts = cleanedFullName.split(' ').filter(Boolean);
+
+      // Check exact full name match or contained substring
+      if (cleanedFullName && cleanedInput.includes(cleanedFullName)) {
         matchedStudent = student;
+        maxMatchScore = 100;
         break;
       }
-    }
 
-    // If not exact matching, look for single first name matching
-    if (!matchedStudent) {
-      for (const student of students) {
-        const firstName = student.fullName.split(' ')[0].toLowerCase();
-        if (firstName.length > 2 && lowerInput.includes(firstName)) {
-          matchedStudent = student;
-          break;
+      // Check matching individual parts
+      let matchedCount = 0;
+      for (const part of nameParts) {
+        if (part.length >= 2 && cleanedInput.includes(part)) {
+          matchedCount++;
         }
+      }
+
+      const score = (matchedCount / nameParts.length) * 100;
+      if (score > maxMatchScore && matchedCount > 0) {
+        maxMatchScore = score;
+        matchedStudent = student;
       }
     }
 
-    // Determine category
+    // Determine category via keyword analysis
     let category = 'Diğer';
-    if (lowerInput.includes('yemek') || lowerInput.includes('öğle') || lowerInput.includes('kahvaltı') || lowerInput.includes('çorba')) {
+    if (/\b(namaz|sabah|ogle|ikindi|aksam|yatsi|cami|cemaat|tesbihat|kildi|kildilar)\b/.test(cleanedInput)) {
+      category = 'Namaz';
+    } else if (/\b(yemek|ogle|kahvalti|corba|yedi|icti|menusu|tabak)\b/.test(cleanedInput)) {
       category = 'Yemek';
-    } else if (lowerInput.includes('namaz') || lowerInput.includes('program') || lowerInput.includes('etkinlik') || lowerInput.includes('ders')) {
-      category = 'Program';
-    } else if (lowerInput.includes('başım') || lowerInput.includes('revir') || lowerInput.includes('hasta') || lowerInput.includes('ilaç') || lowerInput.includes('sağlık')) {
+    } else if (/\b(bas|revir|hasta|ilac|saglik|ates|doktor|agri|kusma|mide|halsiz)\b/.test(cleanedInput)) {
       category = 'Sağlık';
-    } else if (lowerInput.includes('akademik') || lowerInput.includes('sınav') || lowerInput.includes('not') || lowerInput.includes('ödev')) {
+    } else if (/\b(akademik|sinav|not|odev|test|soru|deneme|karnesi|matematik|fizik|kimya|biyoloji|turkce|tarih|cografya|kitap|okuma)\b/.test(cleanedInput)) {
       category = 'Akademik';
+    } else if (/\b(program|etkinlik|faaliyet|toplanti|seminer|sohbet|ders|kuran)\b/.test(cleanedInput)) {
+      category = 'Program';
     }
 
-    // Clean up text text output
-    let extractedText = text;
-    // Capitalize first letter
+    let extractedText = text.trim();
     if (extractedText.length > 0) {
       extractedText = extractedText.charAt(0).toUpperCase() + extractedText.slice(1);
     }
@@ -142,7 +184,7 @@ SADECE şu JSON formatında yanıt ver, başka hiçbir şey yazma:
     const fallbackResponse = {
       matchedStudentId: matchedStudent ? matchedStudent.id : null,
       matchedStudentName: matchedStudent ? matchedStudent.fullName : null,
-      confidence: matchedStudent ? 0.90 : 0.50,
+      confidence: matchedStudent ? (maxMatchScore >= 100 ? 0.95 : 0.85) : 0.40,
       extractedText: extractedText,
       category: category,
       rawInput: text
