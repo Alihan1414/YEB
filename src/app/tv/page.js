@@ -3,7 +3,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import { useRouter } from 'next/navigation';
-import { RefreshCw, BookOpen, Star, Heart, Monitor, Smartphone, Sun, Moon, ArrowRight } from 'lucide-react';
+import {
+  RefreshCw, BookOpen, Star, Heart, Monitor, Smartphone, Sun, Moon,
+  ArrowRight, ChevronLeft, Maximize, Minimize, Sparkles, Compass
+} from 'lucide-react';
 
 // Dönen Hadis-i Şerifler
 const HADITHS = [
@@ -38,17 +41,17 @@ const MOTTOS = [
   { title: "İlim öğrenmek beşikten mezara kadardır.", sub: "Öğrenmeye asla dur deme." },
 ];
 
-// Basit Parçacık / Yıldızlar
+// Gece / Akşam Kayan Yıldızlar ve Işıltılı Yıldızlar
 function Particles({ isNight }) {
   const particles = useRef(
-    Array.from({ length: 60 }, (_, i) => ({
+    Array.from({ length: 75 }, (_, i) => ({
       id: i,
       x: Math.random() * 100,
-      y: Math.random() * 70,
-      size: Math.random() * 2.5 + 1,
-      duration: Math.random() * 6 + 3,
+      y: Math.random() * 65,
+      size: Math.random() * 2.8 + 1,
+      duration: Math.random() * 5 + 3,
       delay: Math.random() * 5,
-      opacity: Math.random() * 0.7 + 0.2,
+      opacity: Math.random() * 0.8 + 0.2,
     }))
   ).current;
 
@@ -56,6 +59,7 @@ function Particles({ isNight }) {
 
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+      {/* Yıldızlar */}
       {particles.map(p => (
         <div
           key={p.id}
@@ -70,11 +74,31 @@ function Particles({ isNight }) {
           }}
         />
       ))}
+
+      {/* Kayan Yıldız (Shooting Star) */}
+      <div className="shooting-star-1" />
+      <div className="shooting-star-2" />
     </div>
   );
 }
 
-// Saat Bileşeni
+// Süzülen İstanbul Martıları Silueti
+function FlyingSeagulls() {
+  return (
+    <div className="absolute top-24 left-[15%] pointer-events-none z-[1] opacity-40">
+      <svg width="120" height="40" viewBox="0 0 120 40" className="animate-float-slow">
+        {/* Martı 1 */}
+        <path d="M10,20 Q20,10 30,20 Q40,10 50,20" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="2" strokeLinecap="round" />
+        {/* Martı 2 */}
+        <path d="M60,15 Q68,7 76,15 Q84,7 92,15" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth="1.8" strokeLinecap="round" />
+        {/* Martı 3 */}
+        <path d="M95,25 Q101,19 107,25 Q113,19 119,25" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="1.5" strokeLinecap="round" />
+      </svg>
+    </div>
+  );
+}
+
+// Canlı Saat Bileşeni
 function Clock() {
   const [time, setTime] = useState(new Date());
   useEffect(() => {
@@ -84,11 +108,11 @@ function Clock() {
 
   return (
     <div className="text-right">
-      <div className="text-5xl md:text-6xl font-black text-white tracking-tight tabular-nums drop-shadow-2xl" style={{ textShadow: '0 0 40px rgba(253,230,138,0.4)' }}>
-        {time.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
-        <span className="text-amber-200/80 text-3xl ml-1">:{String(time.getSeconds()).padStart(2, '0')}</span>
+      <div className="text-5xl md:text-6xl font-black text-white tracking-tight tabular-nums drop-shadow-2xl flex items-baseline justify-end" style={{ textShadow: '0 0 40px rgba(253,230,138,0.5)' }}>
+        <span>{time.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</span>
+        <span className="text-amber-300/90 text-3xl ml-1 font-bold">:{String(time.getSeconds()).padStart(2, '0')}</span>
       </div>
-      <div className="text-amber-100/90 text-sm mt-1 font-semibold">
+      <div className="text-amber-100/90 text-xs md:text-sm mt-0.5 font-bold tracking-wide">
         {time.toLocaleDateString('tr-TR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
       </div>
     </div>
@@ -173,26 +197,26 @@ function useSunPosition() {
       let sunGlowColor = 'rgba(251,191,36,0.5)';
 
       if (hours >= 5 && hours < 8) {
-        // Şafak / Şahane İstanbul Gün Doğumu
-        phaseName = 'Gün Doğumu (Şafak)';
-        sunGlowColor = 'rgba(249,115,22,0.7)';
-        skyGradient = 'linear-gradient(180deg, #0f172a 0%, #1e1b4b 25%, #431407 55%, #9a3412 75%, #ea580c 100%)';
+        // Şafak / Muazzam İstanbul Gün Doğumu
+        phaseName = 'Gün Doğumu (Şafak Vakti)';
+        sunGlowColor = 'rgba(249,115,22,0.85)';
+        skyGradient = 'linear-gradient(180deg, #090d16 0%, #1e1b4b 25%, #431407 55%, #9a3412 75%, #ea580c 100%)';
       } else if (hours >= 8 && hours < 17) {
         // Gündüz
-        phaseName = 'Gündüz';
-        sunGlowColor = 'rgba(251,191,36,0.6)';
-        skyGradient = 'linear-gradient(180deg, #061e47 0%, #0a2e66 30%, #104187 60%, #1a56a7 85%, #2563eb 100%)';
+        phaseName = 'Gündüz (Boğaziçi Işığı)';
+        sunGlowColor = 'rgba(251,191,36,0.7)';
+        skyGradient = 'linear-gradient(180deg, #051636 0%, #0a295c 30%, #0f3d7e 60%, #1752a3 85%, #2563eb 100%)';
       } else if (hours >= 17 && hours < 20) {
         // Akşam / Kızıl İstanbul Gün Batımı
         phaseName = 'Gün Batımı (Akşam Kızıllığı)';
-        sunGlowColor = 'rgba(239,68,68,0.8)';
-        skyGradient = 'linear-gradient(180deg, #090d16 0%, #1e1b4b 25%, #31103f 50%, #701a75 75%, #c2410c 100%)';
+        sunGlowColor = 'rgba(239,68,68,0.9)';
+        skyGradient = 'linear-gradient(180deg, #050811 0%, #1a103c 25%, #31103f 50%, #701a75 75%, #c2410c 100%)';
       } else {
         // Gece
         phaseName = 'Gece (İstanbul Mehtabı)';
         isNight = true;
-        sunGlowColor = 'rgba(192,132,252,0.5)';
-        skyGradient = 'linear-gradient(180deg, #020617 0%, #050d21 30%, #071433 65%, #06173d 100%)';
+        sunGlowColor = 'rgba(192,132,252,0.6)';
+        skyGradient = 'linear-gradient(180deg, #020617 0%, #040b1e 30%, #06132e 65%, #051638 100%)';
       }
 
       setSkyData({ x, y, isSun, skyGradient, phaseName, isNight, sunGlowColor, progress });
@@ -206,53 +230,56 @@ function useSunPosition() {
   return skyData;
 }
 
-// Vektörel İstanbul Manzarası (Kız Kulesi, Galata Kulesi, Ayasofya/Sultanahmet Minareleri ve Boğaz)
+// Vektörel Görsel Şölen İstanbul Manzarası
 function IstanbulSilhouette({ skyData }) {
   return (
-    <div className="absolute bottom-0 left-0 right-0 pointer-events-none z-0" style={{ height: '320px' }}>
+    <div className="absolute bottom-0 left-0 right-0 pointer-events-none z-0 overflow-hidden" style={{ height: '340px' }}>
       {/* Ufuk Işığı Vurgusu */}
       <div
-        className="absolute bottom-16 left-0 right-0 h-32 opacity-40 transition-all duration-1000"
+        className="absolute bottom-20 left-0 right-0 h-36 opacity-50 transition-all duration-1000"
         style={{
           background: `radial-gradient(ellipse at ${skyData.x}% 100%, ${skyData.sunGlowColor} 0%, transparent 70%)`,
         }}
       />
 
-      <svg viewBox="0 0 1440 320" className="w-full h-full" preserveAspectRatio="none">
+      <svg viewBox="0 0 1440 340" className="w-full h-full" preserveAspectRatio="none">
         <defs>
           <linearGradient id="istanbulBgGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#0b1b36" stopOpacity="0.85" />
+            <stop offset="0%" stopColor="#0a1936" stopOpacity="0.85" />
             <stop offset="100%" stopColor="#020817" stopOpacity="1" />
           </linearGradient>
           <linearGradient id="istanbulFrontGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#051024" stopOpacity="0.95" />
-            <stop offset="100%" stopColor="#01040d" stopOpacity="1" />
+            <stop offset="0%" stopColor="#051024" stopOpacity="0.96" />
+            <stop offset="100%" stopColor="#01030a" stopOpacity="1" />
           </linearGradient>
           <linearGradient id="bosphorusWater" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#0a2540" stopOpacity="0.8" />
-            <stop offset="100%" stopColor="#020a17" stopOpacity="0.95" />
+            <stop offset="0%" stopColor="#09223c" stopOpacity="0.85" />
+            <stop offset="100%" stopColor="#020914" stopOpacity="0.98" />
           </linearGradient>
         </defs>
 
         {/* ── ARKA PLAN: Siluet Dağlar ve Tepeler ── */}
-        <path d="M0,320 L0,220 Q180,180 360,210 Q540,240 720,190 Q900,160 1080,200 Q1260,230 1440,195 L1440,320 Z" fill="url(#istanbulBgGrad)" />
+        <path d="M0,340 L0,230 Q180,190 360,220 Q540,250 720,200 Q900,170 1080,210 Q1260,240 1440,205 L1440,340 Z" fill="url(#istanbulBgGrad)" />
 
         {/* ── İSTANBUL SİLÜETİ LANDMARKS ── */}
         <g fill="url(#istanbulFrontGrad)">
-          {/* 1. GALATA KULESİ (Sol Taraf ~ 220px) */}
-          <g transform="translate(190, 110)">
+          {/* 1. GALATA KULESİ (Sol Taraf ~ 190px) */}
+          <g transform="translate(190, 120)">
             {/* Kule gövdesi */}
             <path d="M25,120 L28,40 L42,40 L45,120 Z" />
             {/* Balkon halkası */}
-            <rect x="24" y="38" width="22" height="4" rx="1" />
+            <rect x="24" y="38" width="22" height="4" rx="1" fill="#f59e0b" opacity="0.4" />
+            {/* Kule pencereleri (Amber Işıklı) */}
+            <circle cx="35" cy="55" r="2.5" fill="#fbbf24" className="animate-pulse" />
+            <circle cx="35" cy="75" r="2" fill="#fbbf24" className="animate-pulse" />
             {/* Kule çatısı (Koni) */}
             <path d="M26,38 L35,10 L44,38 Z" />
             {/* Aleç / Tepelik */}
             <line x1="35" y1="10" x2="35" y2="4" stroke="#051024" strokeWidth="2" />
           </g>
 
-          {/* 2. AYASOFYA / SULTANAHMET CAMİİ KUBBELERİ VE MİNARELERİ (Sağ Taraf ~ 950px) */}
-          <g transform="translate(880, 80)">
+          {/* 2. AYASOFYA / SULTANAHMET CAMİİ KUBBELERİ VE MİNARELERİ (Sağ Taraf ~ 880px) */}
+          <g transform="translate(880, 90)">
             {/* Ana Büyük Kubbe */}
             <path d="M90,150 A50,45 0 0,1 190,150 Z" />
             {/* Yan Küçük Kubbeler */}
@@ -263,8 +290,9 @@ function IstanbulSilhouette({ skyData }) {
 
             {/* Minare 1 (Sol Dış) */}
             <path d="M35,180 L38,30 L40,30 L43,180 Z" />
-            <path d="M36,30 L39,12 L42,30 Z" /> {/* Külah */}
+            <path d="M36,30 L39,12 L42,30 Z" />
             <line x1="39" y1="12" x2="39" y2="6" stroke="#051024" strokeWidth="1.5" />
+            <circle cx="39" cy="5" r="2" fill="#fbbf24" className="animate-pulse" />
 
             {/* Minare 2 (Sol İç) */}
             <path d="M72,180 L74,40 L76,40 L78,180 Z" />
@@ -278,10 +306,11 @@ function IstanbulSilhouette({ skyData }) {
             <path d="M237,180 L240,30 L242,30 L245,180 Z" />
             <path d="M238,30 L241,12 L244,30 Z" />
             <line x1="241" y1="12" x2="241" y2="6" stroke="#051024" strokeWidth="1.5" />
+            <circle cx="241" cy="5" r="2" fill="#fbbf24" className="animate-pulse" />
           </g>
 
-          {/* 3. KIZ KULESİ (Ortanın Solu ~ 520px - Deniz ÜstündeAda) */}
-          <g transform="translate(500, 160)">
+          {/* 3. KIZ KULESİ (Ortanın Solu ~ 500px - Deniz Üstünde Ada & Fener Işığı) */}
+          <g transform="translate(500, 170)">
             {/* Ada Kayalık taban */}
             <path d="M10,90 Q45,78 80,90 Z" />
             {/* Alt Bina / Sur */}
@@ -290,33 +319,37 @@ function IstanbulSilhouette({ skyData }) {
             <rect x="35" y="42" width="20" height="24" />
             {/* Kule Kubbesi */}
             <path d="M32,42 Q45,28 58,42 Z" />
+            {/* Fener Işığı Hüzmesi (Rotating Beacon) */}
+            <path d="M45,35 L120,0 L140,80 Z" fill="rgba(253,224,71,0.2)" className="animate-lighthouse" />
             {/* Bayrak Direği */}
             <line x1="45" y1="28" x2="45" y2="12" stroke="#051024" strokeWidth="1.5" />
-            {/* Bayrak */}
-            <path d="M45,12 L54,16 L45,20 Z" />
+            {/* Türk Bayrağı */}
+            <path d="M45,12 L54,16 L45,20 Z" fill="#ef4444" />
           </g>
 
-          {/* 4. BOĞAZİÇİ KÖPRÜSÜ (Arka İnce Çelik Ayaklar & Halatlar ~ 1150px) */}
-          <g opacity="0.6">
-            {/* Ayak 1 */}
-            <rect x="1150" y="110" width="4" height="120" />
-            {/* Ayak 2 */}
-            <rect x="1300" y="120" width="4" height="110" />
-            {/* Ana Taşıyıcı Halat */}
-            <path d="M1100,200 Q1150,110 1225,160 Q1300,120 1380,210" fill="none" stroke="#051024" strokeWidth="2" />
+          {/* 4. BOĞAZİÇİ KÖPRÜSÜ (15 Temmuz Şehitler Köprüsü Işıkları ~ 1150px) */}
+          <g opacity="0.8">
+            {/* Kule 1 */}
+            <rect x="1150" y="120" width="4" height="120" fill="#051024" />
+            <circle cx="1152" cy="120" r="2" fill="#ef4444" className="animate-ping" />
+            {/* Kule 2 */}
+            <rect x="1300" y="130" width="4" height="110" fill="#051024" />
+            <circle cx="1302" cy="130" r="2" fill="#ef4444" className="animate-ping" />
+            {/* Taşıyıcı Halatlar ve Kırmızı-Mavi Neon Işıklar */}
+            <path d="M1100,210 Q1150,120 1225,170 Q1300,130 1380,220" fill="none" stroke="#ef4444" strokeWidth="1.5" strokeDasharray="4 4" className="animate-pulse" />
             {/* Yol Tabliyesi */}
-            <rect x="1080" y="200" width="310" height="5" />
+            <rect x="1080" y="210" width="310" height="5" fill="#051024" />
           </g>
 
           {/* Ön Kıyı Çizgisi */}
-          <path d="M0,320 L0,250 Q200,240 400,255 Q600,265 800,245 Q1000,235 1200,250 Q1350,260 1440,245 L1440,320 Z" fill="url(#istanbulFrontGrad)" />
+          <path d="M0,340 L0,260 Q200,250 400,265 Q600,275 800,255 Q1000,245 1200,260 Q1350,270 1440,255 L1440,340 Z" fill="url(#istanbulFrontGrad)" />
         </g>
 
         {/* ── ÖN PLAN: BOĞAZİÇİ DENİZİ VE DALGALARI ── */}
-        <rect x="0" y="260" width="1440" height="60" fill="url(#bosphorusWater)" />
+        <rect x="0" y="275" width="1440" height="65" fill="url(#bosphorusWater)" />
         {/* Deniz Yakamoz Yansımaları */}
-        <ellipse cx={`${skyData.x}%`} cy="285" rx="120" ry="12" fill={skyData.sunGlowColor} opacity="0.25" />
-        <ellipse cx={`${skyData.x}%`} cy="300" rx="80" ry="8" fill={skyData.sunGlowColor} opacity="0.35" />
+        <ellipse cx={`${skyData.x}%`} cy="295" rx="140" ry="14" fill={skyData.sunGlowColor} opacity="0.3" />
+        <ellipse cx={`${skyData.x}%`} cy="315" rx="90" ry="10" fill={skyData.sunGlowColor} opacity="0.4" />
       </svg>
     </div>
   );
@@ -325,7 +358,7 @@ function IstanbulSilhouette({ skyData }) {
 // Mobil Cihaz Uyarı Ekranı
 function MobileWarningModal({ onProceed }) {
   return (
-    <div className="fixed inset-0 z-[9999] bg-[#020617]/95 backdrop-blur-2xl flex items-center justify-center p-6 text-center select-none">
+    <div className="fixed inset-0 z-[9999] bg-[#020617]/96 backdrop-blur-2xl flex items-center justify-center p-6 text-center select-none">
       <div className="max-w-md w-full bg-gradient-to-b from-white/10 to-white/5 border border-white/20 rounded-3xl p-8 shadow-2xl space-y-6 animate-slide-up">
         {/* Simge */}
         <div className="w-20 h-20 mx-auto rounded-3xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-xl animate-breathe">
@@ -335,13 +368,13 @@ function MobileWarningModal({ onProceed }) {
         {/* Başlıklar */}
         <div className="space-y-2">
           <span className="text-[11px] font-black text-amber-400 uppercase tracking-widest bg-amber-400/10 border border-amber-400/20 px-3 py-1 rounded-full">
-            📺 TV &amp; Projeksiyon Modu
+            📺 TV &amp; Projeksiyon Ekranı
           </span>
           <h2 className="text-xl md:text-2xl font-black text-white leading-tight">
             Lütfen Bilgisayarınızdan Görüntüleyin
           </h2>
           <p className="text-xs text-blue-200/80 leading-relaxed font-medium pt-1">
-            Bu TV paneli kurumsal sınıflar, lobiler ve geniş ekran projeksiyon sistemleri için tasarlanmıştır. Telefon ekranında tam deneyim sağlanamaz.
+            Bu TV paneli kurumsal sınıflar, lobiler ve geniş ekran projeksiyon sistemleri için özel olarak tasarlanmıştır. Telefon ekranında tam görünüm sağlanamaz.
           </p>
         </div>
 
@@ -350,7 +383,7 @@ function MobileWarningModal({ onProceed }) {
           <Smartphone size={24} className="text-amber-400 shrink-0" />
           <div>
             <span className="font-bold text-white block">Mobil Ekran Algılandı</span>
-            <span className="text-[11px] text-blue-300">En iyi görünüm için yatay mod veya bilgisayar ekranı kullanın.</span>
+            <span className="text-[11px] text-blue-300">En iyi deneyim için bilgisayar veya akıllı TV ekranı kullanın.</span>
           </div>
         </div>
 
@@ -377,6 +410,7 @@ export default function TVPage() {
   const [hadithIdx, setHadithIdx] = useState(0);
   const [mottoIdx, setMottoIdx] = useState(0);
   const [hadithVisible, setHadithVisible] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Mobil algılama & Uyarısı
   const [isMobileScreen, setIsMobileScreen] = useState(false);
@@ -394,6 +428,19 @@ export default function TVPage() {
     window.addEventListener('resize', checkScreen);
     return () => window.removeEventListener('resize', checkScreen);
   }, []);
+
+  // Tam ekran geçiş fonksiyonu
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+      setIsFullscreen(true);
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
+      setIsFullscreen(false);
+    }
+  };
 
   useEffect(() => {
     if (!authLoading && !user) router.push('/login');
@@ -476,11 +523,11 @@ export default function TVPage() {
         <MobileWarningModal onProceed={() => setDismissMobileWarning(true)} />
       )}
 
-      {/* CSS Animasyonları */}
+      {/* CSS Animasyonları & Görsel Şölen Stilleri */}
       <style>{`
         @keyframes twinkle {
           0% { opacity: 0.1; transform: scale(0.8); }
-          100% { opacity: 0.8; transform: scale(1.2); }
+          100% { opacity: 0.9; transform: scale(1.3); }
         }
         @keyframes float-slow {
           0%, 100% { transform: translateY(0px) rotate(0deg); }
@@ -491,8 +538,8 @@ export default function TVPage() {
           50% { transform: translateY(-12px) rotate(-2deg); }
         }
         @keyframes pulse-glow {
-          0%, 100% { box-shadow: 0 0 20px rgba(251,191,36,0.3), 0 0 60px rgba(251,191,36,0.1); }
-          50% { box-shadow: 0 0 40px rgba(251,191,36,0.6), 0 0 100px rgba(251,191,36,0.2); }
+          0%, 100% { box-shadow: 0 0 25px rgba(251,191,36,0.35), 0 0 70px rgba(251,191,36,0.15); }
+          50% { box-shadow: 0 0 55px rgba(251,191,36,0.7), 0 0 120px rgba(251,191,36,0.3); }
         }
         @keyframes ring-rotate {
           from { transform: rotate(0deg); }
@@ -519,8 +566,28 @@ export default function TVPage() {
           100% { background-position: 200% center; }
         }
         @keyframes sun-flare {
-          0%, 100% { transform: scale(1); opacity: 0.4; }
-          50% { transform: scale(1.15); opacity: 0.7; }
+          0%, 100% { transform: scale(1); opacity: 0.45; }
+          50% { transform: scale(1.18); opacity: 0.8; }
+        }
+        @keyframes lighthouse {
+          0% { opacity: 0.1; transform: rotate(-15deg); }
+          50% { opacity: 0.5; transform: rotate(25deg); }
+          100% { opacity: 0.1; transform: rotate(-15deg); }
+        }
+        @keyframes shooting-star {
+          0% { transform: translateX(0) translateY(0) rotate(-35deg); opacity: 1; width: 0px; }
+          70% { opacity: 1; width: 120px; }
+          100% { transform: translateX(-600px) translateY(400px) rotate(-35deg); opacity: 0; width: 0px; }
+        }
+        .shooting-star-1 {
+          position: absolute; top: 15%; right: 20%; height: 2px;
+          background: linear-gradient(90deg, rgba(255,255,255,1), transparent);
+          animation: shooting-star 9s linear 2s infinite; pointer-events: none;
+        }
+        .shooting-star-2 {
+          position: absolute; top: 25%; right: 40%; height: 1.5px;
+          background: linear-gradient(90deg, rgba(253,224,71,1), transparent);
+          animation: shooting-star 12s linear 7s infinite; pointer-events: none;
         }
         .animate-marquee { animation: marquee 40s linear infinite; }
         .animate-float-slow { animation: float-slow 8s ease-in-out infinite; }
@@ -528,6 +595,7 @@ export default function TVPage() {
         .animate-pulse-glow { animation: pulse-glow 3.5s ease-in-out infinite; }
         .animate-slide-up { animation: slide-up 0.6s ease-out forwards; }
         .animate-breathe { animation: breathe 4s ease-in-out infinite; }
+        .animate-lighthouse { animation: lighthouse 7s ease-in-out infinite; transform-origin: 45px 35px; }
         .hadith-transition { transition: opacity 0.6s ease, transform 0.6s ease; }
         .hadith-hidden { opacity: 0; transform: translateY(10px); }
         .hadith-visible { opacity: 1; transform: translateY(0); }
@@ -540,8 +608,11 @@ export default function TVPage() {
         }
       `}</style>
 
-      {/* Gece Yıldızlar */}
+      {/* Gece Yıldızları & Kayan Yıldızlar */}
       <Particles isNight={skyData.isNight} />
+
+      {/* Süzülen İstanbul Martıları */}
+      <FlyingSeagulls />
 
       {/* ── GÜNEŞ / AY (Gerçek Zamanlı Saat ile Doğudan Doğup Batıdan Batma) ── */}
       <div
@@ -557,29 +628,29 @@ export default function TVPage() {
           <div className="relative flex items-center justify-center">
             {/* Güneş Işın Halesi */}
             <div
-              className="absolute w-44 h-44 rounded-full"
+              className="absolute w-48 h-48 rounded-full"
               style={{
-                background: 'radial-gradient(circle, rgba(251,191,36,0.6) 0%, rgba(245,158,11,0.2) 50%, transparent 75%)',
+                background: 'radial-gradient(circle, rgba(251,191,36,0.65) 0%, rgba(245,158,11,0.25) 50%, transparent 75%)',
                 animation: 'sun-flare 4s ease-in-out infinite',
               }}
             />
             {/* Güneş Çekirdeği */}
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-200 via-amber-400 to-orange-500 shadow-[0_0_50px_rgba(251,191,36,0.9)] border-2 border-amber-100 flex items-center justify-center">
-              <Sun size={28} className="text-amber-950 animate-spin" style={{ animationDuration: '25s' }} />
+            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-200 via-amber-400 to-orange-500 shadow-[0_0_60px_rgba(251,191,36,0.9)] border-2 border-amber-100 flex items-center justify-center">
+              <Sun size={30} className="text-amber-950 animate-spin" style={{ animationDuration: '25s' }} />
             </div>
           </div>
         ) : (
           /* Gerçek Zamanlı Gece Ay / Mehtap */
           <div className="relative flex items-center justify-center">
             <div
-              className="absolute w-40 h-40 rounded-full"
+              className="absolute w-44 h-44 rounded-full"
               style={{
-                background: 'radial-gradient(circle, rgba(192,132,252,0.4) 0%, rgba(147,51,234,0.15) 50%, transparent 75%)',
+                background: 'radial-gradient(circle, rgba(192,132,252,0.45) 0%, rgba(147,51,234,0.18) 50%, transparent 75%)',
                 animation: 'sun-flare 5s ease-in-out infinite',
               }}
             />
-            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-slate-100 via-purple-100 to-purple-300 shadow-[0_0_40px_rgba(192,132,252,0.8)] border border-white flex items-center justify-center">
-              <Moon size={24} className="text-purple-950" />
+            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-slate-100 via-purple-100 to-purple-300 shadow-[0_0_45px_rgba(192,132,252,0.85)] border border-white flex items-center justify-center">
+              <Moon size={26} className="text-purple-950" />
             </div>
           </div>
         )}
@@ -588,11 +659,22 @@ export default function TVPage() {
       {/* İstanbul Vektörel Manzarası */}
       <IstanbulSilhouette skyData={skyData} />
 
-      {/* === HEADER === */}
+      {/* === HEADER (Çıkış / Geri Dön + Tam Ekran Butonları Eklendi) === */}
       <div className="relative z-10 flex items-center justify-between px-8 pt-6 pb-4">
-        {/* Logo + Kurum Adı */}
+        
+        {/* SOL: Geri Dön Butonu + Logo + Kurum Adı */}
         <div className="flex items-center gap-5">
-          <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center overflow-hidden shadow-2xl animate-pulse-glow">
+          {/* 🚪 GERİ DÖN / ÇIKIŞ BUTONU */}
+          <button
+            onClick={() => router.push('/')}
+            title="Öğrenci Paneline Dön"
+            className="flex items-center gap-2 px-4 py-2.5 bg-white/10 hover:bg-white/20 border border-white/20 rounded-2xl text-amber-200 font-bold text-xs shadow-xl backdrop-blur-md transition-all active:scale-95 group shrink-0"
+          >
+            <ChevronLeft size={18} className="group-hover:-translate-x-1 transition-transform text-amber-400" />
+            <span>Panele Dön</span>
+          </button>
+
+          <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center overflow-hidden shadow-2xl animate-pulse-glow shrink-0">
             <img src={logoUrl || '/logo.png'} alt={institutionName || 'Logo'} className="w-full h-full object-contain p-1.5" />
           </div>
           <div>
@@ -608,16 +690,29 @@ export default function TVPage() {
           </div>
         </div>
 
-        {/* Sağ: Saat + Refresh */}
-        <div className="flex items-center gap-6">
+        {/* SAĞ: Tam Ekran + Yenile + Canlı Saat */}
+        <div className="flex items-center gap-4">
           <Clock />
-          <button
-            onClick={fetchData}
-            title="Verileri Yenile"
-            className="p-3 bg-white/10 hover:bg-white/20 border border-white/20 rounded-2xl transition-all active:scale-95 text-amber-200"
-          >
-            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
-          </button>
+
+          <div className="flex items-center gap-2">
+            {/* Tam Ekran Geçiş Butonu */}
+            <button
+              onClick={toggleFullscreen}
+              title={isFullscreen ? "Tam Ekrandan Çık" : "Tam Ekran Yap"}
+              className="p-3 bg-white/10 hover:bg-white/20 border border-white/20 rounded-2xl transition-all active:scale-95 text-amber-200 backdrop-blur-md"
+            >
+              {isFullscreen ? <Minimize size={18} /> : <Maximize size={18} />}
+            </button>
+
+            {/* Yenile Butonu */}
+            <button
+              onClick={fetchData}
+              title="Verileri Yenile"
+              className="p-3 bg-white/10 hover:bg-white/20 border border-white/20 rounded-2xl transition-all active:scale-95 text-amber-200 backdrop-blur-md"
+            >
+              <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -690,7 +785,11 @@ export default function TVPage() {
               <div className="w-11 h-11 rounded-2xl bg-amber-400/20 border border-amber-400/30 flex items-center justify-center mb-3 animate-breathe">
                 <BookOpen size={22} className="text-amber-300" />
               </div>
-              <div className="text-amber-300 text-xs font-black tracking-[0.2em] uppercase">Günün Hadis-i Şerifi</div>
+              <div className="text-amber-300 text-xs font-black tracking-[0.2em] uppercase flex items-center gap-2">
+                <Sparkles size={14} className="text-amber-400 animate-spin" />
+                <span>Günün Hadis-i Şerifi</span>
+                <Sparkles size={14} className="text-amber-400 animate-spin" />
+              </div>
             </div>
 
             {/* Hadis Metni */}
@@ -770,13 +869,26 @@ export default function TVPage() {
             <div className="text-xs font-black text-amber-300 uppercase tracking-widest mb-3 flex items-center gap-2">
               <Star size={14} className="text-amber-400" /> Kategori Dağılımı
             </div>
-            <div className="space-y-2">
-              {Object.entries(catCounts).slice(0, 3).map(([cat, cnt]) => (
-                <div key={cat} className="flex justify-between items-center text-xs">
-                  <span className="text-blue-100 font-semibold">{cat}</span>
-                  <span className="text-amber-300 font-black bg-white/10 px-2.5 py-0.5 rounded-lg border border-white/10">{cnt}</span>
-                </div>
-              ))}
+            <div className="space-y-2.5">
+              {Object.entries(catCounts).slice(0, 3).map(([cat, cnt]) => {
+                const total = reports.length || 1;
+                const pct = Math.round((cnt / total) * 100);
+                return (
+                  <div key={cat} className="space-y-1">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-blue-100 font-semibold">{cat}</span>
+                      <span className="text-amber-300 font-black text-[11px]">{cnt} rapor (%{pct})</span>
+                    </div>
+                    {/* Canlı İlerleme Çubuğu */}
+                    <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-amber-400 to-orange-500 rounded-full transition-all duration-1000"
+                        style={{ width: `${pct}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
               {Object.keys(catCounts).length === 0 && (
                 <p className="text-xs text-blue-200/50 text-center py-2">Henüz rapor bulunmuyor</p>
               )}
