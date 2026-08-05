@@ -97,11 +97,18 @@ ${JSON.stringify(students, null, 2)}
 Geçerli Kategoriler (YALNIZCA şu 6 kategoriden birini seç):
 "Akademik", "Yemek", "Program", "Sağlık", "Namaz", "Diğer"
 
+Önemli Kategori Örnekleri:
+- Ödev yapma, ödev teslimi, sınav sonucu, test/soru çözümü, derse katılım, ders çalışması, kitap okuması -> Kategori: "Akademik"
+- Yemek yeme, öğle yemeği, kahvaltı, çorba, yemeğe katıldı/katılmadı -> Kategori: "Yemek"
+- Namaz kılma, sabah/öğle/ikindi/akşam/yatsı namazı, cemaat, tesbihat -> Kategori: "Namaz"
+- Hastalık, revir, ilaç, baş ağrısı, doktor, ateş -> Kategori: "Sağlık"
+- Etkinlik, sohbet, seminer, toplu faaliyet, ders programı -> Kategori: "Program"
+
 Kurallar:
 1. Öğrenci Adı Eşleştirme: Girişte geçen ismi listedeki öğrencilerle esnek bir şekilde (Türkçe karakter uyuşmazlığı "ergon" -> "Ergön" veya konuşma-metin ses dönüşüm hataları dahil) en doğru şekilde eşleştir.
 2. Eşleşen öğrencinin ID'sini "matchedStudentId" olarak, tam adını "matchedStudentName" olarak döndür. Listedeki hiç kimseyle eşleşmezse null ver.
-3. Rapor Metni: Rapor içeriğini dilbilgisine uygun, temiz ve profesyonel Türkçe ile düzelt ("ali yemeğe katılmadı kaydet" -> "Öğle yemeğine katılmadı.").
-4. Kategori: Rapor içeriğine en uygun kategoriyi yukarıdaki 6 kategoriden birisi olarak belirle (örn: namaz kıldı -> Namaz, revir/ilaç -> Sağlık, ders/sınav -> Akademik, yemek -> Yemek, sohbet/etkinlik -> Program).
+3. Rapor Metni: Rapor içeriğini dilbilgisine uygun, temiz ve profesyonel Türkçe ile düzelt ("ali ödevlerini teslim etti kaydet" -> "Ödevlerini teslim etti.").
+4. Kategori: Rapor içeriğine en uygun kategoriyi yukarıdaki örnekler doğrultusunda belirle.
 5. Güven Skoru: 0.0 ile 1.0 arasında güven skoru ver.
 
 SADECE geçerli şu JSON formatında yanıt ver:
@@ -162,17 +169,17 @@ SADECE geçerli şu JSON formatında yanıt ver:
       }
     }
 
-    // Determine category via keyword analysis
+    // Determine category via keyword analysis (Order matters: Akademik high priority)
     let category = 'Diğer';
-    if (/\b(namaz|sabah|ogle|ikindi|aksam|yatsi|cami|cemaat|tesbihat|kildi|kildilar)\b/.test(cleanedInput)) {
-      category = 'Namaz';
-    } else if (/\b(yemek|ogle|kahvalti|corba|yedi|icti|menusu|tabak)\b/.test(cleanedInput)) {
-      category = 'Yemek';
-    } else if (/\b(bas|revir|hasta|ilac|saglik|ates|doktor|agri|kusma|mide|halsiz)\b/.test(cleanedInput)) {
-      category = 'Sağlık';
-    } else if (/\b(akademik|sinav|not|odev|test|soru|deneme|karnesi|matematik|fizik|kimya|biyoloji|turkce|tarih|cografya|kitap|okuma)\b/.test(cleanedInput)) {
+    if (/(odev|sinav|not|test|soru|deneme|karne|matematik|fizik|kimya|biyoloji|turkce|tarih|cografya|kitap|okum|calis|teslim|akademik|derse|dersini|ders)/i.test(cleanedInput)) {
       category = 'Akademik';
-    } else if (/\b(program|etkinlik|faaliyet|toplanti|seminer|sohbet|ders|kuran)\b/.test(cleanedInput)) {
+    } else if (/(namaz|sabah|ogle|ikindi|aksam|yatsi|cami|cemaat|tesbih|kild)/i.test(cleanedInput)) {
+      category = 'Namaz';
+    } else if (/(yemek|kahvalti|corba|yedi|icti|menu|tabak)/i.test(cleanedInput)) {
+      category = 'Yemek';
+    } else if (/(bas|revir|hasta|ilac|saglik|ates|doktor|agri|kusma|mide|halsiz)/i.test(cleanedInput)) {
+      category = 'Sağlık';
+    } else if (/(program|etkinlik|faaliyet|toplanti|seminer|sohbet|kuran)/i.test(cleanedInput)) {
       category = 'Program';
     }
 

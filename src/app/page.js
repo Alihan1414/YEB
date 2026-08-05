@@ -301,9 +301,13 @@ export default function StudentsPage() {
       showToast('Eşleşen öğrenci bulunamadı. Rapor kaydedilemez.', 'error');
       return;
     }
-    const student = students.find(s => s.id === aiMatch.matchedStudentId);
+    // Normalize ID comparison to handle whitespace/case mismatches
+    const normAiId = String(aiMatch.matchedStudentId).trim().toLowerCase();
+    const student = students.find(s => String(s.id).trim().toLowerCase() === normAiId)
+                 || students.find(s => String(s.id).trim().toLowerCase().includes(normAiId))
+                 || students.find(s => normAiId.includes(String(s.id).trim().toLowerCase()));
     if (!student) {
-      showToast('Öğrenci veritabanında bulunamadı.', 'error');
+      showToast(`Öğrenci bulunamadı (ID: ${aiMatch.matchedStudentId}). Lütfen manuel ekleyin.`, 'error');
       return;
     }
     try {
@@ -1338,7 +1342,7 @@ export default function StudentsPage() {
                         onChange={e => setDirectCategory(e.target.value)}
                         className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none"
                       >
-                        {['Akademik', 'Yemek', 'Program', 'Diğer'].map(c => (
+                        {CATEGORIES.map(c => (
                           <option key={c} value={c}>{c}</option>
                         ))}
                       </select>
