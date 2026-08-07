@@ -1,5 +1,15 @@
 {
-  "students": [],
+  "students": [
+    {
+      "id": "student-1786138748968-411",
+      "name": "Test",
+      "surname": "Ogrenci",
+      "class": "10-A",
+      "parent_phone": "5551234567",
+      "institution_id": "bolu-kilicaslan",
+      "created_at": "2026-08-07T21:39:08.968Z"
+    }
+  ],
   "reports": [],
   "users": [
     {

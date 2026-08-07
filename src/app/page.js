@@ -514,20 +514,37 @@ export default function StudentsPage() {
       const lines = text.trim().split('\n').filter(l => l.trim());
       const rows = lines.map(l => l.split(',').map(s => s.trim()));
 
-      let imported = 0;
+      const studentsToImport = [];
       for (const row of rows) {
         if (row.length < 3) continue;
         const [name, surname, cls, parentPhone = ''] = row;
         if (!name || !surname || !cls) continue;
-        await addDoc(collection(db, 'students'), {
-          name, surname, class: cls, parent_phone: parentPhone,
-          institution_id: institutionId || 'yamanevler',
-          created_at: serverTimestamp(),
+        studentsToImport.push({
+          name,
+          surname,
+          studentClass: cls,
+          parentPhone
         });
-        imported++;
       }
-      fetchStudents();
-      showToast(`${imported} öğrenci başarıyla içe aktarıldı!`);
+
+      if (studentsToImport.length === 0) {
+        throw new Error('İçe aktarılacak geçerli öğrenci bulunamadı.');
+      }
+
+      const res = await fetch('/api/students', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          students: studentsToImport,
+          institutionId: institutionId || 'yamanevler'
+        })
+      });
+
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'İçe aktarma başarısız.');
+
+      await fetchStudents();
+      showToast(`${data.count || studentsToImport.length} öğrenci başarıyla içe aktarıldı!`);
       setShowCSV(false);
     } catch (err) {
       setCsvError('CSV okunamadı: ' + err.message);
