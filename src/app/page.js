@@ -239,11 +239,42 @@ export default function StudentsPage() {
         body: JSON.stringify({ text, institutionId: institutionId || 'yamanevler' }),
       });
       const data = await res.json();
-      if (data.success) {
+      if (data.success && data.data) {
         setAiMatch(data.data);
+        
+        if (data.data.matchedStudentId) {
+          const normAiId = String(data.data.matchedStudentId).trim().toLowerCase();
+          const student = students.find(s => String(s.id).trim().toLowerCase() === normAiId)
+                       || students.find(s => String(s.id).trim().toLowerCase().includes(normAiId))
+                       || students.find(s => normAiId.includes(String(s.id).trim().toLowerCase()));
+                       
+          if (student) {
+            // Automatically switch view back to student list so drawer is visible
+            setActiveView('students');
+            // Open the student's file
+            setSelectedStudent(student);
+            // Pre-fill the quick report inputs in the drawer
+            setDirectText(data.data.extractedText || '');
+            setDirectCategory(data.data.category || 'Diğer');
+            
+            showToast(`${student.name} ${student.surname} dosyası otomatik açıldı!`);
+            
+            // Clean up workspace inputs
+            setVoiceText('');
+            setTextInput('');
+            setAiMatch(null);
+          } else {
+            showToast(`Öğrenci metinde algılandı fakat sistemde bulunamadı.`, 'error');
+          }
+        } else {
+          showToast('Eşleşen öğrenci adı algılanamadı.', 'error');
+        }
       }
       else showToast('Yapay zekâ analizi başarısız.', 'error');
-    } catch { showToast('Bağlantı hatası.', 'error'); }
+    } catch (err) { 
+      console.error(err);
+      showToast('Bağlantı hatası.', 'error'); 
+    }
     finally { setIsAnalyzing(false); }
   };
 
