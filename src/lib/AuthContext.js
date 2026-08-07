@@ -33,6 +33,36 @@ export function AuthProvider({ children }) {
     if (profile.enabledModules) setEnabledModules(profile.enabledModules);
   };
 
+  const login = (email, password) => {
+    const parts = email.split('@');
+    const firebaseEmail = (parts.length === 2 && !parts[1].includes('.'))
+      ? `${parts[0]}@${parts[1]}.com`
+      : email;
+    return signInWithEmailAndPassword(auth, firebaseEmail, password);
+  };
+
+  const logout = async () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('localUser');
+      localStorage.clear();
+    }
+    setUser(null);
+    setUserName(null);
+    setRole(null);
+    setInstitutionId(null);
+    setInstitutionName(null);
+    setLogoUrl('');
+    setPrimaryColor('#06429c');
+    try {
+      await signOut(auth);
+    } catch (e) {
+      // ignore
+    }
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login';
+    }
+  };
+
   useEffect(() => {
     // Check localStorage for local (non-Firebase) session first
     try {
@@ -40,8 +70,10 @@ export function AuthProvider({ children }) {
       if (localUserJson) {
         const localProfile = JSON.parse(localUserJson);
         if (localProfile?.email) {
-          applyLocalProfile(localProfile);
-          setLoading(false);
+          Promise.resolve().then(() => {
+            applyLocalProfile(localProfile);
+            setLoading(false);
+          });
           return; // Skip Firebase onAuthStateChanged if we have a local session
         }
       }
@@ -100,36 +132,6 @@ export function AuthProvider({ children }) {
     });
     return unsub;
   }, []);
-
-  const login = (email, password) => {
-    const parts = email.split('@');
-    const firebaseEmail = (parts.length === 2 && !parts[1].includes('.'))
-      ? `${parts[0]}@${parts[1]}.com`
-      : email;
-    return signInWithEmailAndPassword(auth, firebaseEmail, password);
-  };
-
-  const logout = async () => {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('localUser');
-      localStorage.clear();
-    }
-    setUser(null);
-    setUserName(null);
-    setRole(null);
-    setInstitutionId(null);
-    setInstitutionName(null);
-    setLogoUrl('');
-    setPrimaryColor('#06429c');
-    try {
-      await signOut(auth);
-    } catch (e) {
-      // ignore
-    }
-    if (typeof window !== 'undefined') {
-      window.location.href = '/login';
-    }
-  };
 
   return (
     <AuthContext.Provider value={{

@@ -60,8 +60,10 @@ export default function LoginPage() {
   useEffect(() => {
     const term = username.trim();
     if (term.length < 3) {
-      setResolvedTeachers([]);
-      setSelectedTeacherEmail('');
+      Promise.resolve().then(() => {
+        setResolvedTeachers([]);
+        setSelectedTeacherEmail('');
+      });
       return;
     }
 

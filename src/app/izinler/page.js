@@ -10,6 +10,7 @@ import {
   ShieldCheck, AlertCircle, CheckCircle2, XCircle, Copy, ExternalLink, Link2
 } from 'lucide-react';
 import Sidebar, { MobileHeader } from '@/components/Sidebar';
+import Link from 'next/link';
 
 export default function LeaveManagementPage() {
   const { user, role, institutionId, institutionName, loading: authLoading, logout } = useAuth();
@@ -101,11 +102,13 @@ export default function LeaveManagementPage() {
   // Initial load
   useEffect(() => {
     if (user) {
-      fetchRequests();
-      fetchSettings();
-      if (role === 'admin') {
-        fetchTeachers();
-      }
+      Promise.resolve().then(() => {
+        fetchRequests();
+        fetchSettings();
+        if (role === 'admin') {
+          fetchTeachers();
+        }
+      });
     }
   }, [user, role, fetchRequests, fetchSettings, fetchTeachers]);
 
@@ -344,7 +347,7 @@ export default function LeaveManagementPage() {
                             <div>
                               <h3 className="font-extrabold text-slate-800 leading-snug">{req.studentName}</h3>
                               <p className="text-slate-400 text-[10px] font-medium uppercase tracking-wider flex items-center gap-1 mt-0.5">
-                                <Clock size={10} /> Başvuru: {new Date(req.created_at || Date.now()).toLocaleString('tr-TR')}
+                                <Clock size={10} /> Başvuru: {req.created_at ? new Date(req.created_at).toLocaleString('tr-TR') : '-'}
                               </p>
                             </div>
                           </div>
@@ -374,7 +377,7 @@ export default function LeaveManagementPage() {
                             <div className="font-bold text-blue-900 text-[10px] uppercase tracking-wider mb-1 flex items-center gap-1">
                               <FileText size={10} /> İZİN GEREKÇESİ
                             </div>
-                            <p className="italic leading-relaxed font-medium">"{req.reason}"</p>
+                            <p className="italic leading-relaxed font-medium">&ldquo;{req.reason}&rdquo;</p>
                           </div>
 
                           {req.status !== 'pending' && (
@@ -527,26 +530,26 @@ export default function LeaveManagementPage() {
 
       {/* Mobile Bottom Navigation */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex items-center justify-around py-2.5 px-2 z-40 shadow-lg">
-        <a href="/" className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-600">
+        <Link href="/" className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-600">
           <User size={18} />
           <span className="text-[10px] font-medium">Öğrenciler</span>
-        </a>
-        <a href="/haftalik" className="flex flex-col items-center gap-1 text-slate-400 hover:text-amber-500">
+        </Link>
+        <Link href="/haftalik" className="flex flex-col items-center gap-1 text-slate-400 hover:text-amber-500">
           <Trophy size={18} />
           <span className="text-[10px] font-medium">Haftalık</span>
-        </a>
-        <a href="/tv" className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-600">
+        </Link>
+        <Link href="/tv" className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-600">
           <Tv size={18} />
           <span className="text-[10px] font-medium">TV</span>
-        </a>
-        <a href="/izinler" className="flex flex-col items-center gap-1 text-blue-600 font-bold">
+        </Link>
+        <Link href="/izinler" className="flex flex-col items-center gap-1 text-blue-600 font-bold">
           <Calendar size={18} />
           <span className="text-[10px]">İzinler</span>
-        </a>
-        <a href="/ayarlar" className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-600">
+        </Link>
+        <Link href="/ayarlar" className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-600">
           <Settings size={18} />
           <span className="text-[10px] font-medium">Ayarlar</span>
-        </a>
+        </Link>
       </nav>
       
     </div>

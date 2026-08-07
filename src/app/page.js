@@ -127,25 +127,6 @@ export default function StudentsPage() {
     }
   }, [user, authLoading, router]);
 
-  useEffect(() => {
-    if (user) {
-      fetchStudents();
-      fetchWeeklyReports();
-      // İzin modülü ayarını çek
-      const instId = institutionId || 'yamanevler';
-      fetch(`/api/admin/leave-settings?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' })
-        .then(r => r.json())
-        .then(d => { if (d.success && d.settings) setLeaveEnabled(!!d.settings.enabled); })
-        .catch(() => {});
-    }
-  }, [user, institutionId]);
-  useEffect(() => {
-    if (selectedStudent) {
-      fetchReports(selectedStudent.id);
-      setEditingPhone(selectedStudent.parent_phone || '');
-    }
-  }, [selectedStudent]);
-
   // ─── Data ──────────────────────────────────────────────────────────────────
   const fetchStudents = async () => {
     setDataLoading(true);
@@ -204,6 +185,30 @@ export default function StudentsPage() {
     } catch (e) { console.error('fetchWeeklyReports error:', e); }
     finally { setWeeklyLoading(false); }
   };
+
+  useEffect(() => {
+    if (user) {
+      Promise.resolve().then(() => {
+        fetchStudents();
+        fetchWeeklyReports();
+      });
+      // İzin modülü ayarını çek
+      const instId = institutionId || 'yamanevler';
+      fetch(`/api/admin/leave-settings?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' })
+        .then(r => r.json())
+        .then(d => { if (d.success && d.settings) setLeaveEnabled(!!d.settings.enabled); })
+        .catch(() => {});
+    }
+  }, [user, institutionId]);
+
+  useEffect(() => {
+    if (selectedStudent) {
+      Promise.resolve().then(() => {
+        fetchReports(selectedStudent.id);
+        setEditingPhone(selectedStudent.parent_phone || '');
+      });
+    }
+  }, [selectedStudent]);
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
@@ -858,12 +863,15 @@ export default function StudentsPage() {
               <AnimatePresence>
                 {showCSV && (
                   <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                    <div className="bg-white border border-blue-200 p-6 rounded-3xl shadow-lg">
-                      <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-xs font-extrabold text-slate-700 tracking-wider uppercase">CSV'den Öğrenci Aktarımı</h3>
-                        <button onClick={() => setShowCSV(false)} className="text-slate-400 hover:text-slate-600"><X size={16} /></button>
+                    <div className="bg-white border border-blue-200 p-6 rounded-3xl shadow-lg space-y-4">
+                      <div className="flex justify-between items-center">
+                        <h3 className="text-xs font-extrabold text-slate-700 tracking-wider uppercase flex items-center gap-2">
+                          <FileText size={16} className="text-blue-600" />
+                          CSV&apos;den Öğrenci Aktarımı
+                        </h3>
+                        <button onClick={() => { setShowCSV(false); setCsvPreview([]); }} className="text-slate-400 hover:text-slate-600"><X size={16} /></button>
                       </div>
-                      <p className="text-slate-500 text-xs mb-3 leading-relaxed">
+                      <p className="text-slate-500 text-xs leading-relaxed">
                         CSV formatı şu şekilde olmalıdır: <code>Ad, Soyad, Sınıf, VeliTelefonu</code> (başlık satırı olmadan).
                       </p>
                       <div className="flex items-center gap-3">
@@ -934,7 +942,20 @@ export default function StudentsPage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-50 text-xs">
-                      {filteredStudents.map((st) => {
+                      {dataLoading ? (
+                        Array.from({ length: 5 }).map((_, idx) => (
+                          <tr key={idx} className="animate-pulse">
+                            <td className="py-3.5 pl-2 flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-slate-200" />
+                              <div className="h-4 w-32 bg-slate-200 rounded-md" />
+                            </td>
+                            <td className="py-3.5"><div className="h-4 w-12 bg-slate-200 rounded-md" /></td>
+                            <td className="py-3.5 hidden md:table-cell"><div className="h-4 w-24 bg-slate-200 rounded-md" /></td>
+                            <td className="py-3.5"><div className="h-4 w-16 bg-slate-200 rounded-md" /></td>
+                            <td className="py-3.5 text-right pr-2"><div className="h-7 w-20 bg-slate-200 rounded-xl ml-auto" /></td>
+                          </tr>
+                        ))
+                      ) : filteredStudents.map((st) => {
                         const initials = `${st.name ? st.name[0] : ''}${st.surname ? st.surname[0] : ''}`;
                         const status = st.status || 'Rapor Yok';
                         const statusStyle = status === 'İyi'
@@ -1001,7 +1022,7 @@ export default function StudentsPage() {
                         <h3 className="text-base md:text-lg font-extrabold text-slate-900">Yapay Zekâ Sesli Rapor Girişi</h3>
                         <p className="text-slate-500 text-xs mt-1 leading-relaxed">
                           Mikrofona basın ve doğal dilde söyleyin,<br />
-                          <span className="italic font-medium text-slate-600">"Furkan Karakoç bugün ödevini çok iyi yaptı, rapora gir."</span>
+                          <span className="italic font-medium text-slate-600">&ldquo;Furkan Karakoç bugün ödevini çok iyi yaptı, rapora gir.&rdquo;</span>
                         </p>
                       </div>
                     </div>

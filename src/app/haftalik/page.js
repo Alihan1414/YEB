@@ -39,25 +39,6 @@ export default function WeeklySummaryPage() {
     if (!authLoading && !user) router.push('/login');
   }, [user, authLoading, router]);
 
-  // Load stats
-  useEffect(() => {
-    if (user) {
-      fetchWeeklySummary();
-      // Load weekly target from localStorage if present
-      const savedTarget = localStorage.getItem(`weeklyTarget_${institutionId || 'yamanevler'}`);
-      if (savedTarget) {
-        setWeeklyTarget(parseInt(savedTarget, 10));
-        setTargetInput(savedTarget);
-      }
-      // Load leave settings
-      const instId = institutionId || 'yamanevler';
-      fetch(`/api/admin/leave-settings?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' })
-        .then(r => r.json())
-        .then(d => { if (d.success && d.settings) setLeaveEnabled(!!d.settings.enabled); })
-        .catch(() => {});
-    }
-  }, [user, institutionId]);
-
   const fetchWeeklySummary = async () => {
     setLoading(true);
     const instId = institutionId || 'yamanevler';
@@ -73,6 +54,27 @@ export default function WeeklySummaryPage() {
       setLoading(false);
     }
   };
+
+  // Load stats
+  useEffect(() => {
+    if (user) {
+      Promise.resolve().then(() => {
+        fetchWeeklySummary();
+        // Load weekly target from localStorage if present
+        const savedTarget = localStorage.getItem(`weeklyTarget_${institutionId || 'yamanevler'}`);
+        if (savedTarget) {
+          setWeeklyTarget(parseInt(savedTarget, 10));
+          setTargetInput(savedTarget);
+        }
+      });
+      // Load leave settings
+      const instId = institutionId || 'yamanevler';
+      fetch(`/api/admin/leave-settings?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' })
+        .then(r => r.json())
+        .then(d => { if (d.success && d.settings) setLeaveEnabled(!!d.settings.enabled); })
+        .catch(() => {});
+    }
+  }, [user, institutionId]);
 
   const handleSaveTarget = () => {
     const val = parseInt(targetInput, 10);
@@ -337,7 +339,7 @@ export default function WeeklySummaryPage() {
                       <span className="text-xs font-bold text-slate-400">Gemini haftalık verileri analiz ediyor...</span>
                     </div>
                   ) : aiSummary ? (
-                    <p className="font-medium italic">"{aiSummary}"</p>
+                    <p className="font-medium italic">&ldquo;{aiSummary}&rdquo;</p>
                   ) : (
                     <p className="text-slate-400 text-center py-6 font-medium">
                       Haftalık verilerin yapay zeka tarafından değerlendirilmesi için yukarıdaki butona tıklayın.

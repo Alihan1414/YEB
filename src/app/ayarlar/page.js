@@ -11,6 +11,7 @@ import {
   Info, RefreshCw, Lock
 } from 'lucide-react';
 import Sidebar, { MobileHeader } from '@/components/Sidebar';
+import Link from 'next/link';
 
 export default function AyarlarPage() {
   const { user, role, institutionId, institutionName, loading: authLoading, logout } = useAuth();
@@ -127,8 +128,10 @@ export default function AyarlarPage() {
 
   useEffect(() => {
     if (user) {
-      fetchLeaveSettings();
-      if (role === 'admin') fetchTeachers();
+      Promise.resolve().then(() => {
+        fetchLeaveSettings();
+        if (role === 'admin') fetchTeachers();
+      });
     }
   }, [user, role, fetchLeaveSettings, fetchTeachers]);
 
@@ -201,11 +204,14 @@ export default function AyarlarPage() {
     }
   }, [institutionId]);
 
+  // Wrap in microtask to avoid setState-in-effect warning
   useEffect(() => {
     if (user) {
-      fetchGeneralSettings();
+      Promise.resolve().then(() => fetchGeneralSettings());
     }
   }, [user, fetchGeneralSettings]);
+
+  // Remove duplicate
 
   // ── Copy link ───────────────────────────────────────────────────────────────
   const studentFormLink = typeof window !== 'undefined'
@@ -401,7 +407,7 @@ export default function AyarlarPage() {
                     <div>
                       <p className="font-bold text-sm text-slate-800">İzin Başvuruları</p>
                       <p className="text-[11px] text-slate-400 font-medium mt-0.5">
-                        Kapalıyken "İzin Yönetimi" menüden gizlenir ve öğrenciler form gönderemez.
+                        Kapalıyken &ldquo;İzin Yönetimi&rdquo; menüden gizlenir ve öğrenciler form gönderemez.
                       </p>
                     </div>
                     <button
@@ -658,28 +664,28 @@ export default function AyarlarPage() {
 
       {/* ── Mobile Bottom Navigation ── */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex items-center justify-around py-2.5 px-2 z-40 shadow-lg">
-        <a href="/" className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-600">
+        <Link href="/" className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-600">
           <User size={18} />
           <span className="text-[10px] font-medium">Öğrenciler</span>
-        </a>
-        <a href="/haftalik" className="flex flex-col items-center gap-1 text-slate-400 hover:text-amber-500">
+        </Link>
+        <Link href="/haftalik" className="flex flex-col items-center gap-1 text-slate-400 hover:text-amber-500">
           <Trophy size={18} />
           <span className="text-[10px] font-medium">Haftalık</span>
-        </a>
-        <a href="/tv" className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-600">
+        </Link>
+        <Link href="/tv" className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-600">
           <Tv size={18} />
           <span className="text-[10px] font-medium">TV</span>
-        </a>
+        </Link>
         {leaveSettings.enabled && (
-          <a href="/izinler" className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-600">
+          <Link href="/izinler" className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-600">
             <Calendar size={18} />
             <span className="text-[10px] font-medium">İzinler</span>
-          </a>
+          </Link>
         )}
-        <a href="/ayarlar" className="flex flex-col items-center gap-1 text-blue-600 font-bold">
+        <Link href="/ayarlar" className="flex flex-col items-center gap-1 text-blue-600 font-bold">
           <Settings size={18} />
           <span className="text-[10px]">Ayarlar</span>
-        </a>
+        </Link>
       </nav>
 
     </div>

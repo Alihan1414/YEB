@@ -7,6 +7,9 @@ import {
   User, Trophy, Tv, Calendar, Settings, LogOut, Shield
 } from 'lucide-react';
 
+import Link from 'next/link';
+import { Building2 } from 'lucide-react';
+
 /**
  * Shared Sidebar — fetches leave settings internally from the API.
  * No longer depends on a leaveEnabled prop from parent pages.
@@ -17,6 +20,7 @@ export default function Sidebar() {
     role, user, logout
   } = useAuth();
 
+  const [imgErr, setImgErr] = useState(false);
   const pathname = usePathname();
   const pc = primaryColor || '#06429c';
 
@@ -69,7 +73,13 @@ export default function Sidebar() {
         {/* Logo / Institution */}
         <div className="flex flex-col items-center text-center space-y-3 pt-4 pb-8 border-b border-white/10">
           <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center p-1.5 shadow-lg overflow-hidden shrink-0">
-            <img src={logoUrl || '/logo.png'} alt={institutionName || 'Logo'} className="w-full h-full object-contain" />
+            {!imgErr && logoUrl ? (
+              <img src={logoUrl} alt={institutionName || 'Logo'} onError={() => setImgErr(true)} className="w-full h-full object-contain" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-blue-900 bg-blue-50 font-black text-xl rounded-xl">
+                {institutionName ? institutionName.slice(0, 2).toUpperCase() : <Building2 size={24} />}
+              </div>
+            )}
           </div>
           <div>
             <h2 className="text-xs font-black tracking-widest text-white/70 uppercase">
@@ -82,7 +92,7 @@ export default function Sidebar() {
         {/* Nav */}
         <nav className="mt-8 space-y-2">
           {navLinks.map(({ href, icon: Icon, label }) => (
-            <a
+            <Link
               key={href}
               href={href}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-sm transition-all ${
@@ -93,7 +103,7 @@ export default function Sidebar() {
             >
               <Icon size={18} />
               {label}
-            </a>
+            </Link>
           ))}
 
           <button
@@ -109,7 +119,13 @@ export default function Sidebar() {
       {/* Bottom branding */}
       <div className="pt-6 border-t border-white/10 flex items-center gap-3">
         <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center overflow-hidden shrink-0 p-0.5">
-          <img src={logoUrl || '/logo.png'} alt="" className="w-full h-full object-contain" />
+          {!imgErr && logoUrl ? (
+            <img src={logoUrl} alt="" onError={() => setImgErr(true)} className="w-full h-full object-contain" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-blue-900 bg-blue-50 font-bold text-xs">
+              {institutionName ? institutionName.slice(0, 2).toUpperCase() : 'EB'}
+            </div>
+          )}
         </div>
         <div className="text-[11px] leading-tight min-w-0">
           <div className="font-bold text-white truncate">{institutionName || '—'}</div>
@@ -123,6 +139,7 @@ export default function Sidebar() {
 /** Mobile top header — also uses institution primaryColor */
 export function MobileHeader({ title }) {
   const { institutionName, institutionId, logoUrl, primaryColor, logout } = useAuth();
+  const [imgErr, setImgErr] = useState(false);
   const pc = primaryColor || '#06429c';
 
   return (
@@ -131,7 +148,13 @@ export function MobileHeader({ title }) {
         <div
           className="w-8 h-8 rounded-xl bg-white flex items-center justify-center overflow-hidden shrink-0 p-0.5 border border-slate-100"
         >
-          <img src={logoUrl || '/logo.png'} alt="" className="w-full h-full object-contain" />
+          {!imgErr && logoUrl ? (
+            <img src={logoUrl} alt="" onError={() => setImgErr(true)} className="w-full h-full object-contain" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-blue-900 bg-blue-50 font-extrabold text-xs">
+              {institutionName ? institutionName.slice(0, 2).toUpperCase() : 'EB'}
+            </div>
+          )}
         </div>
         <div className="text-left">
           <div className="text-[9px] font-bold leading-none" style={{ color: pc }}>

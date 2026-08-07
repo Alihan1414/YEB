@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import { useRouter } from 'next/navigation';
 import {
@@ -43,17 +43,19 @@ const MOTTOS = [
 
 // Gece / Akşam Kayan Yıldızlar ve Işıltılı Yıldızlar
 function Particles({ isNight }) {
-  const particles = useRef(
-    Array.from({ length: 75 }, (_, i) => ({
-      id: i,
-      x: Math.random() * 100,
-      y: Math.random() * 65,
-      size: Math.random() * 2.8 + 1,
-      duration: Math.random() * 5 + 3,
-      delay: Math.random() * 5,
-      opacity: Math.random() * 0.8 + 0.2,
-    }))
-  ).current;
+  const particles = useMemo(
+    () =>
+      Array.from({ length: 75 }, (_, i) => ({
+        id: i,
+        x: ((i * 37) % 95) + 2,
+        y: ((i * 23) % 60) + 2,
+        size: (i % 3) * 0.8 + 1.2,
+        duration: (i % 5) + 3,
+        delay: (i % 4) * 1.2,
+        opacity: ((i % 7) + 3) / 10,
+      })),
+    []
+  );
 
   if (!isNight) return null;
 
@@ -484,7 +486,7 @@ export default function TVPage() {
   }, [institutionId]);
 
   useEffect(() => {
-    if (user) fetchData();
+    if (user) Promise.resolve().then(() => fetchData());
   }, [user, fetchData]);
 
   // Canlı Takip Polling: Her 3 saniyede bir veriyi yeniler (yeni öğrenci eklendiğinde anında yansır)
@@ -792,21 +794,19 @@ export default function TVPage() {
               </div>
             </div>
 
-            {/* Hadis Metni */}
             <div className={`flex-1 flex items-center justify-center hadith-transition ${hadithVisible ? 'hadith-visible' : 'hadith-hidden'}`}>
               <div className="text-center">
-                <div className="text-amber-300/40 text-6xl font-serif leading-none mb-2 -mt-4">"</div>
+                <div className="text-amber-300/40 text-6xl font-serif leading-none mb-2 -mt-4">&ldquo;</div>
                 <p
                   className="text-lg md:text-xl font-semibold leading-relaxed text-amber-50 font-serif italic"
                   style={{ textShadow: '0 2px 20px rgba(0,0,0,0.6)' }}
                 >
                   {hadith.text}
                 </p>
-                <div className="text-amber-300/40 text-6xl font-serif leading-none mt-2">"</div>
+                <div className="text-amber-300/40 text-6xl font-serif leading-none mt-2">&rdquo;</div>
               </div>
             </div>
 
-            {/* Kaynak */}
             <div className={`pt-4 border-t border-white/10 flex justify-center hadith-transition ${hadithVisible ? 'hadith-visible' : 'hadith-hidden'}`}>
               <span className="text-xs font-bold text-amber-200 bg-amber-400/15 border border-amber-400/30 px-4 py-1.5 rounded-full tracking-wider">
                 {hadith.source}

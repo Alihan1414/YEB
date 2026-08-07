@@ -41,21 +41,6 @@ export default function SummaryPage() {
     if (!authLoading && !user) router.push('/login');
   }, [user, authLoading, router]);
 
-  useEffect(() => {
-    if (user) {
-      fetchStudents();
-      const instId = institutionId || 'yamanevler';
-      fetch(`/api/admin/leave-settings?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' })
-        .then(r => r.json())
-        .then(d => { if (d.success && d.settings) setLeaveEnabled(!!d.settings.enabled); })
-        .catch(() => {});
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (students.length > 0) fetchReports();
-  }, [students, range]);
-
   const fetchStudents = async () => {
     const instId = institutionId || 'yamanevler';
     try {
@@ -81,6 +66,25 @@ export default function SummaryPage() {
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   };
+
+  useEffect(() => {
+    if (user) {
+      Promise.resolve().then(() => {
+        fetchStudents();
+      });
+      const instId = institutionId || 'yamanevler';
+      fetch(`/api/admin/leave-settings?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' })
+        .then(r => r.json())
+        .then(d => { if (d.success && d.settings) setLeaveEnabled(!!d.settings.enabled); })
+        .catch(() => {});
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (students.length > 0) {
+      Promise.resolve().then(() => fetchReports());
+    }
+  }, [students, range]);
 
   // Computed
   const classes = ['All', ...Array.from(new Set(students.map(s => s.class))).sort()];

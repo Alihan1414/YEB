@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/AuthContext';
+import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -132,8 +133,10 @@ export default function PlatformAdminPage() {
 
   useEffect(() => {
     if (user && role === 'super_admin') {
-      fetchGlobalStats();
-      fetchUsers();
+      Promise.resolve().then(() => {
+        fetchGlobalStats();
+        fetchUsers();
+      });
     }
   }, [user, role, fetchGlobalStats, fetchUsers]);
 
@@ -403,12 +406,12 @@ export default function PlatformAdminPage() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <a
+          <Link
             href="/"
             className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 rounded-xl text-xs font-bold text-white transition-all shadow-md"
           >
             Talebe Takip Paneline Dön
-          </a>
+          </Link>
           <button
             onClick={() => { fetchGlobalStats(); fetchUsers(); }}
             className="p-2.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-300 hover:text-white transition-all border border-slate-700"
@@ -593,7 +596,7 @@ export default function PlatformAdminPage() {
                 <div className="bg-white border border-slate-200/80 rounded-3xl p-16 text-center">
                   <Building2 size={48} className="mx-auto text-slate-300 mb-3" />
                   <h3 className="font-extrabold text-slate-600">Kurum bulunamadı</h3>
-                  <p className="text-slate-400 text-xs mt-1">"Yeni Kurum Ekle" butonuna basarak ilk kurumunuzu oluşturun.</p>
+                  <p className="text-slate-400 text-xs mt-1">&ldquo;Yeni Kurum Ekle&rdquo; butonuna basarak ilk kurumunuzu oluşturun.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -1199,7 +1202,7 @@ export default function PlatformAdminPage() {
                   </div>
                   <h3 className="font-extrabold text-slate-900">Kurumu Sistemden Kaldır</h3>
                   <p className="text-slate-500 text-xs mt-2 leading-relaxed">
-                    <strong>"{deleteTargetInst.name}"</strong> kurumu ve yöneticileri sistemden tamamen kaldırılacaktır.
+                    <strong>&ldquo;{deleteTargetInst.name}&rdquo;</strong> kurumu ve yöneticileri sistemden tamamen kaldırılacaktır.
                   </p>
                   
                   <label className="flex items-center justify-center gap-2 mt-4 p-3 bg-slate-50 rounded-xl border border-slate-200 cursor-pointer text-left">
@@ -1246,7 +1249,7 @@ export default function PlatformAdminPage() {
                   </div>
                   <h3 className="font-extrabold text-slate-900">Kullanıcıyı Devre Dışı Bırak</h3>
                   <p className="text-slate-500 text-xs mt-2 leading-relaxed">
-                    <strong>"{deleteTargetUser.name}"</strong> kullanıcısının sisteme girişi engellenecektir.
+                    <strong>&ldquo;{deleteTargetUser.name}&rdquo;</strong> kullanıcısının sisteme girişi engellenecektir.
                   </p>
                 </div>
                 <div className="flex gap-3">

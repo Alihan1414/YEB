@@ -259,6 +259,29 @@ export async function PUT(req) {
       writeDb(dbData);
     }
 
+    // 2. Firestore Sync
+    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+    const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+
+    if (projectId && apiKey) {
+      try {
+        await fetch(
+          `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/reports/${id}?updateMask.fieldPaths=notified&key=${apiKey}`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              fields: {
+                notified: { booleanValue: !!notified }
+              }
+            }),
+          }
+        );
+      } catch (err) {
+        console.warn('Firestore PUT REPORT warning:', err.message);
+      }
+    }
+
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error('PUT REPORT API ERROR:', err);
