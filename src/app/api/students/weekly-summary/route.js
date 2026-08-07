@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { readDb } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 const CATEGORY_SCORES = {
   Akademik: 3, Namaz: 2, Program: 2, Sağlık: 1, Yemek: 1, Diğer: 1,
 };

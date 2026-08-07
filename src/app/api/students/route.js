@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { readDb, writeDb } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 // ─── Helpers ────────────────────────────────────────────────────────────────
 function buildStatusAndDate(studentId, allReports) {
   const studentReports = allReports.filter(r => r.student_id === studentId);

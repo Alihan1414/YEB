@@ -405,6 +405,8 @@ export default function StudentsPage() {
       setNewName(''); setNewSurname(''); setNewClass(''); setNewParentPhone('');
       setShowAddStudent(false);
       showToast('Öğrenci başarıyla eklendi!');
+      // Re-sync from server to confirm persistence
+      await fetchStudents();
     } catch (e) {
       console.error('handleAddStudent error:', e);
       showToast('Hata: ' + e.message, 'error');

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { readDb, writeDb } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 // ─── GET ─────────────────────────────────────────────────────────────────────
 export async function GET(req) {
   const { searchParams } = new URL(req.url);
