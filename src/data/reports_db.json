@@ -16,28 +16,6 @@
       "created_at": "2026-07-01T00:00:00.000Z"
     },
     {
-      "id": "LqxBHrbAxNV4YSfT3638HiV8XM22",
-      "name": "Samet",
-      "email": "samet14@yeb.com",
-      "password": "samet14",
-      "role": "teacher",
-      "institutionId": "yamanevler",
-      "institutionName": "Yamanevler Enderun Bilişim",
-      "disabled": false,
-      "created_at": "2026-07-31T12:08:23.383Z"
-    },
-    {
-      "id": "UZsJ19m41jX3foJ4PiCHayxk5Lz2",
-      "name": "burak",
-      "email": "burak8@yeb.com",
-      "password": "burak3",
-      "role": "teacher",
-      "institutionId": "yamanevler",
-      "institutionName": "Yamanevler Enderun Bilişim",
-      "disabled": false,
-      "created_at": "2026-07-31T12:08:49.439Z"
-    },
-    {
       "id": "1PkNaCnMiIY03dk4jiMsvMuexby2",
       "name": "Bolu Kılıçaslan Yöneticisi",
       "email": "kilicaslan@2026",
