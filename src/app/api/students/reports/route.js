@@ -5,83 +5,83 @@ export const dynamic = 'force-dynamic';
 
 // ─── GET ─────────────────────────────────────────────────────────────────────
 export async function GET(req) {
-  const { searchParams } = new URL(req.url);
-  const studentId     = searchParams.get('studentId');
-  const rawInstId     = searchParams.get('institutionId') || '';
-  const institutionId = rawInstId.trim().toLowerCase();
-  const normStudentId = studentId ? studentId.trim().toLowerCase() : null;
-
-  let reportsMap = new Map();
-
-  // 1. Local DB Read
   try {
-    const dbData = readDb();
-    const localReports = dbData.reports || [];
-    localReports.forEach(r => {
-      const rInst = (r.institution_id || r.institutionId || 'yamanevler').trim().toLowerCase();
-      const rStId = (r.student_id || r.studentId || '').trim().toLowerCase();
+    const { searchParams } = new URL(req.url);
+    const studentId     = searchParams.get('studentId');
+    const rawInstId     = searchParams.get('institutionId') || '';
+    const institutionId = rawInstId.trim().toLowerCase();
+    const normStudentId = studentId ? studentId.trim().toLowerCase() : null;
 
-      // Match institution (or match all if platform / empty inst)
-      if (!institutionId || institutionId === 'platform' || rInst === institutionId) {
-        if (!normStudentId || rStId === normStudentId) {
-          reportsMap.set(r.id, { ...r, institution_id: rInst });
+    let reportsMap = new Map();
+
+    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'vision-b1ad5';
+    const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCH7bTzvqJqSzJiV0Ou6JudPovkrrWrwdw';
+
+    if (projectId && apiKey) {
+      try {
+        const res = await fetch(
+          `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/reports?key=${apiKey}&pageSize=1000`,
+          { cache: 'no-store' }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          const docs = data.documents || [];
+          docs.forEach(doc => {
+            const fields = doc.fields || {};
+            const id = doc.name.split('/').pop();
+            const rInst = (fields.institution_id?.stringValue || fields.institutionId?.stringValue || 'yamanevler').trim().toLowerCase();
+            const rStudentId = (fields.student_id?.stringValue || fields.studentId?.stringValue || '').trim();
+            const normRStudentId = rStudentId.toLowerCase();
+
+            if (!institutionId || institutionId === 'platform' || rInst === institutionId) {
+              if (!normStudentId || normRStudentId === normStudentId || rStudentId === (studentId || '').trim()) {
+                const fsReport = {
+                  id,
+                  student_id:     rStudentId,
+                  student_name:   fields.student_name?.stringValue || '',
+                  class:          fields.class?.stringValue || '',
+                  parent_phone:   fields.parent_phone?.stringValue || '',
+                  content:        fields.content?.stringValue || '',
+                  category:       fields.category?.stringValue || 'Diğer',
+                  notified:       fields.notified?.booleanValue || false,
+                  institution_id: rInst,
+                  created_at:     fields.created_at?.timestampValue || fields.created_at?.stringValue || new Date().toISOString(),
+                  created_by:     fields.created_by?.stringValue || 'Bilinmeyen Öğretmen',
+                };
+                reportsMap.set(id, fsReport);
+              }
+            }
+          });
         }
+      } catch (err) {
+        console.warn('Firestore GET REPORTS warning:', err.message);
       }
-    });
-  } catch (e) {
-    console.warn('Local DB read warning in reports GET:', e.message);
-  }
+    }
 
-  // 2. Firestore Sync
-  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'vision-b1ad5';
-  const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCH7bTzvqJqSzJiV0Ou6JudPovkrrWrwdw';
-
-  if (projectId && apiKey) {
+    // Fallback/Supplement from local DB
     try {
-      const res = await fetch(
-        `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/reports?key=${apiKey}&pageSize=1000`,
-        { cache: 'no-store' }
-      );
-      if (res.ok) {
-        const data = await res.json();
-        const docs = data.documents || [];
-        docs.forEach(doc => {
-          const fields = doc.fields || {};
-          const id = doc.name.split('/').pop();
-          const rInst = (fields.institution_id?.stringValue || fields.institutionId?.stringValue || 'yamanevler').trim().toLowerCase();
-          const rStudentId = (fields.student_id?.stringValue || fields.studentId?.stringValue || '').trim();
-          const normRStudentId = rStudentId.toLowerCase();
-
-          if (!institutionId || institutionId === 'platform' || rInst === institutionId) {
-            if (!studentId || normRStudentId === normStudentId || rStudentId === studentId.trim()) {
-              const fsReport = {
-                id,
-                student_id:     rStudentId,
-                student_name:   fields.student_name?.stringValue || '',
-                class:          fields.class?.stringValue || '',
-                parent_phone:   fields.parent_phone?.stringValue || '',
-                content:        fields.content?.stringValue || '',
-                category:       fields.category?.stringValue || 'Diğer',
-                notified:       fields.notified?.booleanValue || false,
-                institution_id: rInst,
-                created_at:     fields.created_at?.timestampValue || fields.created_at?.stringValue || new Date().toISOString(),
-                created_by:     fields.created_by?.stringValue || 'Bilinmeyen Öğretmen',
-              };
-              reportsMap.set(id, fsReport);
+      const dbData = readDb();
+      const localReports = dbData.reports || [];
+      localReports.forEach(r => {
+        const rInst = (r.institution_id || r.institutionId || 'yamanevler').trim().toLowerCase();
+        const rStId = (r.student_id || r.studentId || '').trim().toLowerCase();
+        if (!institutionId || institutionId === 'platform' || rInst === institutionId) {
+          if (!normStudentId || rStId === normStudentId) {
+            if (!reportsMap.has(r.id)) {
+              reportsMap.set(r.id, { ...r, institution_id: rInst });
             }
           }
-        });
-      }
-    } catch (err) {
-      console.warn('Firestore GET REPORTS warning:', err.message);
-    }
+        }
+      });
+    } catch (e) {}
+
+    const reports = Array.from(reportsMap.values());
+    reports.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+
+    return NextResponse.json({ success: true, reports });
+  } catch (err) {
+    return NextResponse.json({ success: false, error: err.message, reports: [] }, { status: 500 });
   }
-
-
-  const reports = Array.from(reportsMap.values());
-  reports.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-
-  return NextResponse.json({ success: true, reports });
 }
 
 // ─── POST ────────────────────────────────────────────────────────────────────
