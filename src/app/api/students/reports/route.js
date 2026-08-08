@@ -33,8 +33,8 @@ export async function GET(req) {
   }
 
   // 2. Firestore Sync
-  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-  const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'vision-b1ad5';
+  const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCH7bTzvqJqSzJiV0Ou6JudPovkrrWrwdw';
 
   if (projectId && apiKey) {
     try {
@@ -123,8 +123,8 @@ export async function POST(req) {
     writeDb(dbData);
 
     // 2. Firestore Save
-    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-    const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'vision-b1ad5';
+    const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCH7bTzvqJqSzJiV0Ou6JudPovkrrWrwdw';
 
     if (projectId && apiKey) {
       try {
