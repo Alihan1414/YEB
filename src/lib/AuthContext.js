@@ -64,17 +64,24 @@ export function AuthProvider({ children }) {
   };
 
   useEffect(() => {
-    // Check localStorage for local (non-Firebase) session first
+    let isMounted = true;
     try {
       const localUserJson = typeof window !== 'undefined' && localStorage.getItem('localUser');
       if (localUserJson) {
         const localProfile = JSON.parse(localUserJson);
         if (localProfile?.email) {
-          Promise.resolve().then(() => {
-            applyLocalProfile(localProfile);
-            setLoading(false);
-          });
-          return; // Skip Firebase onAuthStateChanged if we have a local session
+          applyLocalProfile(localProfile);
+          setLoading(false);
+          // Async sync with latest profile from server
+          fetch(`/api/users/profile?uid=${encodeURIComponent(localProfile.uid || localProfile.id || '')}&email=${encodeURIComponent(localProfile.email)}`, { cache: 'no-store' })
+            .then(r => r.json())
+            .then(data => {
+              if (isMounted && data.success && data.profile) {
+                applyLocalProfile(data.profile);
+              }
+            })
+            .catch(() => {});
+          return () => { isMounted = false; };
         }
       }
     } catch (e) {
