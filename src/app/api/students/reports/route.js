@@ -78,7 +78,17 @@ export async function GET(req) {
     const reports = Array.from(reportsMap.values());
     reports.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 
-    return NextResponse.json({ success: true, reports });
+    return NextResponse.json({
+      success: true,
+      reports,
+      _debug: {
+        projectId,
+        apiKeySet: !!apiKey,
+        institutionId,
+        normStudentId,
+        mapSize: reportsMap.size
+      }
+    });
   } catch (err) {
     return NextResponse.json({ success: false, error: err.message, reports: [] }, { status: 500 });
   }
