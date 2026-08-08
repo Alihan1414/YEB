@@ -126,13 +126,17 @@ export async function POST(req) {
         const localUsers = dbData.users || [];
         // Normalize both sides to ASCII to handle Turkish characters from mobile keyboards
         // e.g. phone typing "kilicaslan" matches DB entry "kılıçaslan"
-        const normalizedInput = turkishToAscii(trimmedEmail.toLowerCase());
+        const normalizedInput = turkishToAscii(trimmedEmail.toLowerCase().replace(/\.com$/, ''));
+        const inputUsername = normalizedInput.split('@')[0];
+
         const foundLocal = localUsers.find(u => {
           if (!u.email) return false;
-          const normalizedDbEmail = turkishToAscii(u.email.toLowerCase());
-          // Match full email OR just the local-part before @ (so "kilicaslan" matches "kilicaslan@2026")
-          return normalizedDbEmail === normalizedInput ||
-                 normalizedDbEmail.split('@')[0] === normalizedInput;
+          const dbEmailLower = turkishToAscii(u.email.toLowerCase().replace(/\.com$/, ''));
+          const dbUsername = dbEmailLower.split('@')[0];
+
+          return dbEmailLower === normalizedInput ||
+                 dbUsername === inputUsername ||
+                 dbEmailLower === `${inputUsername}@2026`;
         });
 
         if (foundLocal) {
