@@ -1,4 +1,4 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,11 +23,11 @@ export async function GET(req) {
       try {
         const [sRes, rRes] = await Promise.all([
           fetch(
-            https://firestore.googleapis.com/v1/projects//databases/(default)/documents/students?pageSize=300&key=,
+            `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/students?pageSize=300&key=${apiKey}`,
             { cache: 'no-store' }
           ),
           fetch(
-            https://firestore.googleapis.com/v1/projects//databases/(default)/documents/reports?pageSize=300&key=,
+            `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/reports?pageSize=300&key=${apiKey}`,
             { cache: 'no-store' }
           ),
         ]);
@@ -121,7 +121,7 @@ export async function GET(req) {
         const st = studentMap[id];
         return {
           id,
-          name: st ? ${st.name}  : 'Bilinmeyen',
+          name: st ? `${st.name} ${st.surname}` : 'Bilinmeyen',
           class: st?.class || 'Bilinmiyor',
           score,
         };
