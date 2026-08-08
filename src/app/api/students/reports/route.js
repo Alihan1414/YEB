@@ -32,96 +32,46 @@ export async function GET(req) {
     console.warn('Local DB read warning in reports GET:', e.message);
   }
 
-  // 2. Firestore Sync – use runQuery for targeted student queries, full list for institution-wide
+  // 2. Firestore Sync
   const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
   const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
   if (projectId && apiKey) {
     try {
-      let fsDocuments = [];
+      const res = await fetch(
+        `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/reports?key=${apiKey}&pageSize=1000`,
+        { cache: 'no-store' }
+      );
+      if (res.ok) {
+        const data = await res.json();
+        const docs = data.documents || [];
+        docs.forEach(doc => {
+          const fields = doc.fields || {};
+          const id = doc.name.split('/').pop();
+          const rInst = (fields.institution_id?.stringValue || fields.institutionId?.stringValue || 'yamanevler').trim().toLowerCase();
+          const rStudentId = (fields.student_id?.stringValue || fields.studentId?.stringValue || '').trim();
+          const normRStudentId = rStudentId.toLowerCase();
 
-      if (normStudentId) {
-        // ── Targeted query: filter by student_id in Firestore ──────────────────
-        const queryBody = {
-          structuredQuery: {
-            from: [{ collectionId: 'reports' }],
-            where: {
-              fieldFilter: {
-                field: { fieldPath: 'student_id' },
-                op: 'EQUAL',
-                value: { stringValue: normStudentId }
-              }
+          if (!institutionId || institutionId === 'platform' || rInst === institutionId) {
+            if (!studentId || normRStudentId === normStudentId || rStudentId === studentId.trim()) {
+              const fsReport = {
+                id,
+                student_id:     rStudentId,
+                student_name:   fields.student_name?.stringValue || '',
+                class:          fields.class?.stringValue || '',
+                parent_phone:   fields.parent_phone?.stringValue || '',
+                content:        fields.content?.stringValue || '',
+                category:       fields.category?.stringValue || 'Diğer',
+                notified:       fields.notified?.booleanValue || false,
+                institution_id: rInst,
+                created_at:     fields.created_at?.timestampValue || fields.created_at?.stringValue || new Date().toISOString(),
+                created_by:     fields.created_by?.stringValue || 'Bilinmeyen Öğretmen',
+              };
+              reportsMap.set(id, fsReport);
             }
           }
-        };
-        const res = await fetch(
-          `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:runQuery?key=${apiKey}`,
-          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(queryBody), cache: 'no-store' }
-        );
-        if (res.ok) {
-          const rows = await res.json();
-          fsDocuments = rows.filter(r => r.document).map(r => r.document);
-        }
-        // Also try with original non-lowercased studentId
-        if (studentId && studentId.trim() !== normStudentId) {
-          const queryBody2 = {
-            structuredQuery: {
-              from: [{ collectionId: 'reports' }],
-              where: {
-                fieldFilter: {
-                  field: { fieldPath: 'student_id' },
-                  op: 'EQUAL',
-                  value: { stringValue: studentId.trim() }
-                }
-              }
-            }
-          };
-          const res2 = await fetch(
-            `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:runQuery?key=${apiKey}`,
-            { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(queryBody2), cache: 'no-store' }
-          );
-          if (res2.ok) {
-            const rows2 = await res2.json();
-            fsDocuments = [...fsDocuments, ...rows2.filter(r => r.document).map(r => r.document)];
-          }
-        }
-      } else {
-        // ── Full collection scan for institution-wide queries ─────────────────
-        const res = await fetch(
-          `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/reports?key=${apiKey}&pageSize=1000`,
-          { cache: 'no-store' }
-        );
-        if (res.ok) {
-          const data = await res.json();
-          fsDocuments = data.documents || [];
-        }
+        });
       }
-
-      fsDocuments.forEach(doc => {
-        const fields = doc.fields || {};
-        const id = doc.name.split('/').pop();
-        const rInst = (fields.institution_id?.stringValue || fields.institutionId?.stringValue || 'yamanevler').trim().toLowerCase();
-        const rStudentId = (fields.student_id?.stringValue || fields.studentId?.stringValue || '').trim().toLowerCase();
-
-        if (!institutionId || institutionId === 'platform' || rInst === institutionId) {
-          if (!normStudentId || rStudentId === normStudentId || rStudentId === (studentId || '').trim().toLowerCase()) {
-            const fsReport = {
-              id,
-              student_id:     fields.student_id?.stringValue || fields.studentId?.stringValue || '',
-              student_name:   fields.student_name?.stringValue || '',
-              class:          fields.class?.stringValue || '',
-              parent_phone:   fields.parent_phone?.stringValue || '',
-              content:        fields.content?.stringValue || '',
-              category:       fields.category?.stringValue || 'Diğer',
-              notified:       fields.notified?.booleanValue || false,
-              institution_id: rInst,
-              created_at:     fields.created_at?.timestampValue || fields.created_at?.stringValue || new Date().toISOString(),
-              created_by:     fields.created_by?.stringValue || 'Bilinmeyen Öğretmen',
-            };
-            reportsMap.set(id, fsReport);
-          }
-        }
-      });
     } catch (err) {
       console.warn('Firestore GET REPORTS warning:', err.message);
     }
