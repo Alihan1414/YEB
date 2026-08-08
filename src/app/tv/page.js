@@ -256,6 +256,17 @@ export default function TVPage() {
     if (!authLoading && !user) router.push('/login');
   }, [user, authLoading, router]);
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#030a1a] flex items-center justify-center text-white">
+        <div className="flex flex-col items-center gap-3">
+          <RefreshCw size={32} className="animate-spin text-amber-400" />
+          <p className="text-sm font-medium text-slate-300">TV Ekranı Yükleniyor...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Hadis ve Motto rotasyonu (12 saniyede bir)
   useEffect(() => {
     const interval = setInterval(() => {

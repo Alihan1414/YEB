@@ -681,13 +681,13 @@ export default function StudentsPage() {
               Haftalık Özet
             </a>
 
-            <a
+            <Link
               href="/tv"
               className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-white hover:bg-white/10 font-semibold text-sm transition-all"
             >
               <Tv size={18} />
               TV Ekranı
-            </a>
+            </Link>
 
             {leaveEnabled && (
               <a
