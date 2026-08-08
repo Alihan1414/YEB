@@ -11,9 +11,13 @@ export async function GET(req) {
     const { searchParams } = new URL(req.url);
     const rawInstId = searchParams.get('institutionId') || 'yamanevler';
     const institutionId = rawInstId.trim().toLowerCase();
+    const authHeader = req.headers.get('authorization');
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(authHeader ? { 'Authorization': authHeader } : {})
+    };
 
     const dbData = readDb();
-    
     if (!dbData.leaveSettings) {
       dbData.leaveSettings = {};
     }
@@ -27,14 +31,14 @@ export async function GET(req) {
     try {
       const res = await fetch(
         `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/leaveSettings/${institutionId}?key=${FIREBASE_API_KEY}`,
-        { cache: 'no-store' }
+        { headers, cache: 'no-store' }
       );
       if (res.ok) {
         const data = await res.json();
         if (data.fields) {
           const enabled = data.fields.enabled?.booleanValue !== undefined ? data.fields.enabled.booleanValue : false;
           const assignedTeacherId = data.fields.assignedTeacherId?.stringValue || '';
-          settings.enabled = enabled;
+          settings.enabled = Boolean(enabled);
           settings.assignedTeacherId = assignedTeacherId;
 
           // Sync back to local DB
@@ -56,6 +60,11 @@ export async function GET(req) {
 export async function POST(req) {
   try {
     const { institutionId, enabled, assignedTeacherId } = await req.json();
+    const authHeader = req.headers.get('authorization');
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(authHeader ? { 'Authorization': authHeader } : {})
+    };
 
     if (!institutionId) {
       return NextResponse.json({ success: false, error: 'Kurum ID gereklidir.' }, { status: 400 });
@@ -79,11 +88,11 @@ export async function POST(req) {
 
     // 2. Update Firestore
     try {
-      await fetch(
+      const fsRes = await fetch(
         `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/leaveSettings/${instId}?key=${FIREBASE_API_KEY}`,
         {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers,
           body: JSON.stringify({
             fields: {
               enabled:           { booleanValue: isEnabled },
@@ -92,6 +101,9 @@ export async function POST(req) {
           }),
         }
       );
+      if (!fsRes.ok) {
+        console.warn("Firestore leave settings PATCH response not OK:", fsRes.status, await fsRes.text());
+      }
     } catch (err) {
       console.warn("Firestore leave settings save failed, saved locally:", err.message);
     }

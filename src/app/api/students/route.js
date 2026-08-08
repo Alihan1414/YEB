@@ -100,18 +100,48 @@ export async function GET(req) {
 export async function POST(req) {
   try {
     const body = await req.json();
+    const authHeader = req.headers.get('authorization');
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(authHeader ? { 'Authorization': authHeader } : {})
+    };
+
+    // Helper to count current students for an institution
+    const dbData = readDb();
+    dbData.students = dbData.students || [];
 
     // Check if bulk insert (array of students)
     if (body.students && Array.isArray(body.students)) {
       const { students, institutionId = 'yamanevler' } = body;
-      const createdStudents = [];
-      const dbData = readDb();
-      dbData.students = dbData.students || [];
+      const targetInstId = institutionId.trim().toLowerCase();
 
+      // Count existing students in this institution
+      const currentCount = dbData.students.filter(s =>
+        (s.institution_id || 'yamanevler').trim().toLowerCase() === targetInstId
+      ).length;
+
+      if (currentCount >= 100) {
+        return NextResponse.json({
+          success: false,
+          error: `Bu kurum için 100 öğrenci ekleme sınırına ulaşıldı! (Mevcut: ${currentCount}/100)`
+        }, { status: 400 });
+      }
+
+      if (currentCount + students.length > 100) {
+        const allowed = Math.max(0, 100 - currentCount);
+        return NextResponse.json({
+          success: false,
+          error: `100 öğrenci sınırı aşıldı! En fazla ${allowed} öğrenci daha ekleyebilirsiniz. (Mevcut: ${currentCount}/100)`
+        }, { status: 400 });
+      }
+
+      const createdStudents = [];
       const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
       const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
       for (let i = 0; i < students.length; i++) {
+        const item = students[i];
+        if (!item) continue;
         const name = (item.name || '').trim().slice(0, 50);
         const surname = (item.surname || '').trim().slice(0, 50);
         const studentClass = (item.studentClass || '').trim().slice(0, 20);
@@ -126,7 +156,7 @@ export async function POST(req) {
           surname,
           class: studentClass,
           parent_phone: parentPhone,
-          institution_id: (institutionId || 'yamanevler').trim().slice(0, 50),
+          institution_id: institutionId.trim(),
           created_at: new Date().toISOString(),
         };
 
@@ -136,14 +166,14 @@ export async function POST(req) {
               `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/students/${stId}?key=${apiKey}`,
               {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify({
                   fields: {
                     name:           { stringValue: newSt.name },
                     surname:        { stringValue: newSt.surname },
                     class:          { stringValue: newSt.class },
                     parent_phone:   { stringValue: newSt.parent_phone },
-                    institution_id: { stringValue: institutionId },
+                    institution_id: { stringValue: newSt.institution_id },
                     created_at:     { timestampValue: newSt.created_at },
                   },
                 }),
@@ -166,7 +196,19 @@ export async function POST(req) {
     const { name, surname, studentClass, parentPhone, institutionId = 'yamanevler' } = body;
 
     if (!name || !surname || !studentClass) {
-      return NextResponse.json({ success: false, error: 'Eksik bilgi.' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Eksik bilgi (Ad, Soyad ve Sınıf zorunludur).' }, { status: 400 });
+    }
+
+    const targetInstId = institutionId.trim().toLowerCase();
+    const currentCount = dbData.students.filter(s =>
+      (s.institution_id || 'yamanevler').trim().toLowerCase() === targetInstId
+    ).length;
+
+    if (currentCount >= 100) {
+      return NextResponse.json({
+        success: false,
+        error: `Bu kurum için 100 öğrenci ekleme sınırına ulaşıldı! (Mevcut: ${currentCount}/100)`
+      }, { status: 400 });
     }
 
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
@@ -175,11 +217,11 @@ export async function POST(req) {
 
     const newStudent = {
       id: stId,
-      name: name.trim(),
-      surname: surname.trim(),
-      class: studentClass.trim(),
-      parent_phone: parentPhone ? parentPhone.trim() : '',
-      institution_id: institutionId,
+      name: name.trim().slice(0, 50),
+      surname: surname.trim().slice(0, 50),
+      class: studentClass.trim().slice(0, 20),
+      parent_phone: parentPhone ? parentPhone.trim().slice(0, 20) : '',
+      institution_id: institutionId.trim(),
       created_at: new Date().toISOString(),
     };
 
@@ -189,14 +231,14 @@ export async function POST(req) {
           `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/students/${stId}?key=${apiKey}`,
           {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify({
               fields: {
                 name:           { stringValue: newStudent.name },
                 surname:        { stringValue: newStudent.surname },
                 class:          { stringValue: newStudent.class },
                 parent_phone:   { stringValue: newStudent.parent_phone },
-                institution_id: { stringValue: institutionId },
+                institution_id: { stringValue: newStudent.institution_id },
                 created_at:     { timestampValue: newStudent.created_at },
               },
             }),
@@ -208,9 +250,6 @@ export async function POST(req) {
     }
 
     // Always sync with Local DB
-    const dbData = readDb();
-    dbData.students = dbData.students || [];
-    // remove duplicate if exists
     dbData.students = dbData.students.filter(s => s.id !== stId);
     dbData.students.push(newStudent);
     writeDb(dbData);
