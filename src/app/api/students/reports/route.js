@@ -34,7 +34,7 @@ export async function GET(req) {
             const normRStudentId = rStudentId.toLowerCase();
 
             if (!institutionId || institutionId === 'platform' || rInst === institutionId) {
-              if (!normStudentId || normRStudentId === normStudentId || rStudentId === (studentId || '').trim()) {
+              if (!normStudentId || normRStudentId === normStudentId) {
                 const fsReport = {
                   id,
                   student_id:     rStudentId,
