@@ -112,17 +112,21 @@ export async function POST(req) {
       const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
 
       for (let i = 0; i < students.length; i++) {
-        const item = students[i];
-        if (!item.name || !item.surname || !item.studentClass) continue;
+        const name = (item.name || '').trim().slice(0, 50);
+        const surname = (item.surname || '').trim().slice(0, 50);
+        const studentClass = (item.studentClass || '').trim().slice(0, 20);
+        const parentPhone = (item.parentPhone || '').trim().slice(0, 20);
+
+        if (!name || !surname || !studentClass) continue;
 
         const stId = `student-${Date.now()}-${i}-${Math.floor(Math.random()*1000)}`;
         const newSt = {
           id: stId,
-          name: item.name.trim(),
-          surname: item.surname.trim(),
-          class: item.studentClass.trim(),
-          parent_phone: item.parentPhone ? item.parentPhone.trim() : '',
-          institution_id: institutionId,
+          name,
+          surname,
+          class: studentClass,
+          parent_phone: parentPhone,
+          institution_id: (institutionId || 'yamanevler').trim().slice(0, 50),
           created_at: new Date().toISOString(),
         };
 
