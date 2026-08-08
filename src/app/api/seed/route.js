@@ -1,8 +1,8 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 
 export async function GET() {
-  const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+  const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCH7bTzvqJqSzJiV0Ou6JudPovkrrWrwdw';
+  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'vision-b1ad5';
 
   if (!apiKey || !projectId) {
     return NextResponse.json(
@@ -19,19 +19,19 @@ export async function GET() {
       email:           'admin@yeb.local',
       password:        'admin14',
       username:        'admin',
-      name:            'Sistem Yöneticisi',
+      name:            'Sistem YÃ¶neticisi',
       role:            'super_admin',
       institutionId:   'platform',
-      institutionName: 'Sistem Yönetimi',
+      institutionName: 'Sistem YÃ¶netimi',
     },
     {
       email:           'yeb@2026.com',
-      password:        'enderun bilişim',
+      password:        'enderun biliÅŸim',
       username:        'yeb2026',
       name:            'Yamanevler Admin',
       role:            'admin',
       institutionId:   'yamanevler',
-      institutionName: 'Yamanevler Enderun Bilişim',
+      institutionName: 'Yamanevler Enderun BiliÅŸim',
     }
   ];
 
@@ -65,14 +65,14 @@ export async function GET() {
           );
           const signInData = await signInRes.json();
           if (signInData.error) {
-            results.push({ email: acc.email, status: 'Mevcut ama giriş hatası', error: signInData.error.message });
+            results.push({ email: acc.email, status: 'Mevcut ama giriÅŸ hatasÄ±', error: signInData.error.message });
             continue;
           }
           uid = signInData.localId;
           idToken = signInData.idToken;
           isNew = false;
         } else {
-          results.push({ email: acc.email, status: 'Kayıt hatası', error: signUpData.error.message });
+          results.push({ email: acc.email, status: 'KayÄ±t hatasÄ±', error: signUpData.error.message });
           continue;
         }
       } else {
@@ -103,7 +103,7 @@ export async function GET() {
         }
       );
 
-      results.push({ email: acc.email, status: isNew ? 'Başarıyla oluşturuldu' : 'Firestore güncellendi' });
+      results.push({ email: acc.email, status: isNew ? 'BaÅŸarÄ±yla oluÅŸturuldu' : 'Firestore gÃ¼ncellendi' });
     } catch (err) {
       results.push({ email: acc.email, status: 'Hata', error: err.message });
     }
@@ -111,7 +111,8 @@ export async function GET() {
 
   return NextResponse.json({
     success: true,
-    message: 'Seed işlemi tamamlandı.',
+    message: 'Seed iÅŸlemi tamamlandÄ±.',
     results,
   });
 }
+

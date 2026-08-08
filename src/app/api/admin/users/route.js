@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { readDb } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -9,8 +9,8 @@ const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'visi
 
 export async function GET(req) {
   try {
-    const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
+    const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCH7bTzvqJqSzJiV0Ou6JudPovkrrWrwdw';
+    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'vision-b1ad5';
 
     let usersList = [];
 
@@ -30,7 +30,7 @@ export async function GET(req) {
               email:           f.email?.stringValue           || '',
               role:            f.role?.stringValue            || 'teacher',
               institutionId:   f.institutionId?.stringValue   || 'yamanevler',
-              institutionName: f.institutionName?.stringValue || 'Yamanevler Enderun Bilişim',
+              institutionName: f.institutionName?.stringValue || 'Yamanevler Enderun BiliÅŸim',
               disabled:        f.disabled?.booleanValue       || false,
             };
           });
@@ -52,7 +52,7 @@ export async function GET(req) {
             email: lu.email || '',
             role: lu.role || 'teacher',
             institutionId: lu.institutionId || 'yamanevler',
-            institutionName: lu.institutionName || 'Yamanevler Enderun Bilişim',
+            institutionName: lu.institutionName || 'Yamanevler Enderun BiliÅŸim',
             disabled: lu.disabled || false,
           });
         }
@@ -65,20 +65,20 @@ export async function GET(req) {
     const seedAccounts = [
       {
         id: 'super-admin-alihan',
-        name: 'Alihan (Süper Yönetici)',
+        name: 'Alihan (SÃ¼per YÃ¶netici)',
         email: 'alihan@2026',
         role: 'super_admin',
         institutionId: 'platform',
-        institutionName: 'Sistem Yönetimi',
+        institutionName: 'Sistem YÃ¶netimi',
         disabled: false
       },
       {
         id: 'super-admin',
-        name: 'Sistem Yöneticisi',
+        name: 'Sistem YÃ¶neticisi',
         email: 'admin@yeb.local',
         role: 'super_admin',
         institutionId: 'platform',
-        institutionName: 'Sistem Yönetimi',
+        institutionName: 'Sistem YÃ¶netimi',
         disabled: false
       },
       {
@@ -87,7 +87,7 @@ export async function GET(req) {
         email: 'yeb@2026.com',
         role: 'admin',
         institutionId: 'yamanevler',
-        institutionName: 'Yamanevler Enderun Bilişim',
+        institutionName: 'Yamanevler Enderun BiliÅŸim',
         disabled: false
       }
     ];
@@ -108,3 +108,4 @@ export async function GET(req) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
+

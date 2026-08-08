@@ -1,19 +1,19 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { readDb } from '@/lib/db';
 
 function trClean(str) {
   if (!str) return '';
   return str
-    .replace(/İ/g, 'i')
-    .replace(/I/g, 'ı')
+    .replace(/Ä°/g, 'i')
+    .replace(/I/g, 'Ä±')
     .toLowerCase()
-    .replace(/ç/g, 'c')
-    .replace(/ğ/g, 'g')
-    .replace(/ı/g, 'i')
-    .replace(/ö/g, 'o')
-    .replace(/ş/g, 's')
-    .replace(/ü/g, 'u')
+    .replace(/Ã§/g, 'c')
+    .replace(/ÄŸ/g, 'g')
+    .replace(/Ä±/g, 'i')
+    .replace(/Ã¶/g, 'o')
+    .replace(/ÅŸ/g, 's')
+    .replace(/Ã¼/g, 'u')
     .replace(/[^a-z0-9\s]/g, '')
     .trim();
 }
@@ -22,7 +22,7 @@ export async function POST(req) {
   try {
     const { text, institutionId = 'yamanevler' } = await req.json();
     if (!text || text.trim() === '') {
-      return NextResponse.json({ success: false, error: 'Metin girişi zorunludur.' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Metin giriÅŸi zorunludur.' }, { status: 400 });
     }
 
     const normInstId = (institutionId || 'yamanevler').trim().toLowerCase();
@@ -50,8 +50,8 @@ export async function POST(req) {
 
     // B. Fetch Firestore students and merge
     try {
-      const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-      const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+      const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'vision-b1ad5';
+      const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCH7bTzvqJqSzJiV0Ou6JudPovkrrWrwdw';
       if (projectId && apiKey) {
         const res = await fetch(
           `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/students?key=${apiKey}`,
@@ -89,34 +89,34 @@ export async function POST(req) {
         const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
         const prompt = `
-Sen bir okul öğrenci takip uygulaması için akıllı bir asistansın. Görevin, Türkçe ses/metin rapor girişini analiz ederek öğrenci raporu oluşturmaktır.
+Sen bir okul Ã¶ÄŸrenci takip uygulamasÄ± iÃ§in akÄ±llÄ± bir asistansÄ±n. GÃ¶revin, TÃ¼rkÃ§e ses/metin rapor giriÅŸini analiz ederek Ã¶ÄŸrenci raporu oluÅŸturmaktÄ±r.
 
-Kayıtlı Öğrenciler (Sadece bu listeden eşleştirme yap):
+KayÄ±tlÄ± Ã–ÄŸrenciler (Sadece bu listeden eÅŸleÅŸtirme yap):
 ${JSON.stringify(students, null, 2)}
 
-Geçerli Kategoriler (YALNIZCA şu 6 kategoriden birini seç):
-"Akademik", "Yemek", "Program", "Sağlık", "Namaz", "Diğer"
+GeÃ§erli Kategoriler (YALNIZCA ÅŸu 6 kategoriden birini seÃ§):
+"Akademik", "Yemek", "Program", "SaÄŸlÄ±k", "Namaz", "DiÄŸer"
 
-Önemli Kategori Örnekleri:
-- Ödev yapma, ödev teslimi, sınav sonucu, test/soru çözümü, derse katılım, ders çalışması, kitap okuması -> Kategori: "Akademik"
-- Yemek yeme, öğle yemeği, kahvaltı, çorba, yemeğe katıldı/katılmadı -> Kategori: "Yemek"
-- Namaz kılma, sabah/öğle/ikindi/akşam/yatsı namazı, cemaat, tesbihat -> Kategori: "Namaz"
-- Hastalık, revir, ilaç, baş ağrısı, doktor, ateş -> Kategori: "Sağlık"
-- Etkinlik, sohbet, seminer, toplu faaliyet, ders programı -> Kategori: "Program"
+Ã–nemli Kategori Ã–rnekleri:
+- Ã–dev yapma, Ã¶dev teslimi, sÄ±nav sonucu, test/soru Ã§Ã¶zÃ¼mÃ¼, derse katÄ±lÄ±m, ders Ã§alÄ±ÅŸmasÄ±, kitap okumasÄ± -> Kategori: "Akademik"
+- Yemek yeme, Ã¶ÄŸle yemeÄŸi, kahvaltÄ±, Ã§orba, yemeÄŸe katÄ±ldÄ±/katÄ±lmadÄ± -> Kategori: "Yemek"
+- Namaz kÄ±lma, sabah/Ã¶ÄŸle/ikindi/akÅŸam/yatsÄ± namazÄ±, cemaat, tesbihat -> Kategori: "Namaz"
+- HastalÄ±k, revir, ilaÃ§, baÅŸ aÄŸrÄ±sÄ±, doktor, ateÅŸ -> Kategori: "SaÄŸlÄ±k"
+- Etkinlik, sohbet, seminer, toplu faaliyet, ders programÄ± -> Kategori: "Program"
 
 Kurallar:
-1. Öğrenci Adı Eşleştirme: Girişte geçen ismi listedeki öğrencilerle esnek bir şekilde (Türkçe karakter uyuşmazlığı "ergon" -> "Ergön" veya konuşma-metin ses dönüşüm hataları dahil) en doğru şekilde eşleştir.
-2. Eşleşen öğrencinin ID'sini "matchedStudentId" olarak, tam adını "matchedStudentName" olarak döndür. Listedeki hiç kimseyle eşleşmezse null ver.
-3. Rapor Metni: Rapor içeriğini dilbilgisine uygun, temiz ve profesyonel Türkçe ile düzelt ("ali ödevlerini teslim etti kaydet" -> "Ödevlerini teslim etti.").
-4. Kategori: Rapor içeriğine en uygun kategoriyi yukarıdaki örnekler doğrultusunda belirle.
-5. Güven Skoru: 0.0 ile 1.0 arasında güven skoru ver.
+1. Ã–ÄŸrenci AdÄ± EÅŸleÅŸtirme: GiriÅŸte geÃ§en ismi listedeki Ã¶ÄŸrencilerle esnek bir ÅŸekilde (TÃ¼rkÃ§e karakter uyuÅŸmazlÄ±ÄŸÄ± "ergon" -> "ErgÃ¶n" veya konuÅŸma-metin ses dÃ¶nÃ¼ÅŸÃ¼m hatalarÄ± dahil) en doÄŸru ÅŸekilde eÅŸleÅŸtir.
+2. EÅŸleÅŸen Ã¶ÄŸrencinin ID'sini "matchedStudentId" olarak, tam adÄ±nÄ± "matchedStudentName" olarak dÃ¶ndÃ¼r. Listedeki hiÃ§ kimseyle eÅŸleÅŸmezse null ver.
+3. Rapor Metni: Rapor iÃ§eriÄŸini dilbilgisine uygun, temiz ve profesyonel TÃ¼rkÃ§e ile dÃ¼zelt ("ali Ã¶devlerini teslim etti kaydet" -> "Ã–devlerini teslim etti.").
+4. Kategori: Rapor iÃ§eriÄŸine en uygun kategoriyi yukarÄ±daki Ã¶rnekler doÄŸrultusunda belirle.
+5. GÃ¼ven Skoru: 0.0 ile 1.0 arasÄ±nda gÃ¼ven skoru ver.
 
-SADECE geçerli şu JSON formatında yanıt ver:
+SADECE geÃ§erli ÅŸu JSON formatÄ±nda yanÄ±t ver:
 {
   "matchedStudentId": "student-id veya null",
   "matchedStudentName": "tam ad veya null",
   "confidence": 0.95,
-  "extractedText": "Temizlenmiş Türkçe rapor metni",
+  "extractedText": "TemizlenmiÅŸ TÃ¼rkÃ§e rapor metni",
   "category": "Kategori",
   "rawInput": "${text.replace(/"/g, '\\"')}"
 }`;
@@ -127,9 +127,9 @@ SADECE geçerli şu JSON formatında yanıt ver:
         const parsed = JSON.parse(cleanedText);
         
         // Ensure category is strictly valid
-        const validCategories = ['Akademik', 'Yemek', 'Program', 'Sağlık', 'Namaz', 'Diğer'];
+        const validCategories = ['Akademik', 'Yemek', 'Program', 'SaÄŸlÄ±k', 'Namaz', 'DiÄŸer'];
         if (!validCategories.includes(parsed.category)) {
-          parsed.category = 'Diğer';
+          parsed.category = 'DiÄŸer';
         }
 
         return NextResponse.json({ success: true, data: parsed });
@@ -170,7 +170,7 @@ SADECE geçerli şu JSON formatında yanıt ver:
     }
 
     // Determine category via keyword analysis (Order matters: Akademik high priority)
-    let category = 'Diğer';
+    let category = 'DiÄŸer';
     if (/(odev|sinav|not|test|soru|deneme|karne|matematik|fizik|kimya|biyoloji|turkce|tarih|cografya|kitap|okum|calis|teslim|akademik|derse|dersini|ders)/i.test(cleanedInput)) {
       category = 'Akademik';
     } else if (/(namaz|sabah|ogle|ikindi|aksam|yatsi|cami|cemaat|tesbih|kild)/i.test(cleanedInput)) {
@@ -178,7 +178,7 @@ SADECE geçerli şu JSON formatında yanıt ver:
     } else if (/(yemek|kahvalti|corba|yedi|icti|menu|tabak)/i.test(cleanedInput)) {
       category = 'Yemek';
     } else if (/(bas|revir|hasta|ilac|saglik|ates|doktor|agri|kusma|mide|halsiz)/i.test(cleanedInput)) {
-      category = 'Sağlık';
+      category = 'SaÄŸlÄ±k';
     } else if (/(program|etkinlik|faaliyet|toplanti|seminer|sohbet|kuran)/i.test(cleanedInput)) {
       category = 'Program';
     }
@@ -204,3 +204,4 @@ SADECE geçerli şu JSON formatında yanıt ver:
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
+

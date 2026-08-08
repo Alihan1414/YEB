@@ -1,9 +1,9 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { readDb, writeDb } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
-// ─── GET ─────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ GET â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
@@ -42,11 +42,11 @@ export async function GET(req) {
                   class:          fields.class?.stringValue || '',
                   parent_phone:   fields.parent_phone?.stringValue || '',
                   content:        fields.content?.stringValue || '',
-                  category:       fields.category?.stringValue || 'Diğer',
+                  category:       fields.category?.stringValue || 'DiÄŸer',
                   notified:       fields.notified?.booleanValue || false,
                   institution_id: rInst,
                   created_at:     fields.created_at?.timestampValue || fields.created_at?.stringValue || new Date().toISOString(),
-                  created_by:     fields.created_by?.stringValue || 'Bilinmeyen Öğretmen',
+                  created_by:     fields.created_by?.stringValue || 'Bilinmeyen Ã–ÄŸretmen',
                 };
                 reportsMap.set(id, fsReport);
               }
@@ -84,7 +84,7 @@ export async function GET(req) {
   }
 }
 
-// ─── POST ────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ POST â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export async function POST(req) {
   try {
     const {
@@ -94,7 +94,7 @@ export async function POST(req) {
     } = await req.json();
 
     if (!studentId || !content) {
-      return NextResponse.json({ success: false, error: 'Eksik bilgi: Öğrenci ve içerik gereklidir.' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Eksik bilgi: Ã–ÄŸrenci ve iÃ§erik gereklidir.' }, { status: 400 });
     }
 
     const instId = (institutionId || 'yamanevler').trim().toLowerCase();
@@ -109,11 +109,11 @@ export async function POST(req) {
       class:          className || '',
       parent_phone:   parentPhone || '',
       content:        content.trim(),
-      category:       category || 'Diğer',
+      category:       category || 'DiÄŸer',
       notified:       !!notifyParent,
       institution_id: instId,
       created_at:     nowIso,
-      created_by:     createdBy || 'Bilinmeyen Öğretmen',
+      created_by:     createdBy || 'Bilinmeyen Ã–ÄŸretmen',
     };
 
     // 1. Local DB Save
@@ -140,11 +140,11 @@ export async function POST(req) {
                 class:          { stringValue: className || '' },
                 parent_phone:   { stringValue: parentPhone || '' },
                 content:        { stringValue: content.trim() },
-                category:       { stringValue: category || 'Diğer' },
+                category:       { stringValue: category || 'DiÄŸer' },
                 notified:       { booleanValue: !!notifyParent },
                 institution_id: { stringValue: instId },
                 created_at:     { timestampValue: nowIso },
-                created_by:     { stringValue: createdBy || 'Bilinmeyen Öğretmen' },
+                created_by:     { stringValue: createdBy || 'Bilinmeyen Ã–ÄŸretmen' },
               },
             }),
           }
@@ -161,7 +161,7 @@ export async function POST(req) {
   }
 }
 
-// ─── DELETE ──────────────────────────────────────────────────────────────────
+// â”€â”€â”€ DELETE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export async function DELETE(req) {
   try {
     const { searchParams } = new URL(req.url);
@@ -176,8 +176,8 @@ export async function DELETE(req) {
     }
 
     // 2. Firestore Delete
-    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-    const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'vision-b1ad5';
+    const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCH7bTzvqJqSzJiV0Ou6JudPovkrrWrwdw';
 
     if (projectId && apiKey) {
       try {
@@ -197,7 +197,7 @@ export async function DELETE(req) {
   }
 }
 
-// ─── PUT ─────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ PUT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export async function PUT(req) {
   try {
     const { id, notified } = await req.json();
@@ -212,8 +212,8 @@ export async function PUT(req) {
     }
 
     // 2. Firestore Sync
-    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-    const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'vision-b1ad5';
+    const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCH7bTzvqJqSzJiV0Ou6JudPovkrrWrwdw';
 
     if (projectId && apiKey) {
       try {
@@ -240,3 +240,4 @@ export async function PUT(req) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
+

@@ -1,10 +1,10 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { readDb } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
 const CATEGORY_SCORES = {
-  Akademik: 3, Namaz: 2, Program: 2, Sağlık: 1, Yemek: 1, Diğer: 1,
+  Akademik: 3, Namaz: 2, Program: 2, SaÄŸlÄ±k: 1, Yemek: 1, DiÄŸer: 1,
 };
 
 export async function GET(req) {
@@ -15,8 +15,8 @@ export async function GET(req) {
     let students = [];
     let reports = [];
 
-    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-    const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'vision-b1ad5';
+    const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCH7bTzvqJqSzJiV0Ou6JudPovkrrWrwdw';
 
     // 1. Fetch Students & Reports
     if (projectId && apiKey) {
@@ -64,9 +64,9 @@ export async function GET(req) {
                 student_id: fields.student_id?.stringValue || '',
                 student_name: fields.student_name?.stringValue || '',
                 class: fields.class?.stringValue || '',
-                category: fields.category?.stringValue || 'Diğer',
+                category: fields.category?.stringValue || 'DiÄŸer',
                 created_at: fields.created_at?.timestampValue || null,
-                created_by: fields.created_by?.stringValue || 'Bilinmeyen Öğretmen',
+                created_by: fields.created_by?.stringValue || 'Bilinmeyen Ã–ÄŸretmen',
               };
             });
         }
@@ -107,7 +107,7 @@ export async function GET(req) {
     let weeklyAkademikCount = 0;
 
     weeklyReports.forEach(r => {
-      const category = r.category || 'Diğer';
+      const category = r.category || 'DiÄŸer';
       const pts = CATEGORY_SCORES[category] || 1;
 
       // Class score calculation
@@ -116,7 +116,7 @@ export async function GET(req) {
       classScores[cls] = (classScores[cls] || 0) + pts;
 
       // Teacher performance calculation
-      const teacher = r.created_by || 'Bilinmeyen Öğretmen';
+      const teacher = r.created_by || 'Bilinmeyen Ã–ÄŸretmen';
       teacherPerformance[teacher] = (teacherPerformance[teacher] || 0) + 1;
 
       // Student score calculation
@@ -140,7 +140,7 @@ export async function GET(req) {
         const st = studentMap[id];
         return {
           id,
-          name: st ? `${st.name} ${st.surname}` : 'Bilinmeyen Öğrenci',
+          name: st ? `${st.name} ${st.surname}` : 'Bilinmeyen Ã–ÄŸrenci',
           class: st?.class || 'Bilinmiyor',
           score,
         };
@@ -163,3 +163,4 @@ export async function GET(req) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
+
