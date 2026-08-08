@@ -83,11 +83,14 @@ function Particles({ isNight }) {
 
 // Canlı Saat Bileşeni (GG/AA/YYYY Haftanın Günü)
 function Clock() {
-  const [time, setTime] = useState(new Date());
+  const [time, setTime] = useState(null);
   useEffect(() => {
+    setTime(new Date());
     const t = setInterval(() => setTime(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
+
+  if (!time) return <div className="h-16 w-36" />;
 
   return (
     <div className="text-right">
