@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
 const CATEGORY_SCORES = {
-  Akademik: 3, Namaz: 2, Program: 2, Saglik: 1, Yemek: 1, Diger: 1,
+  Akademik: 3, Namaz: 2, Program: 2, Saglik: 1, Yemek: 1, Dahili: 1,
 };
 
 export async function GET(req) {
@@ -64,7 +64,8 @@ export async function GET(req) {
                 student_id: fields.student_id?.stringValue || '',
                 student_name: fields.student_name?.stringValue || '',
                 class: fields.class?.stringValue || '',
-                category: fields.category?.stringValue || 'Diger',
+                category: fields.category?.stringValue || 'Dahili',
+                isPositive: fields.isPositive?.booleanValue !== false,
                 created_at: fields.created_at?.timestampValue || fields.created_at?.stringValue || null,
                 created_by: fields.created_by?.stringValue || 'Bilinmeyen',
               };
@@ -94,8 +95,9 @@ export async function GET(req) {
     let weeklyAkademikCount = 0;
 
     weeklyReports.forEach(r => {
-      const category = r.category || 'Diger';
-      const pts = CATEGORY_SCORES[category] || 1;
+      const category = r.category || 'Dahili';
+      const basePts = CATEGORY_SCORES[category] || 1;
+      const pts = r.isPositive === false ? -1 : basePts;
 
       const st = studentMap[r.student_id];
       const cls = st?.class || r.class || 'Bilinmiyor';

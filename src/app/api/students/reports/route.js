@@ -1,4 +1,4 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { readDb, writeDb } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -42,11 +42,12 @@ export async function GET(req) {
                   class:          fields.class?.stringValue || '',
                   parent_phone:   fields.parent_phone?.stringValue || '',
                   content:        fields.content?.stringValue || '',
-                  category:       fields.category?.stringValue || 'DiÄŸer',
+                  category:       fields.category?.stringValue || 'Dahili',
+                  isPositive:     fields.isPositive?.booleanValue !== false,
                   notified:       fields.notified?.booleanValue || false,
                   institution_id: rInst,
                   created_at:     fields.created_at?.timestampValue || fields.created_at?.stringValue || new Date().toISOString(),
-                  created_by:     fields.created_by?.stringValue || 'Bilinmeyen Ã–ÄŸretmen',
+                  created_by:     fields.created_by?.stringValue || 'Bilinmeyen Öğretmen',
                 };
                 reportsMap.set(id, fsReport);
               }
@@ -89,7 +90,7 @@ export async function POST(req) {
   try {
     const {
       studentId, studentName, className, parentPhone,
-      content, category, notifyParent, institutionId = 'yamanevler',
+      content, category, isPositive, notifyParent, institutionId = 'yamanevler',
       createdBy
     } = await req.json();
 
@@ -109,11 +110,12 @@ export async function POST(req) {
       class:          className || '',
       parent_phone:   parentPhone || '',
       content:        content.trim(),
-      category:       category || 'DiÄŸer',
+      category:       category || 'Dahili',
+      isPositive:     isPositive !== false,
       notified:       !!notifyParent,
       institution_id: instId,
       created_at:     nowIso,
-      created_by:     createdBy || 'Bilinmeyen Ã–ÄŸretmen',
+      created_by:     createdBy || 'Bilinmeyen Öğretmen',
     };
 
     // 1. Local DB Save
@@ -140,11 +142,12 @@ export async function POST(req) {
                 class:          { stringValue: className || '' },
                 parent_phone:   { stringValue: parentPhone || '' },
                 content:        { stringValue: content.trim() },
-                category:       { stringValue: category || 'DiÄŸer' },
+                category:       { stringValue: category || 'Dahili' },
+                isPositive:     { booleanValue: isPositive !== false },
                 notified:       { booleanValue: !!notifyParent },
                 institution_id: { stringValue: instId },
                 created_at:     { timestampValue: nowIso },
-                created_by:     { stringValue: createdBy || 'Bilinmeyen Ã–ÄŸretmen' },
+                created_by:     { stringValue: createdBy || 'Bilinmeyen Öğretmen' },
               },
             }),
           }

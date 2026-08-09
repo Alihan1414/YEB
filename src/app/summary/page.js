@@ -18,12 +18,12 @@ import Sidebar, { MobileHeader } from '@/components/Sidebar';
 const CATEGORY_COLORS = {
   Akademik: '#8b5cf6', Yemek: '#f59e0b',
   Program:  '#06b6d4', Sağlık: '#ef4444',
-  Namaz: '#10b981',   Diğer: '#6b7280',
+  Namaz: '#10b981',   Dahili: '#a855f7',
 };
 const CATEGORY_ICONS = {
   Akademik: GraduationCap, Yemek: Utensils,
   Program:  ClipboardList,  Sağlık: Heart,
-  Namaz: Sunrise,           Diğer: FileText,
+  Namaz: Sunrise,           Dahili: FileText,
 };
 
 export default function SummaryPage() {

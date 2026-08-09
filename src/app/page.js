@@ -22,18 +22,18 @@ import { collection, addDoc, getDocs, query, orderBy, where, serverTimestamp } f
 const CATEGORY_COLORS = {
   Akademik: '#8b5cf6', Yemek: '#f59e0b',
   Program:  '#06b6d4', Sağlık: '#ef4444',
-  Namaz: '#10b981',   Diğer: '#6b7280',
+  Namaz: '#10b981',   Dahili: '#a855f7',
 };
 const CATEGORY_ICONS = {
   Akademik: GraduationCap, Yemek: Utensils,
   Program:  ClipboardList,  Sağlık: Heart,
-  Namaz: Sunrise,           Diğer: FileText,
+  Namaz: Sunrise,           Dahili: BookOpen,
 };
-const CATEGORIES = ['Akademik', 'Yemek', 'Program', 'Sağlık', 'Namaz', 'Diğer'];
+const CATEGORIES = ['Akademik', 'Yemek', 'Program', 'Sağlık', 'Namaz', 'Dahili'];
 
-// Puan sistemi: her kategorinin haftalık puana katkısı
+// Puan sistemi: olumlu rapor → kategori puanı, olumsuz rapor → -1
 const CATEGORY_SCORES = {
-  Akademik: 3, Namaz: 2, Program: 2, Sağlık: 1, Yemek: 1, Diğer: 1,
+  Akademik: 3, Namaz: 2, Program: 2, Sağlık: 1, Yemek: 1, Dahili: 1,
 };
 
 // ─── Utility ─────────────────────────────────────────────────────────────────
@@ -94,6 +94,7 @@ export default function StudentsPage() {
   // Direct report form
   const [directText, setDirectText]         = useState('');
   const [directCategory, setDirectCategory] = useState('Akademik');
+  const [directIsPositive, setDirectIsPositive] = useState(true);
 
   // Add student form
   const [showAddStudent, setShowAddStudent] = useState(false);
@@ -298,6 +299,7 @@ export default function StudentsPage() {
           parentPhone: selectedStudent.parent_phone || '',
           content: directText,
           category: directCategory,
+          isPositive: directIsPositive,
           notifyParent: !!notifyParent,
           institutionId: institutionId || 'yamanevler',
           createdBy: userName || user?.displayName || user?.name || user?.email || 'Öğretmen',
@@ -362,7 +364,8 @@ export default function StudentsPage() {
           className: student.class || '',
           parentPhone: student.parent_phone || '',
           content: aiMatch.extractedText,
-          category: aiMatch.category || 'Diğer',
+          category: aiMatch.category || 'Dahili',
+          isPositive: aiMatch.isPositive !== false,
           notifyParent: !!notifyParent,
           institutionId: institutionId || 'yamanevler',
           createdBy: userName || user?.displayName || user?.name || user?.email || 'Öğretmen',
@@ -617,7 +620,8 @@ export default function StudentsPage() {
   weeklyReports.forEach(r => {
     const st = studentMap[r.student_id];
     const cls = st?.class || r.class_name || 'Bilinmiyor';
-    const pts = CATEGORY_SCORES[r.category] || 1;
+    const basePts = CATEGORY_SCORES[r.category] || 1;
+    const pts = r.isPositive === false ? -1 : basePts;
     classScores[cls] = (classScores[cls] || 0) + pts;
   });
   const topClass = Object.entries(classScores).sort((a, b) => b[1] - a[1])[0];
@@ -1423,6 +1427,18 @@ export default function StudentsPage() {
                           <option key={c} value={c}>{c}</option>
                         ))}
                       </select>
+                      <button
+                        type="button"
+                        onClick={() => setDirectIsPositive(p => !p)}
+                        title={directIsPositive ? 'Olumlu rapor (puan kazandırır)' : 'Olumsuz rapor (-1 puan)'}
+                        className={`flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold border transition-all ${
+                          directIsPositive
+                            ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100'
+                            : 'bg-red-50 border-red-300 text-red-600 hover:bg-red-100'
+                        }`}
+                      >
+                        {directIsPositive ? '👍 Olumlu' : '👎 Olumsuz'}
+                      </button>
                       <div className="flex items-center gap-2">
                         <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-500">
                           <input
@@ -1467,6 +1483,15 @@ export default function StudentsPage() {
                               </p>
                               <div className="flex items-center gap-2 text-[10px] text-slate-400 flex-wrap">
                                 <span className="font-semibold text-slate-500">{rep.category}</span>
+                                <span
+                                  className={`font-black text-[9px] px-1.5 py-0.5 rounded-full border ${
+                                    rep.isPositive === false
+                                      ? 'bg-red-50 border-red-200 text-red-600'
+                                      : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                                  }`}
+                                >
+                                  {rep.isPositive === false ? '-1' : `+${CATEGORY_SCORES[rep.category] || 1}`}
+                                </span>
                                 <span>•</span>
                                 <span>{tsToString(rep.created_at)}</span>
                                 {(rep.created_by || rep.createdBy) && (

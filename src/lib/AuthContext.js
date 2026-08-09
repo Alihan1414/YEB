@@ -63,21 +63,45 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const CURRENT_SESSION_VERSION = 'v2026_08_09_v2';
+
   useEffect(() => {
     let isMounted = true;
     try {
+      if (typeof window !== 'undefined') {
+        const storedVersion = localStorage.getItem('app_session_version');
+        // If phone/browser has old version marker, force clear all stale local storage!
+        if (storedVersion !== CURRENT_SESSION_VERSION) {
+          localStorage.clear();
+          localStorage.setItem('app_session_version', CURRENT_SESSION_VERSION);
+        }
+      }
+
       const localUserJson = typeof window !== 'undefined' && localStorage.getItem('localUser');
       if (localUserJson) {
         const localProfile = JSON.parse(localUserJson);
         if (localProfile?.email) {
           applyLocalProfile(localProfile);
           setLoading(false);
-          // Async sync with latest profile from server
+          // Async sync with latest profile from server - if account deleted/disabled on server, force logout!
           fetch(`/api/users/profile?uid=${encodeURIComponent(localProfile.uid || localProfile.id || '')}&email=${encodeURIComponent(localProfile.email)}`, { cache: 'no-store' })
-            .then(r => r.json())
+            .then(r => {
+              if (r.status === 401 || r.status === 403 || r.status === 404) {
+                if (typeof window !== 'undefined') localStorage.clear();
+                setUser(null);
+                window.location.href = '/login';
+                return null;
+              }
+              return r.json();
+            })
             .then(data => {
+              if (!data) return;
               if (isMounted && data.success && data.profile) {
                 applyLocalProfile(data.profile);
+              } else if (isMounted && data.error) {
+                if (typeof window !== 'undefined') localStorage.clear();
+                setUser(null);
+                window.location.href = '/login';
               }
             })
             .catch(() => {});
@@ -85,7 +109,7 @@ export function AuthProvider({ children }) {
         }
       }
     } catch (e) {
-      // ignore parse errors
+      if (typeof window !== 'undefined') localStorage.clear();
     }
 
     const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
