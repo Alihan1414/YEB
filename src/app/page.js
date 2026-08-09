@@ -243,11 +243,16 @@ export default function StudentsPage() {
       if (data.success && data.data) {
         setAiMatch(data.data);
         
-        if (data.data.matchedStudentId) {
-          const normAiId = String(data.data.matchedStudentId).trim().toLowerCase();
-          const student = students.find(s => String(s.id).trim().toLowerCase() === normAiId)
-                       || students.find(s => String(s.id).trim().toLowerCase().includes(normAiId))
-                       || students.find(s => normAiId.includes(String(s.id).trim().toLowerCase()));
+        if (data.data.matchedStudentId || data.data.matchedStudentName) {
+          const normAiId = String(data.data.matchedStudentId || '').trim().toLowerCase();
+          const normAiName = String(data.data.matchedStudentName || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+          
+          const student = students.find(s => normAiId && String(s.id).trim().toLowerCase() === normAiId)
+                       || students.find(s => normAiId && String(s.id).trim().toLowerCase().includes(normAiId))
+                       || students.find(s => {
+                            const full = `${s.name || ''} ${s.surname || ''}`.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+                            return normAiName && (full === normAiName || full.includes(normAiName) || normAiName.includes(full));
+                          });
                        
           if (student) {
             // Automatically switch view back to student list so drawer is visible
