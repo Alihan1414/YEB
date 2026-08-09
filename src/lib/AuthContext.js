@@ -31,6 +31,7 @@ export function AuthProvider({ children }) {
     setLogoUrl(profile.logoUrl || '');
     setPrimaryColor(profile.primaryColor || '#06429c');
     if (profile.enabledModules) setEnabledModules(profile.enabledModules);
+    setLoading(false);
   };
 
   const login = (email, password) => {
@@ -89,7 +90,7 @@ export function AuthProvider({ children }) {
               if (r.status === 401 || r.status === 403 || r.status === 404) {
                 if (typeof window !== 'undefined') localStorage.clear();
                 setUser(null);
-                window.location.href = '/login';
+                window.location.replace('/login');
                 return null;
               }
               return r.json();
@@ -98,10 +99,6 @@ export function AuthProvider({ children }) {
               if (!data) return;
               if (isMounted && data.success && data.profile) {
                 applyLocalProfile(data.profile);
-              } else if (isMounted && data.error) {
-                if (typeof window !== 'undefined') localStorage.clear();
-                setUser(null);
-                window.location.href = '/login';
               }
             })
             .catch(() => {});

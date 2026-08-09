@@ -43,9 +43,9 @@ export default function LoginPage() {
   useEffect(() => {
     if (!authLoading && user) {
       if (role === 'super_admin') {
-        window.location.href = '/admin';
+        window.location.replace('/admin');
       } else {
-        window.location.href = '/';
+        window.location.replace('/');
       }
     }
   }, [user, role, authLoading]);
@@ -121,9 +121,9 @@ export default function LoginPage() {
         
         // Hard redirect to prevent stale context from previous session
         if (data.profile.role === 'super_admin') {
-          window.location.href = '/admin';
+          window.location.replace('/admin');
         } else {
-          window.location.href = '/';
+          window.location.replace('/');
         }
         return;
       }
