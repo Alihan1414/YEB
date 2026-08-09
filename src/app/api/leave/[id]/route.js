@@ -22,27 +22,9 @@ export async function PATCH(req, { params }) {
     const nowStr = new Date().toISOString();
     let updatedRequest = null;
 
-    // 1. Update in local DB
-    const dbData = readDb();
-    const requests = dbData.leaveRequests || [];
-    const idx = requests.findIndex(r => r.id === id);
-
-    if (idx === -1) {
-      return NextResponse.json({ success: false, error: 'Talep bulunamadı.' }, { status: 404 });
-    }
-
-    requests[idx].status = status;
-    requests[idx].respondedBy = respondedBy || 'Sistem Yöneticisi';
-    requests[idx].respondedAt = nowStr;
-    updatedRequest = requests[idx];
-
-    dbData.leaveRequests = requests;
-    writeDb(dbData);
-
-    // 2. Update in Firestore
+    // 1. Update in Firestore
     try {
-      // Fetch existing Firestore doc to merge fields properly or update them
-      await fetch(
+      const fsRes = await fetch(
         `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/leaveRequests/${id}?key=${FIREBASE_API_KEY}&updateMask.fieldPaths=status&updateMask.fieldPaths=respondedBy&updateMask.fieldPaths=respondedAt`,
         {
           method: 'PATCH',
@@ -56,11 +38,48 @@ export async function PATCH(req, { params }) {
           }),
         }
       );
+      if (fsRes.ok) {
+        const fsData = await fsRes.json();
+        const f = fsData.fields || {};
+        updatedRequest = {
+          id,
+          studentName: f.studentName?.stringValue || '',
+          parentPhone: f.parentPhone?.stringValue || '',
+          startDate: f.startDate?.stringValue || '',
+          startTime: f.startTime?.stringValue || '',
+          endDate: f.endDate?.stringValue || '',
+          endTime: f.endTime?.stringValue || '',
+          reason: f.reason?.stringValue || '',
+          status: f.status?.stringValue || status,
+          respondedBy: f.respondedBy?.stringValue || respondedBy,
+          respondedAt: f.respondedAt?.stringValue || nowStr
+        };
+      }
     } catch (err) {
-      console.warn("Firestore update failed in leave PATCH, saved locally:", err.message);
+      console.warn("Firestore update in leave PATCH:", err.message);
     }
 
-    return NextResponse.json({ success: true, request: updatedRequest });
+    // 2. Update in local DB
+    try {
+      const dbData = readDb();
+      const requests = dbData.leaveRequests || [];
+      const idx = requests.findIndex(r => r.id === id);
+      if (idx !== -1) {
+        requests[idx].status = status;
+        requests[idx].respondedBy = respondedBy || 'Sistem Yöneticisi';
+        requests[idx].respondedAt = nowStr;
+        if (!updatedRequest) updatedRequest = requests[idx];
+        dbData.leaveRequests = requests;
+        writeDb(dbData);
+      }
+    } catch (err) {
+      console.warn("Local DB update in leave PATCH:", err.message);
+    }
+
+    return NextResponse.json({
+      success: true,
+      request: updatedRequest || { id, status, respondedBy, respondedAt: nowStr }
+    });
 
   } catch (error) {
     console.error("PATCH Leave request error:", error);

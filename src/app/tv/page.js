@@ -242,6 +242,19 @@ export default function TVPage() {
   const [mottoIdx, setMottoIdx]           = useState(0);
   const [hadithVisible, setHadithVisible] = useState(true);
   const [isFullscreen, setIsFullscreen]   = useState(false);
+  const [isMobile, setIsMobile]           = useState(false);
+
+  // Mobile device detection — TV screen is desktop/projector only
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+        || window.innerWidth < 900;
+      setIsMobile(mobile);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Fullscreen toggle
   const toggleFullscreen = () => {
@@ -259,6 +272,76 @@ export default function TVPage() {
   useEffect(() => {
     if (!authLoading && !user) router.push('/login');
   }, [user, authLoading, router]);
+
+  // Mobile guard — show immediately before anything else
+  if (isMobile) {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          background: 'linear-gradient(135deg, #030a1a 0%, #0d1f4a 60%, #030a1a 100%)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '24px',
+        }}
+      >
+        <div
+          style={{
+            background: 'rgba(255,255,255,0.06)',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255,200,0,0.25)',
+            borderRadius: '24px',
+            padding: '40px 32px',
+            maxWidth: '380px',
+            width: '100%',
+            textAlign: 'center',
+            boxShadow: '0 0 60px rgba(251,191,36,0.12)',
+          }}
+        >
+          <div style={{ fontSize: '64px', marginBottom: '16px' }}>📺</div>
+          <h1
+            style={{
+              color: '#fbbf24',
+              fontSize: '22px',
+              fontWeight: 900,
+              letterSpacing: '0.02em',
+              marginBottom: '12px',
+              lineHeight: 1.3,
+            }}
+          >
+            Mobil Cihaz Algılandı
+          </h1>
+          <p
+            style={{
+              color: '#94a3b8',
+              fontSize: '14px',
+              lineHeight: 1.7,
+              marginBottom: '20px',
+            }}
+          >
+            TV Ekranı yalnızca <strong style={{ color: '#e2e8f0' }}>masaüstü bilgisayar</strong>
+            {' '}veya{' '}
+            <strong style={{ color: '#e2e8f0' }}>projeksiyon cihazı</strong>{' '}
+            üzerinden kullanılabilir.
+          </p>
+          <div
+            style={{
+              background: 'rgba(251,191,36,0.10)',
+              border: '1px solid rgba(251,191,36,0.25)',
+              borderRadius: '14px',
+              padding: '14px 18px',
+              color: '#fde68a',
+              fontSize: '13px',
+              fontWeight: 600,
+            }}
+          >
+            🖥️ Lütfen bu sayfayı büyük ekranlı bir cihazda açınız.
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (authLoading) {
     return (

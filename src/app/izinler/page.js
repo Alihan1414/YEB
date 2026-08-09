@@ -113,7 +113,8 @@ export default function LeaveManagementPage() {
   }, [user, role, fetchRequests, fetchSettings, fetchTeachers]);
 
   // Handle Approve/Reject action
-  const handleUpdateStatus = async (id, status) => {
+  const handleUpdateStatus = async (reqItem, status) => {
+    const id = typeof reqItem === 'object' ? reqItem.id : reqItem;
     setActionLoadingId(id);
     const responderName = user?.name || user?.email || 'Görevli Öğretmen';
     try {
@@ -124,8 +125,25 @@ export default function LeaveManagementPage() {
       });
       const data = await res.json();
       if (data.success) {
-        showToast(status === 'approved' ? 'İzin talebi onaylandı.' : 'İzin talebi reddedildi.');
+        showToast(status === 'approved' ? 'İzin talebi onaylandı. WhatsApp açılıyor...' : 'İzin talebi reddedildi. WhatsApp açılıyor...');
         fetchRequests();
+
+        // WhatsApp Yönlendirme Mesajı
+        if (typeof reqItem === 'object' && reqItem.parentPhone) {
+          let cleanPhone = reqItem.parentPhone.replace(/[^0-9]/g, '');
+          if (cleanPhone.startsWith('0')) cleanPhone = '9' + cleanPhone;
+          if (!cleanPhone.startsWith('90') && cleanPhone.length === 10) cleanPhone = '90' + cleanPhone;
+
+          let msg = '';
+          if (status === 'approved') {
+            msg = `Sayın Velimiz, ${reqItem.studentName} isimli öğrencimizin izin talebi ONAYLANMIŞTIR. İzin saatlerine riayet ediniz. Hayırlı günler dileriz.`;
+          } else {
+            msg = `Sayın Velimiz, ${reqItem.studentName} isimli öğrencimizin izin talebi REDDEDİLMİŞTİR. İzin saatlerine riayet ediniz. Hayırlı günler dileriz.`;
+          }
+
+          const wpUrl = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(msg)}`;
+          window.open(wpUrl, '_blank');
+        }
       } else {
         throw new Error(data.error || 'İşlem başarısız.');
       }
@@ -399,7 +417,7 @@ export default function LeaveManagementPage() {
                           <div className="flex md:flex-col gap-2 shrink-0">
                             <button
                               disabled={actionLoadingId !== null}
-                              onClick={() => handleUpdateStatus(req.id, 'approved')}
+                              onClick={() => handleUpdateStatus(req, 'approved')}
                               className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm hover:shadow-emerald-500/20 transition-all disabled:opacity-50"
                             >
                               {actionLoadingId === req.id ? (
@@ -411,7 +429,7 @@ export default function LeaveManagementPage() {
                             </button>
                             <button
                               disabled={actionLoadingId !== null}
-                              onClick={() => handleUpdateStatus(req.id, 'rejected')}
+                              onClick={() => handleUpdateStatus(req, 'rejected')}
                               className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 border border-red-100 font-bold text-xs shadow-sm transition-all disabled:opacity-50"
                             >
                               {actionLoadingId === req.id ? (
