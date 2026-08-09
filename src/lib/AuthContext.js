@@ -149,13 +149,17 @@ export function AuthProvider({ children }) {
           setInstitutionName(isSuper ? 'Sistem Yönetimi' : null);
         }
       } else {
-        setUser(null);
-        setUserName(null);
-        setRole(null);
-        setInstitutionId(null);
-        setInstitutionName(null);
-        setLogoUrl('');
-        setPrimaryColor('#06429c');
+        // Only clear state if there is no localUser fallback session in localStorage
+        const hasLocalUser = typeof window !== 'undefined' && !!localStorage.getItem('localUser');
+        if (!hasLocalUser) {
+          setUser(null);
+          setUserName(null);
+          setRole(null);
+          setInstitutionId(null);
+          setInstitutionName(null);
+          setLogoUrl('');
+          setPrimaryColor('#06429c');
+        }
       }
       setLoading(false);
     });
