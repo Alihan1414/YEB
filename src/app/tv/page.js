@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import { useRouter } from 'next/navigation';
+import dynamic from 'next/dynamic';
 import {
   RefreshCw, BookOpen, Star, Heart, Sun, Moon,
   ChevronLeft, Maximize, Minimize, Sparkles, User, Users, Home, Award, CheckCircle2, ShieldAlert
@@ -226,8 +227,6 @@ function IstanbulSilhouetteSVG() {
     </div>
   );
 }
-
-import dynamic from 'next/dynamic';
 
 function TVContent() {
   const auth = useAuth() || {};
@@ -783,6 +782,7 @@ function TVContent() {
           <span className="text-sky-400/40">•</span>
           <span>İSTİKRAR</span>
         </div>
+      </div>
     </div>
   );
 }
