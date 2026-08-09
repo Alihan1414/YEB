@@ -227,7 +227,9 @@ function IstanbulSilhouetteSVG() {
   );
 }
 
-export default function TVPage() {
+import dynamic from 'next/dynamic';
+
+function TVContent() {
   const auth = useAuth() || {};
   const { user, authLoading, institutionId, institutionName, logoUrl } = auth;
   const router = useRouter();
@@ -781,7 +783,15 @@ export default function TVPage() {
           <span className="text-sky-400/40">•</span>
           <span>İSTİKRAR</span>
         </div>
-      </div>
     </div>
   );
 }
+
+export default dynamic(() => Promise.resolve(TVContent), {
+  ssr: false,
+  loading: () => (
+    <div style={{ minHeight: '100vh', background: '#010818', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ width: '36px', height: '36px', border: '3px solid rgba(251,191,36,0.3)', borderTopColor: '#fbbf24', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+    </div>
+  ),
+});
