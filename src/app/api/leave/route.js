@@ -155,6 +155,24 @@ export async function POST(req) {
       console.warn("Firestore save failed in leave POST, saved locally:", err.message);
     }
 
+    // 3. Push bildirimi gönder (uygulama kapalı olsa bile)
+    try {
+      const host = req.headers.get('host') || 'localhost:3000';
+      const proto = host.includes('localhost') ? 'http' : 'https';
+      await fetch(`${proto}://${host}/api/push/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          institutionId: instId,
+          title: '🔔 Yeni İzin Talebi',
+          body: `${newRequest.studentName} için izin talebi geldi. Sebep: ${newRequest.reason}`,
+          url: '/izinler',
+        }),
+      });
+    } catch (pushErr) {
+      console.warn("Push notification failed (non-critical):", pushErr.message);
+    }
+
     return NextResponse.json({ success: true, request: newRequest });
 
   } catch (error) {

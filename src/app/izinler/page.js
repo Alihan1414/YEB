@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import Sidebar, { MobileHeader } from '@/components/Sidebar';
 import Link from 'next/link';
+import PushNotificationManager from '@/components/PushNotificationManager';
 
 export default function LeaveManagementPage() {
   const { user, role, institutionId, institutionName, loading: authLoading, logout } = useAuth();
@@ -283,7 +284,9 @@ export default function LeaveManagementPage() {
         </div>
 
         {/* Workspace content grid */}
-        <div className="max-w-6xl mx-auto px-4 md:px-10 py-8 space-y-6">
+        <div className="max-w-6xl mx-auto px-4 md:px-10 mt-6">
+          <PushNotificationManager />
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
             {/* Left/Middle side: List and tabs */}
