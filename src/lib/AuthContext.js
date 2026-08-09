@@ -87,7 +87,8 @@ export function AuthProvider({ children }) {
           // Async sync with latest profile from server - if account deleted/disabled on server, force logout!
           fetch(`/api/users/profile?uid=${encodeURIComponent(localProfile.uid || localProfile.id || '')}&email=${encodeURIComponent(localProfile.email)}`, { cache: 'no-store' })
             .then(r => {
-              if (r.status === 401 || r.status === 403 || r.status === 404) {
+              if (r.status === 403) {
+                // Only force logout if explicitly disabled by platform admin (403)
                 if (typeof window !== 'undefined') localStorage.clear();
                 setUser(null);
                 window.location.replace('/login');
