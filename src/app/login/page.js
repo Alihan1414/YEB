@@ -43,12 +43,12 @@ export default function LoginPage() {
   useEffect(() => {
     if (!authLoading && user) {
       if (role === 'super_admin') {
-        router.push('/admin');
+        window.location.href = '/admin';
       } else {
-        router.push('/');
+        window.location.href = '/';
       }
     }
-  }, [user, role, authLoading, router]);
+  }, [user, role, authLoading]);
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
