@@ -270,8 +270,9 @@ export default function TVPage() {
   };
 
   useEffect(() => {
-    if (!authLoading && !user) router.push('/login');
-  }, [user, authLoading, router]);
+    // Sadece masaüstü cihazlarda login redirect yap — mobilde mobile guard göster
+    if (isMobile === false && !authLoading && !user) router.push('/login');
+  }, [user, authLoading, router, isMobile]);
 
   // Cihaz tipi henüz belirlenmedi — mini loader göster
   if (isMobile === null) {
