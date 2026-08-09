@@ -748,12 +748,12 @@ export default function PlatformAdminPage() {
                               <p className="text-[9px] font-mono text-slate-400">{usr.institutionId}</p>
                             </td>
                             <td className="px-5 py-4">
-                              <span className={`px-2 py-0.5 rounded-lg text-[9px] font-extrabold border ${
-                                usr.role === 'super_admin' ? 'bg-red-50 text-red-700 border-red-200' :
-                                usr.role === 'admin' ? 'bg-purple-50 text-purple-700 border-purple-200' :
-                                'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              <span className={`px-2.5 py-1 rounded-xl text-[10px] font-black border ${
+                                usr.role === 'super_admin' ? 'bg-red-500/10 text-red-600 border-red-200' :
+                                usr.role === 'admin' ? 'bg-purple-500/10 text-purple-700 border-purple-200' :
+                                'bg-emerald-500/10 text-emerald-700 border-emerald-200'
                               }`}>
-                                {usr.role === 'super_admin' ? 'Platform Yöneticisi' : usr.role === 'admin' ? 'Kurum Yöneticisi' : 'Öğretmen'}
+                                {usr.role === 'super_admin' ? 'Platform Yöneticisi' : usr.role === 'admin' ? 'Kurum Sistem Yöneticisi' : 'Öğretmen'}
                               </span>
                             </td>
                             <td className="px-5 py-4">
@@ -1154,7 +1154,7 @@ export default function PlatformAdminPage() {
                       <select value={userRole} onChange={e => setUserRole(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs font-bold text-slate-800 focus:outline-none">
                         <option value="teacher">Öğretmen</option>
-                        <option value="admin">Kurum Yöneticisi</option>
+                        <option value="admin">Kurum Sistem Yöneticisi</option>
                       </select>
                     </div>
                     <div>

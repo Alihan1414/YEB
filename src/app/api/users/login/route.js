@@ -171,15 +171,14 @@ export async function POST(req) {
       }
     }
 
-    // 3. Fallback: seed accounts (super admin only)
+    // 3. Fallback: seed accounts (single Platform Yöneticisi)
     if (!profile) {
-      const isSuper = (trimmedEmail === 'alihan@2026' || trimmedEmail === 'admin@yeb.local') &&
-                      (password === 'alihan1434' || password === 'admin123');
+      const isSuper = trimmedEmail === 'alihan@2026' && password === 'alihan1434';
       if (isSuper) {
         profile = {
-          uid: 'super-admin',
-          name: 'Sistem Yöneticisi',
-          email: 'admin@yeb.local',
+          uid: 'super-admin-alihan',
+          name: 'Alihan (Platform Yöneticisi)',
+          email: 'alihan@2026',
           role: 'super_admin',
           institutionId: 'platform',
           institutionName: 'Sistem Yönetimi',

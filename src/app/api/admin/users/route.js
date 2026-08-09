@@ -1,4 +1,4 @@
-﻿import { NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { readDb } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -30,7 +30,7 @@ export async function GET(req) {
               email:           f.email?.stringValue           || '',
               role:            f.role?.stringValue            || 'teacher',
               institutionId:   f.institutionId?.stringValue   || 'yamanevler',
-              institutionName: f.institutionName?.stringValue || 'Yamanevler Enderun BiliÅŸim',
+              institutionName: f.institutionName?.stringValue || 'Yamanevler Enderun Bilişim',
               disabled:        f.disabled?.booleanValue       || false,
             };
           });
@@ -52,7 +52,7 @@ export async function GET(req) {
             email: lu.email || '',
             role: lu.role || 'teacher',
             institutionId: lu.institutionId || 'yamanevler',
-            institutionName: lu.institutionName || 'Yamanevler Enderun BiliÅŸim',
+            institutionName: lu.institutionName || 'Yamanevler Enderun Bilişim',
             disabled: lu.disabled || false,
           });
         }
@@ -65,29 +65,20 @@ export async function GET(req) {
     const seedAccounts = [
       {
         id: 'super-admin-alihan',
-        name: 'Alihan (SÃ¼per YÃ¶netici)',
+        name: 'Alihan (Platform Yöneticisi)',
         email: 'alihan@2026',
         role: 'super_admin',
         institutionId: 'platform',
-        institutionName: 'Sistem YÃ¶netimi',
-        disabled: false
-      },
-      {
-        id: 'super-admin',
-        name: 'Sistem YÃ¶neticisi',
-        email: 'admin@yeb.local',
-        role: 'super_admin',
-        institutionId: 'platform',
-        institutionName: 'Sistem YÃ¶netimi',
+        institutionName: 'Sistem Yönetimi',
         disabled: false
       },
       {
         id: 'yeb-admin',
-        name: 'Yamanevler Admin',
+        name: 'Yamanevler Sistem Yöneticisi',
         email: 'yeb@2026.com',
         role: 'admin',
         institutionId: 'yamanevler',
-        institutionName: 'Yamanevler Enderun BiliÅŸim',
+        institutionName: 'Yamanevler Enderun Bilişim',
         disabled: false
       }
     ];
