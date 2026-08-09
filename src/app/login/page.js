@@ -124,7 +124,8 @@ export default function LoginPage() {
       }
 
       // 2. If server API returned error, try client-side Firebase Auth
-      await login(email, password);
+      const normalizedFirebaseEmail = email.includes('@') && !email.split('@')[1].includes('.') ? `${email}.com` : email;
+      await login(normalizedFirebaseEmail, password);
       window.location.href = '/';
     } catch (err) {
       console.warn("Login attempt error:", err);

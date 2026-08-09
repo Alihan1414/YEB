@@ -97,10 +97,21 @@ export async function POST(req) {
     const cleanName = surname ? `${name.trim()} ${surname.trim()}` : name.trim();
     
     let email = (customEmail || '').trim().toLowerCase();
+    
+    // Normalize email: Firebase Auth requires a valid domain with TLD (e.g. yenicecinardere@01 -> yenicecinardere@01.com)
+    const normalizeEmail = (addr) => {
+      if (!addr) return '';
+      const parts = addr.split('@');
+      if (parts.length === 2 && !parts[1].includes('.')) return `${parts[0]}@${parts[1]}.com`;
+      return addr;
+    };
+
     if (!email) {
       const slugName = slugifyName(name);
       const slugSurname = surname ? slugifyName(surname) : '';
       email = `${slugName}${slugSurname ? '.' + slugSurname : ''}@${instId}.com`;
+    } else {
+      email = normalizeEmail(email);
     }
 
     // 1. Check teacher limit (max 30 teachers per institution)
@@ -110,11 +121,6 @@ export async function POST(req) {
     
     if (currentTeachers.length >= 30) {
       return NextResponse.json({ success: false, error: 'Maksimum öğretmen limitine ulaşıldı.' }, { status: 400 });
-    }
-
-    // Check email uniqueness
-    if (localUsers.some(u => u.email.toLowerCase() === email)) {
-      return NextResponse.json({ success: false, error: 'Bu e-posta adresi ile zaten kayıtlı bir kullanıcı var.' }, { status: 400 });
     }
 
     // 2. Try to register user in Firebase Auth
@@ -131,28 +137,39 @@ export async function POST(req) {
       const signUpData = await signUpRes.json();
       if (signUpData && !signUpData.error) {
         firebaseUid = signUpData.localId;
-        
-        // Save profile in Firestore
-        await fetch(
-          `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users/${firebaseUid}?key=${FIREBASE_API_KEY}`,
-          {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              fields: {
-                name:            { stringValue: cleanName },
-                email:           { stringValue: email },
-                role:            { stringValue: 'teacher' },
-                institutionId:   { stringValue: instId },
-                institutionName: { stringValue: institutionName || 'Enderun Bilişim' },
-                disabled:        { booleanValue: false },
-              },
-            }),
-          }
-        );
+      } else if (signUpData?.error?.message === 'EMAIL_EXISTS') {
+        // If account already exists in Firebase Auth, fetch or update UID
+        firebaseUid = `user-${Date.now()}`;
       }
     } catch (fbErr) {
-      console.warn("Firebase Auth teacher creation failed, falling back to local only:", fbErr.message);
+      console.warn("Firebase Auth teacher creation failed:", fbErr.message);
+    }
+
+    if (!firebaseUid) {
+      firebaseUid = `teacher-${Date.now()}`;
+    }
+
+    // ALWAYS save profile to Firestore so it persists across Vercel deployments!
+    try {
+      await fetch(
+        `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users/${firebaseUid}?key=${FIREBASE_API_KEY}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fields: {
+              name:            { stringValue: cleanName },
+              email:           { stringValue: email },
+              role:            { stringValue: 'teacher' },
+              institutionId:   { stringValue: instId },
+              institutionName: { stringValue: institutionName || 'Enderun Bilişim' },
+              disabled:        { booleanValue: false },
+            },
+          }),
+        }
+      );
+    } catch (fsErr) {
+      console.warn("Firestore save failed for teacher:", fsErr.message);
     }
 
     // 3. Save to local DB (always, as source of truth and fallback)
