@@ -456,16 +456,7 @@ function TVContent() {
     );
   }
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-[#030a1a] flex items-center justify-center text-white">
-        <div className="flex flex-col items-center gap-3">
-          <RefreshCw size={32} className="animate-spin text-amber-400" />
-          <p className="text-sm font-medium text-slate-300">TV Ekranı Yükleniyor...</p>
-        </div>
-      </div>
-    );
-  }
+  // ── ALL HOOKS MUST BE BEFORE ANY EARLY RETURNS (React Rules of Hooks) ──
 
   // Hadis ve Motto rotasyonu (12 saniyede bir)
   useEffect(() => {
@@ -497,7 +488,6 @@ function TVContent() {
       if (sData.success && Array.isArray(sData.students)) {
         setStudents(sData.students);
         totalStudents = sData.students.length;
-        // Benzersiz sınıf sayısı
         const uniqueClasses = new Set(sData.students.map(s => s.class).filter(Boolean));
         setClassesCount(uniqueClasses.size);
       } else {
@@ -518,7 +508,6 @@ function TVContent() {
         setTeachersCount(0);
       }
 
-      // Devam Oranı Hesabı: Kurumdaki öğrenciler arasındaki aktif izinliler düşülerek hesaplanır
       if (lData.success && Array.isArray(lData.requests) && totalStudents > 0) {
         const activeApprovedLeaves = lData.requests.filter(req => req.status === 'approved').length;
         const presentStudents = Math.max(0, totalStudents - activeApprovedLeaves);
@@ -540,7 +529,6 @@ function TVContent() {
     fetchData();
   }, [fetchData]);
 
-  // Canlı Polling: 4 saniyede bir verileri tazele
   useEffect(() => {
     const interval = setInterval(() => {
       fetchData();
@@ -548,6 +536,7 @@ function TVContent() {
     return () => clearInterval(interval);
   }, [fetchData]);
 
+  // useSunPosition MUST be called here — before any conditional returns
   const skyData = useSunPosition();
   const hadith  = HADITHS[hadithIdx];
   const motto   = MOTTOS[mottoIdx];
