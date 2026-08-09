@@ -46,8 +46,9 @@ export default function LeaveManagementPage() {
 
   // Redirect if not logged in
   useEffect(() => {
-    if (!authLoading && !user) router.push('/login');
-  }, [user, authLoading, router]);
+    const hasLocalSession = typeof window !== 'undefined' && !!localStorage.getItem('localUser');
+    if (!authLoading && !user && !hasLocalSession) window.location.replace('/login');
+  }, [user, authLoading]);
 
   // Fetch leave requests
   const fetchRequests = useCallback(async () => {

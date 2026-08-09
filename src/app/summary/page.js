@@ -38,8 +38,9 @@ export default function SummaryPage() {
   const [leaveEnabled, setLeaveEnabled] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && !user) router.push('/login');
-  }, [user, authLoading, router]);
+    const hasLocalSession = typeof window !== 'undefined' && !!localStorage.getItem('localUser');
+    if (!authLoading && !user && !hasLocalSession) window.location.replace('/login');
+  }, [user, authLoading]);
 
   const fetchStudents = async () => {
     const instId = institutionId || 'yamanevler';

@@ -122,12 +122,13 @@ export default function StudentsPage() {
   // İzin modülü aktif mi?
   const [leaveEnabled, setLeaveEnabled] = useState(false);
 
-  // Auth redirect
+  // Auth redirect - only redirect if neither Auth state nor localUser session exists
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/login');
+    const hasLocalSession = typeof window !== 'undefined' && !!localStorage.getItem('localUser');
+    if (!authLoading && !user && !hasLocalSession) {
+      window.location.replace('/login');
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading]);
 
   // ─── Data ──────────────────────────────────────────────────────────────────
   const fetchStudents = async () => {
