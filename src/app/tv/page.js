@@ -259,7 +259,7 @@ function TVContent() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Fullscreen toggle
+  // Fullscreen toggle (regular function, not a hook)
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(() => {});
@@ -272,7 +272,63 @@ function TVContent() {
     }
   };
 
-  // İstemci tarafı yüklenmeden önce siyah ekran/loader göster (Hydration Mismatch engelleme)
+  // ── Hadis/Motto rotasyonu — HOOK: must be before any early returns ──
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setHadithVisible(false);
+      setTimeout(() => {
+        setHadithIdx(i => (i + 1) % HADITHS.length);
+        setMottoIdx(i => (i + 1) % MOTTOS.length);
+        setHadithVisible(true);
+      }, 500);
+    }, 12000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // ── Veri çekme — HOOK: must be before any early returns ──
+  const fetchData = useCallback(async () => {
+    const instId = institutionId || 'yamanevler';
+    try {
+      const [sRes, rRes, tRes, lRes] = await Promise.all([
+        fetch(`/api/students?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' }),
+        fetch(`/api/students/reports?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' }),
+        fetch(`/api/users/list-teachers?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' }),
+        fetch(`/api/leave?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' }),
+      ]);
+      const [sData, rData, tData, lData] = await Promise.all([sRes.json(), rRes.json(), tRes.json(), lRes.json()]);
+      let totalStudents = 0;
+      if (sData.success && Array.isArray(sData.students)) {
+        setStudents(sData.students);
+        totalStudents = sData.students.length;
+        setClassesCount(new Set(sData.students.map(s => s.class).filter(Boolean)).size);
+      } else { setStudents([]); setClassesCount(0); }
+      if (rData.success && Array.isArray(rData.reports)) {
+        const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
+        setReports(rData.reports.filter(r => r.created_at && new Date(r.created_at) >= weekAgo));
+      } else { setReports([]); }
+      setTeachersCount(tData.success && Array.isArray(tData.teachers) ? tData.teachers.length : 0);
+      if (lData.success && Array.isArray(lData.requests) && totalStudents > 0) {
+        const active = lData.requests.filter(req => req.status === 'approved').length;
+        setAttendanceRate(Math.round((Math.max(0, totalStudents - active) / totalStudents) * 100));
+      } else { setAttendanceRate(100); }
+      setLastRefresh(new Date());
+    } catch (e) { console.error('TV Data Fetch Error:', e); }
+    finally { setLoading(false); }
+  }, [institutionId]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    const iv = setInterval(fetchData, 4000);
+    return () => clearInterval(iv);
+  }, [fetchData]);
+
+  // ── useSunPosition — HOOK: must be before any early returns ──
+  const skyData = useSunPosition();
+
+  // ────────────────────────────────────────────────────────────
+  // Early returns AFTER all hooks
+  // ────────────────────────────────────────────────────────────
   if (!isMounted) {
     return (
       <div style={{ minHeight: '100vh', background: '#010818', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -456,90 +512,8 @@ function TVContent() {
     );
   }
 
-  // ── ALL HOOKS MUST BE BEFORE ANY EARLY RETURNS (React Rules of Hooks) ──
-
-  // Hadis ve Motto rotasyonu (12 saniyede bir)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setHadithVisible(false);
-      setTimeout(() => {
-        setHadithIdx(i => (i + 1) % HADITHS.length);
-        setMottoIdx(i => (i + 1) % MOTTOS.length);
-        setHadithVisible(true);
-      }, 500);
-    }, 12000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // Canlı Veri Çekme (Kuruma Özel Gerçek Veriler)
-  const fetchData = useCallback(async () => {
-    const instId = institutionId || 'yamanevler';
-    try {
-      const [sRes, rRes, tRes, lRes] = await Promise.all([
-        fetch(`/api/students?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' }),
-        fetch(`/api/students/reports?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' }),
-        fetch(`/api/users/list-teachers?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' }),
-        fetch(`/api/leave?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' }),
-      ]);
-
-      const [sData, rData, tData, lData] = await Promise.all([sRes.json(), rRes.json(), tRes.json(), lRes.json()]);
-
-      let totalStudents = 0;
-      if (sData.success && Array.isArray(sData.students)) {
-        setStudents(sData.students);
-        totalStudents = sData.students.length;
-        const uniqueClasses = new Set(sData.students.map(s => s.class).filter(Boolean));
-        setClassesCount(uniqueClasses.size);
-      } else {
-        setStudents([]);
-        setClassesCount(0);
-      }
-
-      if (rData.success && Array.isArray(rData.reports)) {
-        const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
-        setReports(rData.reports.filter(r => r.created_at && new Date(r.created_at) >= weekAgo));
-      } else {
-        setReports([]);
-      }
-
-      if (tData.success && Array.isArray(tData.teachers)) {
-        setTeachersCount(tData.teachers.length);
-      } else {
-        setTeachersCount(0);
-      }
-
-      if (lData.success && Array.isArray(lData.requests) && totalStudents > 0) {
-        const activeApprovedLeaves = lData.requests.filter(req => req.status === 'approved').length;
-        const presentStudents = Math.max(0, totalStudents - activeApprovedLeaves);
-        const computedRate = Math.round((presentStudents / totalStudents) * 100);
-        setAttendanceRate(computedRate);
-      } else {
-        setAttendanceRate(100);
-      }
-
-      setLastRefresh(new Date());
-    } catch (e) {
-      console.error("TV Data Fetch Error:", e);
-    } finally {
-      setLoading(false);
-    }
-  }, [institutionId]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchData();
-    }, 4000);
-    return () => clearInterval(interval);
-  }, [fetchData]);
-
-  // useSunPosition MUST be called here — before any conditional returns
-  const skyData = useSunPosition();
-  const hadith  = HADITHS[hadithIdx];
-  const motto   = MOTTOS[mottoIdx];
+  const hadith = HADITHS[hadithIdx];
+  const motto  = MOTTOS[mottoIdx];
 
   // Kurum Adı Parçalama (Yamanevler / Enderun Bilişim)
   const fullInstName = institutionName || 'YAMANEVLER ENDERUN BİLİŞİM';
