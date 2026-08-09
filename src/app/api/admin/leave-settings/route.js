@@ -6,28 +6,30 @@ export const dynamic = 'force-dynamic';
 const FIREBASE_API_KEY    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY    || 'AIzaSyCH7bTzvqJqSzJiV0Ou6JudPovkrrWrwdw';
 const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'vision-b1ad5';
 
+function normalizeInstitutionId(id) {
+  if (!id) return 'yamanevler';
+  const clean = id.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (clean.includes('kilicaslan')) return 'bolu-kilicaslan';
+  if (clean.includes('erenler') || clean.includes('cinardere')) return 'cinardere-erenler';
+  if (clean.includes('pendik')) return 'pendik-talebe-yurdu';
+  if (clean.includes('yamanevler') || clean === 'yeb') return 'yamanevler';
+  return id.trim().toLowerCase();
+}
+
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
     const rawInstId = searchParams.get('institutionId') || 'yamanevler';
-    const institutionId = rawInstId.trim().toLowerCase();
+    const institutionId = normalizeInstitutionId(rawInstId);
     const authHeader = req.headers.get('authorization');
     const headers = {
       'Content-Type': 'application/json',
       ...(authHeader ? { 'Authorization': authHeader } : {})
     };
 
-    const dbData = readDb();
-    if (!dbData.leaveSettings) {
-      dbData.leaveSettings = {};
-    }
+    let settings = { enabled: true, assignedTeacherId: '' };
 
-    const settings = dbData.leaveSettings[institutionId] || {
-      enabled: false,
-      assignedTeacherId: ''
-    };
-
-    // Sync with Firestore if available
+    // 1. First read directly from Firestore
     try {
       const res = await fetch(
         `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/leaveSettings/${institutionId}?key=${FIREBASE_API_KEY}`,
@@ -36,19 +38,25 @@ export async function GET(req) {
       if (res.ok) {
         const data = await res.json();
         if (data.fields) {
-          const enabled = data.fields.enabled?.booleanValue !== undefined ? data.fields.enabled.booleanValue : false;
+          const enabled = data.fields.enabled?.booleanValue !== undefined ? data.fields.enabled.booleanValue : true;
           const assignedTeacherId = data.fields.assignedTeacherId?.stringValue || '';
-          settings.enabled = Boolean(enabled);
-          settings.assignedTeacherId = assignedTeacherId;
-
-          // Sync back to local DB
-          dbData.leaveSettings[institutionId] = settings;
-          writeDb(dbData);
+          return NextResponse.json({
+            success: true,
+            settings: { enabled: Boolean(enabled), assignedTeacherId }
+          });
         }
       }
     } catch (err) {
-      console.warn("Firestore leave settings fetch failed, using local fallback:", err.message);
+      console.warn("Firestore leave settings fetch failed, checking local:", err.message);
     }
+
+    // 2. Fallback local DB
+    try {
+      const dbData = readDb();
+      if (dbData.leaveSettings && dbData.leaveSettings[institutionId]) {
+        settings = dbData.leaveSettings[institutionId];
+      }
+    } catch {}
 
     return NextResponse.json({ success: true, settings });
   } catch (error) {
