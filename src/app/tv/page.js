@@ -279,65 +279,170 @@ export default function TVPage() {
       <div
         style={{
           minHeight: '100vh',
-          background: 'linear-gradient(135deg, #030a1a 0%, #0d1f4a 60%, #030a1a 100%)',
+          background: 'linear-gradient(135deg, #010818 0%, #05122e 50%, #010818 100%)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           padding: '24px',
+          fontFamily: "'Segoe UI', sans-serif",
         }}
       >
+        {/* Arka plan yıldız efekti */}
+        <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 0 }}>
+          {[...Array(30)].map((_, i) => (
+            <div
+              key={i}
+              style={{
+                position: 'absolute',
+                borderRadius: '50%',
+                background: 'white',
+                width: `${(i % 3) + 1}px`,
+                height: `${(i % 3) + 1}px`,
+                left: `${(i * 37) % 100}%`,
+                top: `${(i * 23) % 80}%`,
+                opacity: 0.3 + (i % 4) * 0.1,
+                animation: `twinkle ${3 + (i % 4)}s ease-in-out infinite alternate`,
+              }}
+            />
+          ))}
+        </div>
+
         <div
           style={{
-            background: 'rgba(255,255,255,0.06)',
-            backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255,200,0,0.25)',
-            borderRadius: '24px',
-            padding: '40px 32px',
-            maxWidth: '380px',
+            position: 'relative',
+            zIndex: 1,
+            background: 'rgba(255,255,255,0.05)',
+            backdropFilter: 'blur(24px)',
+            WebkitBackdropFilter: 'blur(24px)',
+            border: '1px solid rgba(251,191,36,0.2)',
+            borderRadius: '28px',
+            padding: '48px 36px',
+            maxWidth: '400px',
             width: '100%',
             textAlign: 'center',
-            boxShadow: '0 0 60px rgba(251,191,36,0.12)',
+            boxShadow: '0 8px 80px rgba(0,0,0,0.6), 0 0 60px rgba(251,191,36,0.08)',
           }}
         >
-          <div style={{ fontSize: '64px', marginBottom: '16px' }}>📺</div>
+          {/* Üst rozet */}
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'rgba(251,191,36,0.12)',
+              border: '1px solid rgba(251,191,36,0.3)',
+              borderRadius: '20px',
+              padding: '6px 14px',
+              marginBottom: '24px',
+              color: '#fbbf24',
+              fontSize: '12px',
+              fontWeight: 700,
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+            }}
+          >
+            <span>📡</span>
+            <span>TV Modu</span>
+          </div>
+
+          {/* İkon */}
+          <div
+            style={{
+              width: '88px',
+              height: '88px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, rgba(251,191,36,0.15), rgba(251,191,36,0.05))',
+              border: '2px solid rgba(251,191,36,0.25)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 24px',
+              fontSize: '40px',
+            }}
+          >
+            🖥️
+          </div>
+
+          {/* Başlık */}
           <h1
             style={{
-              color: '#fbbf24',
+              color: '#f1f5f9',
               fontSize: '22px',
-              fontWeight: 900,
-              letterSpacing: '0.02em',
-              marginBottom: '12px',
+              fontWeight: 800,
+              letterSpacing: '-0.01em',
+              marginBottom: '14px',
               lineHeight: 1.3,
             }}
           >
-            Mobil Cihaz Algılandı
+            Bu sayfa büyük ekranlar için tasarlandı 🌟
           </h1>
+
+          {/* Açıklama */}
           <p
             style={{
               color: '#94a3b8',
               fontSize: '14px',
-              lineHeight: 1.7,
-              marginBottom: '20px',
+              lineHeight: 1.8,
+              marginBottom: '28px',
             }}
           >
-            TV Ekranı yalnızca <strong style={{ color: '#e2e8f0' }}>masaüstü bilgisayar</strong>
-            {' '}veya{' '}
-            <strong style={{ color: '#e2e8f0' }}>projeksiyon cihazı</strong>{' '}
-            üzerinden kullanılabilir.
+            TV Panosu, sınıf ekranlarında veya masaüstü bilgisayarlarda en iyi deneyimi sunar.
+            Mobil cihazdan erişim bu sayfa için desteklenmemektedir.
           </p>
+
+          {/* Bilgi kutusu */}
           <div
             style={{
-              background: 'rgba(251,191,36,0.10)',
-              border: '1px solid rgba(251,191,36,0.25)',
-              borderRadius: '14px',
-              padding: '14px 18px',
-              color: '#fde68a',
-              fontSize: '13px',
-              fontWeight: 600,
+              background: 'rgba(251,191,36,0.08)',
+              border: '1px solid rgba(251,191,36,0.2)',
+              borderRadius: '16px',
+              padding: '16px 20px',
+              marginBottom: '24px',
+              textAlign: 'left',
             }}
           >
-            🖥️ Lütfen bu sayfayı büyük ekranlı bir cihazda açınız.
+            <div style={{ color: '#fde68a', fontSize: '13px', fontWeight: 600, marginBottom: '8px' }}>
+              💡 Nasıl erişebilirsiniz?
+            </div>
+            <div style={{ color: '#94a3b8', fontSize: '13px', lineHeight: 1.7 }}>
+              • Sınıf akıllı tahtası veya projektörü<br />
+              • Masaüstü / dizüstü bilgisayar<br />
+              • Minimum <strong style={{ color: '#cbd5e1' }}>900px</strong> genişliğinde ekran
+            </div>
           </div>
+
+          {/* Geri dön butonu */}
+          <button
+            onClick={() => window.history.back()}
+            style={{
+              background: 'linear-gradient(135deg, #1e3a5f, #2d4f7c)',
+              border: '1px solid rgba(99,179,237,0.3)',
+              borderRadius: '14px',
+              padding: '13px 28px',
+              color: '#bfdbfe',
+              fontSize: '14px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              letterSpacing: '0.02em',
+              transition: 'all 0.2s',
+              width: '100%',
+            }}
+            onMouseEnter={e => {
+              e.target.style.background = 'linear-gradient(135deg, #2d4f7c, #3b6fa5)';
+              e.target.style.transform = 'translateY(-1px)';
+            }}
+            onMouseLeave={e => {
+              e.target.style.background = 'linear-gradient(135deg, #1e3a5f, #2d4f7c)';
+              e.target.style.transform = 'translateY(0)';
+            }}
+          >
+            ← Ana Sayfaya Dön
+          </button>
+
+          {/* Alt not */}
+          <p style={{ color: '#475569', fontSize: '11px', marginTop: '18px', lineHeight: 1.6 }}>
+            Anlayışınız için teşekkür ederiz 🤍
+          </p>
         </div>
       </div>
     );
