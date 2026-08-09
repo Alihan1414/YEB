@@ -123,13 +123,11 @@ export default function LoginPage() {
         return;
       }
 
-      // 2. If server API returned error, try client-side Firebase Auth
-      const normalizedFirebaseEmail = email.includes('@') && !email.split('@')[1].includes('.') ? `${email}.com` : email;
-      await login(normalizedFirebaseEmail, password);
-      window.location.href = '/';
+      setError(data.error || 'Kullanıcı adı/E-posta veya şifre hatalı.');
+      setLoading(false);
     } catch (err) {
       console.warn("Login attempt error:", err);
-      setError(err.message || 'Kullanıcı adı/E-posta veya şifre hatalı.');
+      setError(err.message || 'Giriş yapılamadı, lütfen bilgilerinizi kontrol edin.');
       setLoading(false);
     }
   };

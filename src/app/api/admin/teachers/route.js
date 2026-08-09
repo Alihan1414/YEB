@@ -160,6 +160,7 @@ export async function POST(req) {
             fields: {
               name:            { stringValue: cleanName },
               email:           { stringValue: email },
+              password:        { stringValue: password },
               role:            { stringValue: 'teacher' },
               institutionId:   { stringValue: instId },
               institutionName: { stringValue: institutionName || 'Enderun Bilişim' },
