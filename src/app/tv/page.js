@@ -235,6 +235,7 @@ export default function TVPage() {
   const [teachersCount, setTeachersCount] = useState(0);
   const [classesCount, setClassesCount]   = useState(0);
   const [reports, setReports]             = useState([]);
+  const [attendanceRate, setAttendanceRate] = useState(100);
   const [loading, setLoading]             = useState(true);
   const [lastRefresh, setLastRefresh]     = useState(new Date());
   const [hadithIdx, setHadithIdx]         = useState(0);
@@ -283,32 +284,52 @@ export default function TVPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Canlı Veri Çekme
+  // Canlı Veri Çekme (Kuruma Özel Gerçek Veriler)
   const fetchData = useCallback(async () => {
     const instId = institutionId || 'yamanevler';
     try {
-      const [sRes, rRes, tRes] = await Promise.all([
+      const [sRes, rRes, tRes, lRes] = await Promise.all([
         fetch(`/api/students?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' }),
         fetch(`/api/students/reports?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' }),
         fetch(`/api/users/list-teachers?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' }),
+        fetch(`/api/leave?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' }),
       ]);
 
-      const [sData, rData, tData] = await Promise.all([sRes.json(), rRes.json(), tRes.json()]);
+      const [sData, rData, tData, lData] = await Promise.all([sRes.json(), rRes.json(), tRes.json(), lRes.json()]);
 
+      let totalStudents = 0;
       if (sData.success && Array.isArray(sData.students)) {
         setStudents(sData.students);
+        totalStudents = sData.students.length;
         // Benzersiz sınıf sayısı
         const uniqueClasses = new Set(sData.students.map(s => s.class).filter(Boolean));
-        setClassesCount(uniqueClasses.size || 0);
+        setClassesCount(uniqueClasses.size);
+      } else {
+        setStudents([]);
+        setClassesCount(0);
       }
 
       if (rData.success && Array.isArray(rData.reports)) {
         const weekAgo = new Date(); weekAgo.setDate(weekAgo.getDate() - 7);
         setReports(rData.reports.filter(r => r.created_at && new Date(r.created_at) >= weekAgo));
+      } else {
+        setReports([]);
       }
 
       if (tData.success && Array.isArray(tData.teachers)) {
         setTeachersCount(tData.teachers.length);
+      } else {
+        setTeachersCount(0);
+      }
+
+      // Devam Oranı Hesabı: Kurumdaki öğrenciler arasındaki aktif izinliler düşülerek hesaplanır
+      if (lData.success && Array.isArray(lData.requests) && totalStudents > 0) {
+        const activeApprovedLeaves = lData.requests.filter(req => req.status === 'approved').length;
+        const presentStudents = Math.max(0, totalStudents - activeApprovedLeaves);
+        const computedRate = Math.round((presentStudents / totalStudents) * 100);
+        setAttendanceRate(computedRate);
+      } else {
+        setAttendanceRate(100);
       }
 
       setLastRefresh(new Date());
@@ -497,7 +518,7 @@ export default function TVPage() {
         </div>
       </div>
 
-      {/* ─── İSTATİSTİK KARTLARI (Görseldeki 4 Daireli Alt İstatistik Barı) ─── */}
+      {/* ─── İSTATİSTİK KARTLARI (Kuruma Özel Canlı Gerçek Veriler) ─── */}
       <div className="relative z-10 grid grid-cols-2 md:grid-cols-4 gap-5">
         
         {/* 1. ÖĞRENCİ */}
@@ -507,7 +528,7 @@ export default function TVPage() {
           </div>
           <div>
             <div className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
-              <AnimatedCounter value={students.length || 700} />
+              <AnimatedCounter value={students.length} />
             </div>
             <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">ÖĞRENCİ</div>
             <div className="text-[11px] text-slate-400 font-medium">Aktif öğrenci</div>
@@ -521,7 +542,7 @@ export default function TVPage() {
           </div>
           <div>
             <div className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
-              <AnimatedCounter value={teachersCount || 42} />
+              <AnimatedCounter value={teachersCount} />
             </div>
             <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">ÖĞRETMEN</div>
             <div className="text-[11px] text-slate-400 font-medium">Aktif öğretmen</div>
@@ -535,7 +556,7 @@ export default function TVPage() {
           </div>
           <div>
             <div className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
-              <AnimatedCounter value={classesCount || 28} />
+              <AnimatedCounter value={classesCount} />
             </div>
             <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">SINIF</div>
             <div className="text-[11px] text-slate-400 font-medium">Toplam sınıf</div>
@@ -549,7 +570,7 @@ export default function TVPage() {
           </div>
           <div>
             <div className="text-2xl md:text-3xl font-extrabold text-white tracking-tight">
-              %92
+              %{attendanceRate}
             </div>
             <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">DEVAM ORANI</div>
             <div className="text-[11px] text-slate-400 font-medium">Bu hafta</div>
