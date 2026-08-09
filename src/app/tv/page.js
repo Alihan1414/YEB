@@ -242,7 +242,7 @@ export default function TVPage() {
   const [mottoIdx, setMottoIdx]           = useState(0);
   const [hadithVisible, setHadithVisible] = useState(true);
   const [isFullscreen, setIsFullscreen]   = useState(false);
-  const [isMobile, setIsMobile]           = useState(false);
+  const [isMobile, setIsMobile]           = useState(null); // null = henüz belirlenmedi
 
   // Mobile device detection — TV screen is desktop/projector only
   useEffect(() => {
@@ -272,6 +272,15 @@ export default function TVPage() {
   useEffect(() => {
     if (!authLoading && !user) router.push('/login');
   }, [user, authLoading, router]);
+
+  // Cihaz tipi henüz belirlenmedi — mini loader göster
+  if (isMobile === null) {
+    return (
+      <div style={{ minHeight: '100vh', background: '#010818', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: '32px', height: '32px', border: '3px solid rgba(251,191,36,0.3)', borderTopColor: '#fbbf24', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      </div>
+    );
+  }
 
   // Mobile guard — show immediately before anything else
   if (isMobile) {
