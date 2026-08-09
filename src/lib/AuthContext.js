@@ -64,7 +64,7 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const CURRENT_SESSION_VERSION = 'v2026_08_09_v2';
+  const CURRENT_SESSION_VERSION = 'v2026_08_09_FORCE_RESET_V100';
 
   useEffect(() => {
     let isMounted = true;
