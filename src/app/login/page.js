@@ -9,7 +9,12 @@ import { motion } from 'framer-motion';
 // Username → Firebase email mapping
 const USERNAME_MAP = {
   'admin': 'admin@yeb.local',
+  'yeb': 'yeb@2026',
   'yeb@2026': 'yeb@2026.com',
+  'erenler': 'erenler@2026',
+  'kilicaslan': 'kilicaslan@2026',
+  'pty': 'pty@2026',
+  'alihan': 'alihan@2026',
 };
 
 // Normalize Turkish characters to ASCII so mobile keyboards work correctly
