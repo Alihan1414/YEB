@@ -269,11 +269,6 @@ export default function TVPage() {
     }
   };
 
-  useEffect(() => {
-    // Sadece masaüstü cihazlarda login redirect yap — mobilde mobile guard göster
-    if (isMobile === false && !authLoading && !user) router.push('/login');
-  }, [user, authLoading, router, isMobile]);
-
   // Cihaz tipi henüz belirlenmedi — mini loader göster
   if (isMobile === null) {
     return (
@@ -539,17 +534,16 @@ export default function TVPage() {
   }, [institutionId]);
 
   useEffect(() => {
-    if (user) Promise.resolve().then(() => fetchData());
-  }, [user, fetchData]);
+    fetchData();
+  }, [fetchData]);
 
   // Canlı Polling: 4 saniyede bir verileri tazele
   useEffect(() => {
-    if (!user) return;
     const interval = setInterval(() => {
       fetchData();
     }, 4000);
     return () => clearInterval(interval);
-  }, [user, fetchData]);
+  }, [fetchData]);
 
   const skyData = useSunPosition();
   const hadith  = HADITHS[hadithIdx];
