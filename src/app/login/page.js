@@ -54,6 +54,7 @@ export default function LoginPage() {
   // Dynamic teacher selection states
   const [resolvedTeachers, setResolvedTeachers] = useState([]);
   const [selectedTeacherEmail, setSelectedTeacherEmail] = useState('');
+  const [userManuallySelected, setUserManuallySelected] = useState(false);
   const [resolvingTeachers, setResolvingTeachers] = useState(false);
 
   // Debounced teacher list fetching
@@ -63,6 +64,7 @@ export default function LoginPage() {
       Promise.resolve().then(() => {
         setResolvedTeachers([]);
         setSelectedTeacherEmail('');
+        setUserManuallySelected(false);
       });
       return;
     }
@@ -75,10 +77,8 @@ export default function LoginPage() {
         const data = await res.json();
         if (data.success && data.teachers && data.teachers.length > 0) {
           setResolvedTeachers(data.teachers);
-          setSelectedTeacherEmail(data.teachers[0].email);
         } else {
           setResolvedTeachers([]);
-          setSelectedTeacherEmail('');
         }
       } catch (err) {
         console.warn("Failed to load teachers for selection:", err);
@@ -95,9 +95,9 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     
-    // Log in as selected teacher or fall back to resolved email input
-    // Normalize Turkish chars so mobile keyboards (which type ASCII) still match DB entries
-    const rawEmail = selectedTeacherEmail || resolveEmail(username);
+    // Priority: If user explicitly clicked the dropdown select box, use that.
+    // Otherwise, ALWAYS use what the user typed in the username box so teacher inputs are never overridden.
+    const rawEmail = (userManuallySelected && selectedTeacherEmail) ? selectedTeacherEmail : resolveEmail(username);
     const email = turkishToAscii(rawEmail);
     
     try {
@@ -200,9 +200,15 @@ export default function LoginPage() {
                 </label>
                 <select
                   value={selectedTeacherEmail}
-                  onChange={e => setSelectedTeacherEmail(e.target.value)}
+                  onChange={e => {
+                    setSelectedTeacherEmail(e.target.value);
+                    setUserManuallySelected(true);
+                  }}
                   className="w-full bg-[#0a1c3c] border border-emerald-400/40 rounded-2xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-400/20 transition-all text-sm font-semibold cursor-pointer"
                 >
+                  <option value="" className="bg-[#0c1933] text-slate-300">
+                    -- Yazdığım e-posta ile giriş yap --
+                  </option>
                   {resolvedTeachers.map(t => (
                     <option key={t.email} value={t.email} className="bg-[#0c1933] text-white font-medium">
                       {t.name || t.email} ({t.role === 'admin' || t.role === 'super_admin' ? 'Kurum Yöneticisi' : 'Öğretmen'})

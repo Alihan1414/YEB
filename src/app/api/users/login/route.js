@@ -148,11 +148,8 @@ export async function POST(req) {
                                  turkishToAscii(dbName.toLowerCase()) === turkishToAscii(trimmedEmail.toLowerCase());
 
             if (matchesEmail) {
-              // Verify password if set on Firestore document or accept match
-              const passMatches = !dbPassword ||
-                                  turkishToAscii(dbPassword) === turkishToAscii(password) ||
-                                  password === 'yenice01' ||
-                                  password === '123456';
+              // Strictly verify password against user document's password in Firestore
+              const passMatches = dbPassword && (turkishToAscii(dbPassword) === turkishToAscii(password));
 
               if (passMatches) {
                 if (dbDisabled) {
