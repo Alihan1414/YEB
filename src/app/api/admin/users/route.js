@@ -83,15 +83,16 @@ export async function GET(req) {
       }
     ];
 
-    seedAccounts.forEach(sa => {
-      if (!usersList.some(u => u.email === sa.email)) {
-        usersList.push(sa);
-      }
+    // Filter out invalid/nameless test accounts and old duplicates
+    const cleanUsers = usersList.filter(u => {
+      if (!u.name || u.name === 'İsimsiz') return false;
+      if (u.email === 'yeb@2026.com') return false;
+      return true;
     });
 
     return NextResponse.json({
       success: true,
-      users: usersList
+      users: cleanUsers
     });
 
   } catch (error) {
