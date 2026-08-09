@@ -56,6 +56,8 @@ export async function POST(req) {
                   role:            { stringValue: role },
                   institutionId:   { stringValue: institutionId },
                   institutionName: { stringValue: institutionName.trim() },
+                  logoUrl:         { stringValue: (() => { try { const { readDb } = require('@/lib/db'); const db = readDb(); const inst = (db.institutions||[]).find(i=>i.id===institutionId); return inst?.logoUrl||''; } catch{return '';} })() },
+                  primaryColor:    { stringValue: (() => { try { const { readDb } = require('@/lib/db'); const db = readDb(); const inst = (db.institutions||[]).find(i=>i.id===institutionId); return inst?.primaryColor||'#06429c'; } catch{return '#06429c';} })() },
                   disabled:        { booleanValue: false },
                 },
               }),
