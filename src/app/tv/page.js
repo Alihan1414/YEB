@@ -228,7 +228,8 @@ function IstanbulSilhouetteSVG() {
 }
 
 export default function TVPage() {
-  const { user, authLoading, institutionId, institutionName, logoUrl } = useAuth();
+  const auth = useAuth() || {};
+  const { user, authLoading, institutionId, institutionName, logoUrl } = auth;
   const router = useRouter();
 
   const [students, setStudents]           = useState([]);
