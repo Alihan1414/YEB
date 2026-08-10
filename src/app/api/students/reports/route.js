@@ -106,23 +106,35 @@ export async function POST(req) {
     const newReport = {
       id: reportId,
       student_id:     cleanStudentId,
+      studentId:      cleanStudentId,
       student_name:   studentName || '',
+      studentName:    studentName || '',
       class:          className || '',
       parent_phone:   parentPhone || '',
+      parentPhone:    parentPhone || '',
       content:        content.trim(),
       category:       category || 'Dahili',
       isPositive:     isPositive !== false,
       notified:       !!notifyParent,
       institution_id: instId,
+      institutionId:  instId,
       created_at:     nowIso,
       created_by:     createdBy || 'Bilinmeyen Öğretmen',
     };
 
     // 1. Local DB Save
-    const dbData = readDb();
-    dbData.reports = dbData.reports || [];
-    dbData.reports.push(newReport);
-    writeDb(dbData);
+    let localSaved = false;
+    try {
+      const dbData = readDb();
+      dbData.reports = dbData.reports || [];
+      // Remove any existing duplicate report with same id if any
+      dbData.reports = dbData.reports.filter(r => r.id !== reportId);
+      dbData.reports.unshift(newReport);
+      writeDb(dbData);
+      localSaved = true;
+    } catch (dbErr) {
+      console.error("Local DB Save error:", dbErr.message);
+    }
 
     // 2. Firestore Save
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'vision-b1ad5';
@@ -130,7 +142,7 @@ export async function POST(req) {
 
     if (projectId && apiKey) {
       try {
-        await fetch(
+        const fsRes = await fetch(
           `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/reports/${reportId}?key=${apiKey}`,
           {
             method: 'PATCH',
@@ -138,6 +150,7 @@ export async function POST(req) {
             body: JSON.stringify({
               fields: {
                 student_id:     { stringValue: cleanStudentId },
+                studentId:      { stringValue: cleanStudentId },
                 student_name:   { stringValue: studentName || '' },
                 class:          { stringValue: className || '' },
                 parent_phone:   { stringValue: parentPhone || '' },
@@ -146,12 +159,17 @@ export async function POST(req) {
                 isPositive:     { booleanValue: isPositive !== false },
                 notified:       { booleanValue: !!notifyParent },
                 institution_id: { stringValue: instId },
-                created_at:     { timestampValue: nowIso },
+                institutionId:  { stringValue: instId },
+                created_at:     { stringValue: nowIso },
                 created_by:     { stringValue: createdBy || 'Bilinmeyen Öğretmen' },
               },
             }),
           }
         );
+        if (!fsRes.ok) {
+          const fsErrData = await fsRes.json();
+          console.warn('Firestore POST REPORT HTTP Error:', fsErrData);
+        }
       } catch (err) {
         console.warn('Firestore POST REPORT warning:', err.message);
       }
