@@ -98,17 +98,8 @@ export default function StudentsPage() {
 
   // Add student form
   const [showAddStudent, setShowAddStudent] = useState(false);
-  const [newStudent, setNewStudent]         = useState({ name: '', surname: '', class: '', parent_phone: '' });
-  const [addLoading, setAddLoading]         = useState(false);
-
-  // Bulk Report states
-  const [selectedStudentIds, setSelectedStudentIds] = useState([]);
-  const [showBulkReportModal, setShowBulkReportModal] = useState(false);
-  const [bulkContent, setBulkContent]                 = useState('');
-  const [bulkCategory, setBulkCategory]               = useState('Program');
-  const [bulkIsPositive, setBulkIsPositive]           = useState(false);
-  const [bulkNotifyParent, setBulkNotifyParent]       = useState(false);
-  const [bulkLoading, setBulkLoading]                 = useState(false);
+  const [newName, setNewName]               = useState('');
+  const [newSurname, setNewSurname]         = useState('');
   const [newClass, setNewClass]             = useState('');
   const [newParentPhone, setNewParentPhone] = useState('');
 
@@ -459,84 +450,6 @@ export default function StudentsPage() {
     } catch (e) {
       console.error('handleAddStudent error:', e);
       showToast('Hata: ' + e.message, 'error');
-    }
-  };
-
-  // ─── Bulk Report Handlers ──────────────────────────────────────────────────
-  const toggleSelectStudent = (id, e) => {
-    if (e) e.stopPropagation();
-    setSelectedStudentIds(prev =>
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-    );
-  };
-
-  const toggleSelectAll = () => {
-    const currentFilteredIds = filteredStudents.map(s => s.id);
-    const allSelected = currentFilteredIds.every(id => selectedStudentIds.includes(id));
-    if (allSelected) {
-      setSelectedStudentIds(prev => prev.filter(id => !currentFilteredIds.includes(id)));
-    } else {
-      setSelectedStudentIds(prev => Array.from(new Set([...prev, ...currentFilteredIds])));
-    }
-  };
-
-  const applyBulkTemplate = (text, category, isPos) => {
-    setBulkContent(text);
-    setBulkCategory(category);
-    setBulkIsPositive(isPos);
-  };
-
-  const handleBulkReportSubmit = async (e) => {
-    if (e) e.preventDefault();
-    if (!bulkContent.trim()) {
-      showToast('Lütfen bir rapor içeriği girin veya şablon seçin.', 'error');
-      return;
-    }
-    if (selectedStudentIds.length === 0) {
-      showToast('Lütfen en az 1 öğrenci seçin.', 'error');
-      return;
-    }
-
-    setBulkLoading(true);
-    try {
-      const selectedObjs = students
-        .filter(s => selectedStudentIds.includes(s.id))
-        .map(s => ({
-          studentId: s.id,
-          studentName: `${s.name} ${s.surname}`,
-          className: s.class,
-          parentPhone: s.parent_phone,
-        }));
-
-      const res = await fetch('/api/students/reports', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          students: selectedObjs,
-          content: bulkContent.trim(),
-          category: bulkCategory,
-          isPositive: bulkIsPositive,
-          notifyParent: bulkNotifyParent,
-          institutionId: institutionId || 'yamanevler',
-          createdBy: userName || user?.email || 'Öğretmen',
-        }),
-      });
-
-      const data = await res.json();
-      if (data.success) {
-        showToast(`${selectedStudentIds.length} öğrenciye toplu rapor başarıyla girildi!`, 'success');
-        setSelectedStudentIds([]);
-        setShowBulkReportModal(false);
-        setBulkContent('');
-        await fetchStudents();
-      } else {
-        showToast(`Hata: ${data.error}`, 'error');
-      }
-    } catch (err) {
-      console.error('Bulk report submit error:', err);
-      showToast('Toplu rapor girilirken bir hata oluştu.', 'error');
-    } finally {
-      setBulkLoading(false);
     }
   };
 
@@ -1075,59 +988,12 @@ export default function StudentsPage() {
               )}
 
               {/* Student Table */}
-              <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100 space-y-6 relative">
-
-                {/* Bulk Action Bar (Shows when 1 or more students are selected) */}
-                <AnimatePresence>
-                  {selectedStudentIds.length > 0 && (
-                    <motion.div
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="bg-gradient-to-r from-blue-900 to-indigo-900 text-white rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-xl border border-blue-700/50"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-blue-500/30 border border-blue-400/40 flex items-center justify-center font-extrabold text-sm text-blue-200">
-                          {selectedStudentIds.length}
-                        </div>
-                        <div>
-                          <span className="font-bold text-sm text-white">Öğrenci Seçildi</span>
-                          <p className="text-xs text-blue-200">Seçilen öğrencilere toplu rapor ekleyebilir veya durum atayabilirsiniz.</p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={() => setSelectedStudentIds([])}
-                          className="px-3 py-1.5 text-xs font-semibold text-blue-200 hover:text-white hover:bg-white/10 rounded-xl transition-all"
-                        >
-                          Seçimi Temizle
-                        </button>
-                        <button
-                          onClick={() => setShowBulkReportModal(true)}
-                          className="px-5 py-2.5 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-slate-950 font-black text-xs rounded-xl shadow-lg hover:shadow-amber-500/25 transition-all flex items-center gap-2"
-                        >
-                          <FileText size={16} />
-                          Toplu Rapor Girişi Yap
-                        </button>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
+              <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100 space-y-6">
 
                 <div className="overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead>
                       <tr className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-3">
-                        <th className="pb-3 pl-2 w-10">
-                          <input
-                            type="checkbox"
-                            className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                            checked={filteredStudents.length > 0 && filteredStudents.every(s => selectedStudentIds.includes(s.id))}
-                            onChange={toggleSelectAll}
-                            title="Tümünü Seç / Temizle"
-                          />
-                        </th>
                         <th className="pb-3 pl-2">Öğrenci Adı</th>
                         <th className="pb-3">Sınıf</th>
                         <th className="pb-3 hidden md:table-cell">Son Rapor</th>
@@ -1139,7 +1005,6 @@ export default function StudentsPage() {
                       {dataLoading ? (
                         Array.from({ length: 5 }).map((_, idx) => (
                           <tr key={idx} className="animate-pulse">
-                            <td className="py-3.5 pl-2"><div className="w-4 h-4 bg-slate-200 rounded" /></td>
                             <td className="py-3.5 pl-2 flex items-center gap-3">
                               <div className="w-8 h-8 rounded-full bg-slate-200" />
                               <div className="h-4 w-32 bg-slate-200 rounded-md" />
@@ -1151,7 +1016,6 @@ export default function StudentsPage() {
                           </tr>
                         ))
                       ) : filteredStudents.map((st) => {
-                        const isSelected = selectedStudentIds.includes(st.id);
                         const initials = `${st.name ? st.name[0] : ''}${st.surname ? st.surname[0] : ''}`;
                         const status = st.status || 'Rapor Yok';
                         const statusStyle = status === 'İyi'
@@ -1163,19 +1027,7 @@ export default function StudentsPage() {
                               : 'bg-slate-100 text-slate-500';
 
                         return (
-                          <tr
-                            key={st.id}
-                            onClick={() => setSelectedStudent(st)}
-                            className={`transition-colors cursor-pointer group ${isSelected ? 'bg-blue-50/80 hover:bg-blue-100/60' : 'hover:bg-blue-50/50'}`}
-                          >
-                            <td className="py-3.5 pl-2 w-10" onClick={(e) => e.stopPropagation()}>
-                              <input
-                                type="checkbox"
-                                className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
-                                checked={isSelected}
-                                onChange={(e) => toggleSelectStudent(st.id, e)}
-                              />
-                            </td>
+                          <tr key={st.id} onClick={() => setSelectedStudent(st)} className="hover:bg-blue-50/50 transition-colors cursor-pointer group">
                             <td className="py-3.5 pl-2">
                               <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 rounded-full bg-[#06429c] text-white flex items-center justify-center font-bold text-xs shadow-sm">
@@ -1686,190 +1538,6 @@ export default function StudentsPage() {
                 </div>
 
               </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
-
-      {/* ── Toplu Rapor Girişi Modal ── */}
-      <AnimatePresence>
-        {showBulkReportModal && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowBulkReportModal(false)}
-              className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50"
-            />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="fixed inset-x-4 top-[8%] md:inset-auto md:left-1/2 md:-translate-x-1/2 md:w-[600px] bg-white rounded-3xl p-6 md:p-8 shadow-2xl z-50 border border-slate-100 max-h-[85vh] overflow-y-auto"
-            >
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-5">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 font-extrabold shadow-sm">
-                    {selectedStudentIds.length}
-                  </div>
-                  <div>
-                    <h3 className="text-base md:text-lg font-black text-slate-900">Toplu Rapor Girişi</h3>
-                    <p className="text-xs text-slate-500 font-medium">{selectedStudentIds.length} öğrenciye aynı anda rapor eklenecektir.</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setShowBulkReportModal(false)}
-                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-all"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-
-              {/* Seçili Öğrenciler Rozetleri */}
-              <div className="mb-5">
-                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">SEÇİLİ ÖĞRENCİLER</div>
-                <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto p-1.5 bg-slate-50 rounded-2xl border border-slate-100">
-                  {students.filter(s => selectedStudentIds.includes(s.id)).map(st => (
-                    <span
-                      key={st.id}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 shadow-2xs"
-                    >
-                      <span>{st.name} {st.surname}</span>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedStudentIds(prev => prev.filter(id => id !== st.id))}
-                        className="text-slate-400 hover:text-red-500 rounded-full"
-                      >
-                        <X size={12} />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {/* Hızlı Şablonlar */}
-              <div className="mb-5">
-                <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">HIZLI ŞABLON SEÇİMİ</div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => applyBulkTemplate('Programa katılmadı / derse/etkinliğe gelmedi.', 'Program', false)}
-                    className="p-3 bg-red-50 hover:bg-red-100/80 border border-red-200 rounded-2xl text-left transition-all group"
-                  >
-                    <div className="text-xs font-black text-red-700 flex items-center gap-1.5">
-                      <span>❌ Programa Katılmadı</span>
-                    </div>
-                    <div className="text-[10px] text-red-500 mt-0.5 font-medium">Olumsuz Rapor (-1 Puan)</div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => applyBulkTemplate('Verilen ödev/görev eksik veya yapılmadı.', 'Akademik', false)}
-                    className="p-3 bg-amber-50 hover:bg-amber-100/80 border border-amber-200 rounded-2xl text-left transition-all group"
-                  >
-                    <div className="text-xs font-black text-amber-800 flex items-center gap-1.5">
-                      <span>⚠️ Ödev Yapılmadı</span>
-                    </div>
-                    <div className="text-[10px] text-amber-600 mt-0.5 font-medium">Olumsuz Rapor (-1 Puan)</div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => applyBulkTemplate('Vakit namazına katılım sağlanmadı.', 'Namaz', false)}
-                    className="p-3 bg-rose-50 hover:bg-rose-100/80 border border-rose-200 rounded-2xl text-left transition-all group"
-                  >
-                    <div className="text-xs font-black text-rose-700 flex items-center gap-1.5">
-                      <span>🕌 Namaza Katılmadı</span>
-                    </div>
-                    <div className="text-[10px] text-rose-500 mt-0.5 font-medium">Olumsuz Rapor (-1 Puan)</div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => applyBulkTemplate('Programa ve etkinliklere aktif ve eksiksiz katılım sağladı.', 'Program', true)}
-                    className="p-3 bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200 rounded-2xl text-left transition-all group"
-                  >
-                    <div className="text-xs font-black text-emerald-800 flex items-center gap-1.5">
-                      <span>✅ Katılım Sağladı</span>
-                    </div>
-                    <div className="text-[10px] text-emerald-600 mt-0.5 font-medium">Olumlu Rapor (+2 Puan)</div>
-                  </button>
-                </div>
-              </div>
-
-              <form onSubmit={handleBulkReportSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">RAPOR İÇERİĞİ</label>
-                  <textarea
-                    value={bulkContent}
-                    onChange={(e) => setBulkContent(e.target.value)}
-                    placeholder="Veya özel bir rapor açıklaması yazın..."
-                    className="w-full h-24 bg-slate-50 border border-slate-200 rounded-2xl p-3.5 text-xs font-medium text-slate-800 focus:outline-none focus:border-blue-600 focus:bg-white transition-all placeholder-slate-400"
-                    required
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">KATEGORİ</label>
-                    <select
-                      value={bulkCategory}
-                      onChange={(e) => setBulkCategory(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-600"
-                    >
-                      {CATEGORIES.map(c => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">RAPOR TÜRÜ</label>
-                    <button
-                      type="button"
-                      onClick={() => setBulkIsPositive(p => !p)}
-                      className={`w-full py-2.5 px-3 rounded-xl text-xs font-black border transition-all ${
-                        bulkIsPositive
-                          ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
-                          : 'bg-red-50 border-red-300 text-red-600'
-                      }`}
-                    >
-                      {bulkIsPositive ? '👍 Olumlu Rapor' : '👎 Olumsuz Rapor (-1)'}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="pt-2 flex items-center justify-between border-t border-slate-100">
-                  <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-600">
-                    <input
-                      type="checkbox"
-                      checked={bulkNotifyParent}
-                      onChange={(e) => setBulkNotifyParent(e.target.checked)}
-                      className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span>Velilere Bildir (WhatsApp)</span>
-                  </label>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowBulkReportModal(false)}
-                      className="px-4 py-2.5 text-xs font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-all"
-                    >
-                      İptal
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={bulkLoading}
-                      className="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black text-xs rounded-xl shadow-lg shadow-blue-500/25 transition-all flex items-center gap-2 disabled:opacity-50"
-                    >
-                      {bulkLoading ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
-                      <span>{selectedStudentIds.length} Öğrenciye Gönder</span>
-                    </button>
-                  </div>
-                </div>
-              </form>
             </motion.div>
           </>
         )}
