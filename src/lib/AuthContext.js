@@ -63,20 +63,9 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const CURRENT_SESSION_VERSION = 'v2026_08_09_v2';
-
   useEffect(() => {
     let isMounted = true;
     try {
-      if (typeof window !== 'undefined') {
-        const storedVersion = localStorage.getItem('app_session_version');
-        // If phone/browser has old version marker, force clear all stale local storage!
-        if (storedVersion !== CURRENT_SESSION_VERSION) {
-          localStorage.clear();
-          localStorage.setItem('app_session_version', CURRENT_SESSION_VERSION);
-        }
-      }
-
       const localUserJson = typeof window !== 'undefined' && localStorage.getItem('localUser');
       if (localUserJson) {
         const localProfile = JSON.parse(localUserJson);
