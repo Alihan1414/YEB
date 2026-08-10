@@ -87,13 +87,16 @@ async function getInstitutionId(emailOrInst) {
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
-    const emailOrInst = searchParams.get('emailOrInst');
+    const emailOrInst  = searchParams.get('emailOrInst');
+    const directInstId = searchParams.get('institutionId');
 
-    if (!emailOrInst) {
+    // institutionId doğrudan verilmişse hemen kullan (TV sayfası bu şekilde çağırır)
+    if (!emailOrInst && !directInstId) {
       return NextResponse.json({ success: false, teachers: [] });
     }
 
-    const instId = await getInstitutionId(emailOrInst);
+    const instId = directInstId ? directInstId.trim().toLowerCase()
+                                : await getInstitutionId(emailOrInst);
     let teachers = [];
 
     // 1. Try fetching from Firestore
