@@ -83,10 +83,10 @@ export function AuthProvider({ children }) {
         if (localProfile?.email) {
           applyLocalProfile(localProfile);
           setLoading(false);
-          // Async sync with latest profile from server - if account deleted/disabled on server, force logout!
+          // Async sync with latest profile from server - if account is strictly DISABLED (403), log out. Otherwise keep local user session.
           fetch(`/api/users/profile?uid=${encodeURIComponent(localProfile.uid || localProfile.id || '')}&email=${encodeURIComponent(localProfile.email)}`, { cache: 'no-store' })
             .then(r => {
-              if (r.status === 401 || r.status === 403 || r.status === 404) {
+              if (r.status === 403) {
                 if (typeof window !== 'undefined') localStorage.clear();
                 setUser(null);
                 window.location.href = '/login';
@@ -98,10 +98,6 @@ export function AuthProvider({ children }) {
               if (!data) return;
               if (isMounted && data.success && data.profile) {
                 applyLocalProfile(data.profile);
-              } else if (isMounted && data.error) {
-                if (typeof window !== 'undefined') localStorage.clear();
-                setUser(null);
-                window.location.href = '/login';
               }
             })
             .catch(() => {});
