@@ -66,9 +66,10 @@ export async function GET(req) {
   const rawInstId  = searchParams.get('institutionId') || '';
   const normInstId = rawInstId.trim().toLowerCase();
 
+  let students = [];
   try {
     const studentDocs = await fetchAllDocs(projectId, apiKey, 'students');
-    let students = studentDocs
+    students = studentDocs
       .map(docToStudent)
       .filter(s => !normInstId || s.institution_id.trim().toLowerCase() === normInstId);
 
@@ -92,12 +93,39 @@ export async function GET(req) {
       return { ...s, ...info };
     });
 
-    students.sort((a, b) => (a.surname || '').localeCompare(b.surname || '', 'tr'));
-    return NextResponse.json({ success: true, students });
   } catch (err) {
-    console.error('GET STUDENTS ERROR:', err.message);
-    return NextResponse.json({ success: false, error: err.message, students: [] }, { status: 500 });
+    console.warn('GET STUDENTS Firestore warn:', err.message);
   }
+
+  // Fallback / Merge with Local DB if Firestore was empty or failed
+  try {
+    const { readDb } = require('@/lib/db');
+    const dbData = readDb();
+    const localStudents = (dbData.students || []).filter(
+      s => !normInstId || (s.institution_id || s.institutionId || '').trim().toLowerCase() === normInstId
+    );
+
+    localStudents.forEach(ls => {
+      if (!students.some(s => s.id === ls.id)) {
+        students.push({
+          id: ls.id,
+          name: ls.name || '',
+          surname: ls.surname || '',
+          class: ls.class || '',
+          parent_phone: ls.parent_phone || '',
+          institution_id: ls.institution_id || ls.institutionId || '',
+          created_at: ls.created_at || null,
+          last_report_date: null,
+          status: 'Rapor Yok'
+        });
+      }
+    });
+  } catch (dbErr) {
+    console.warn('Local DB fallback read error:', dbErr.message);
+  }
+
+  students.sort((a, b) => (a.surname || '').localeCompare(b.surname || '', 'tr'));
+  return NextResponse.json({ success: true, students });
 }
 
 // ─── POST ────────────────────────────────────────────────────────────────────

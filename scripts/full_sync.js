@@ -78,19 +78,27 @@ async function run() {
   // 3. Öğrencileri Eşitle
   console.log('\n--- 🎓 ÖĞRENCİLER EŞİTLENİYOR ---');
   for (const st of (db.students || [])) {
-    try {
-      await patchFirestore(`students/${st.id}`, {
-        name:           { stringValue: st.name || '' },
-        surname:        { stringValue: st.surname || '' },
-        class:          { stringValue: st.class || '' },
-        parent_phone:   { stringValue: st.parent_phone || '' },
-        institution_id: { stringValue: st.institution_id || 'yamanevler' },
-        created_at:     { timestampValue: st.created_at || new Date().toISOString() }
-      });
-      console.log(`✅ Öğrenci Eşitlendi: ${st.name} ${st.surname} (${st.id})`);
-    } catch (e) {
-      console.error(`❌ Öğrenci Hatası (${st.id}):`, e.message);
+    let success = false;
+    let attempts = 0;
+    while (!success && attempts < 3) {
+      try {
+        attempts++;
+        await patchFirestore(`students/${st.id}`, {
+          name:           { stringValue: st.name || '' },
+          surname:        { stringValue: st.surname || '' },
+          class:          { stringValue: st.class || '' },
+          parent_phone:   { stringValue: st.parent_phone || '' },
+          institution_id: { stringValue: st.institution_id || 'yamanevler' },
+          created_at:     { timestampValue: st.created_at || new Date().toISOString() }
+        });
+        console.log(`✅ Öğrenci Eşitlendi: ${st.name} ${st.surname} (${st.id})`);
+        success = true;
+      } catch (e) {
+        console.error(`⚠️ Deneme ${attempts} - Öğrenci Hatası (${st.name} ${st.surname}):`, e.message);
+        await new Promise(r => setTimeout(r, 500));
+      }
     }
+    await new Promise(r => setTimeout(r, 60));
   }
 
   console.log('\n🎉 Eşitleme İşlemi Tamamlandı!');
