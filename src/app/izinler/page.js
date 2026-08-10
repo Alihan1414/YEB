@@ -15,14 +15,14 @@ import PushNotificationManager from '@/components/PushNotificationManager';
 
 export default function LeaveManagementPage() {
   const { user, role, institutionId, institutionName, loading: authLoading, logout } = useAuth();
-  const [leaveEnabled] = useState(true);
+  const [leaveEnabled] = useState(true); // this page IS leave management
   const router = useRouter();
 
   // Requests state
   const [requests, setRequests] = useState([]);
   const [loadingRequests, setLoadingRequests] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState('pending');
+  const [activeTab, setActiveTab] = useState('pending'); // 'pending' | 'approved' | 'rejected'
 
   // Settings state
   const [settings, setSettings] = useState({ enabled: true, assignedTeacherId: '' });
@@ -46,9 +46,8 @@ export default function LeaveManagementPage() {
 
   // Redirect if not logged in
   useEffect(() => {
-    const hasLocalSession = typeof window !== 'undefined' && !!localStorage.getItem('localUser');
-    if (!authLoading && !user && !hasLocalSession) window.location.replace('/login');
-  }, [user, authLoading]);
+    if (!authLoading && !user) router.push('/login');
+  }, [user, authLoading, router]);
 
   // Fetch leave requests
   const fetchRequests = useCallback(async () => {
@@ -189,7 +188,9 @@ export default function LeaveManagementPage() {
 
   // Filter requests
   const filteredRequests = requests.filter(req => {
+    // 1. Filter by tab status
     if (req.status !== activeTab) return false;
+    // 2. Filter by search query
     if (searchQuery.trim() === '') return true;
     return (req.studentName || '').toLowerCase().includes(searchQuery.toLowerCase());
   });
@@ -451,7 +452,7 @@ export default function LeaveManagementPage() {
 
             </div>
 
-            {/* Right side: Settings Panel */}
+            {/* Right side: Settings Panel (Visible to admin only) */}
             <div className="space-y-6">
               
               <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm space-y-5">

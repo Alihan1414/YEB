@@ -96,9 +96,8 @@ export default function AyarlarPage() {
 
   // ── Auth guard ──────────────────────────────────────────────────────────────
   useEffect(() => {
-    const hasLocalSession = typeof window !== 'undefined' && !!localStorage.getItem('localUser');
-    if (!authLoading && !user && !hasLocalSession) window.location.replace('/login');
-  }, [user, authLoading]);
+    if (!authLoading && !user) router.push('/login');
+  }, [user, authLoading, router]);
 
   // ── Fetch leave settings ────────────────────────────────────────────────────
   const fetchLeaveSettings = useCallback(async () => {

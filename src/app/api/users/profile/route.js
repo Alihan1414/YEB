@@ -107,43 +107,6 @@ export async function GET(req) {
               enabledModules: branding.enabledModules,
             }
           });
-        } else {
-          // Direct UID document not found — query all Firestore users to match by email
-          const listRes = await fetch(
-            `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users?key=${apiKey}`,
-            { cache: 'no-store' }
-          );
-          if (listRes.ok) {
-            const listData = await listRes.json();
-            const docs = listData.documents || [];
-            const searchEmail = (email || '').toLowerCase().trim();
-            const searchPrefix = searchEmail.split('@')[0];
-
-            for (const doc of docs) {
-              const f = doc.fields || {};
-              const fEmail = (f.email?.stringValue || '').toLowerCase().trim();
-              const fPrefix = fEmail.split('@')[0];
-              if (fEmail === searchEmail || fPrefix === searchPrefix || `${fPrefix}@2026` === searchEmail) {
-                const role = f.role?.stringValue || 'teacher';
-                const instId = f.institutionId?.stringValue || 'yamanevler';
-                const branding = getInstBranding(instId);
-                return NextResponse.json({
-                  success: true,
-                  profile: {
-                    uid: doc.name.split('/').pop(),
-                    name: f.name?.stringValue || '',
-                    email: fEmail || email,
-                    role,
-                    institutionId: instId,
-                    institutionName: f.institutionName?.stringValue || branding.institutionName || instId,
-                    logoUrl: f.logoUrl?.stringValue || branding.logoUrl,
-                    primaryColor: f.primaryColor?.stringValue || branding.primaryColor,
-                    enabledModules: branding.enabledModules,
-                  }
-                });
-              }
-            }
-          }
         }
       } catch (err) {
         console.warn("Firestore user profile fetch failed, using local DB:", err.message);

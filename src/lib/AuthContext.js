@@ -31,7 +31,6 @@ export function AuthProvider({ children }) {
     setLogoUrl(profile.logoUrl || '');
     setPrimaryColor(profile.primaryColor || '#06429c');
     if (profile.enabledModules) setEnabledModules(profile.enabledModules);
-    setLoading(false);
   };
 
   const login = (email, password) => {
@@ -64,16 +63,16 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const CURRENT_SESSION_VERSION = 'v2026_08_09_FORCE_RESET_V100';
+  const CURRENT_SESSION_VERSION = 'v2026_08_09_v2';
 
   useEffect(() => {
     let isMounted = true;
     try {
       if (typeof window !== 'undefined') {
         const storedVersion = localStorage.getItem('app_session_version');
+        // If phone/browser has old version marker, force clear all stale local storage!
         if (storedVersion !== CURRENT_SESSION_VERSION) {
-          // Only clear localUser (not entire localStorage) to avoid wiping valid sessions on dev
-          localStorage.removeItem('localUser');
+          localStorage.clear();
           localStorage.setItem('app_session_version', CURRENT_SESSION_VERSION);
         }
       }
@@ -87,11 +86,10 @@ export function AuthProvider({ children }) {
           // Async sync with latest profile from server - if account deleted/disabled on server, force logout!
           fetch(`/api/users/profile?uid=${encodeURIComponent(localProfile.uid || localProfile.id || '')}&email=${encodeURIComponent(localProfile.email)}`, { cache: 'no-store' })
             .then(r => {
-              if (r.status === 403) {
-                // Only force logout if explicitly disabled by platform admin (403)
+              if (r.status === 401 || r.status === 403 || r.status === 404) {
                 if (typeof window !== 'undefined') localStorage.clear();
                 setUser(null);
-                window.location.replace('/login');
+                window.location.href = '/login';
                 return null;
               }
               return r.json();
@@ -100,6 +98,10 @@ export function AuthProvider({ children }) {
               if (!data) return;
               if (isMounted && data.success && data.profile) {
                 applyLocalProfile(data.profile);
+              } else if (isMounted && data.error) {
+                if (typeof window !== 'undefined') localStorage.clear();
+                setUser(null);
+                window.location.href = '/login';
               }
             })
             .catch(() => {});
@@ -119,6 +121,7 @@ export function AuthProvider({ children }) {
             { cache: 'no-store' }
           );
           if (res.status === 403) {
+            // Disabled account — sign out immediately
             await logout();
             return;
           }
@@ -131,11 +134,8 @@ export function AuthProvider({ children }) {
             setLogoUrl(data.profile.logoUrl || '');
             setPrimaryColor(data.profile.primaryColor || '#06429c');
             if (data.profile.enabledModules) setEnabledModules(data.profile.enabledModules);
-            // Save to localStorage for fallback
-            if (isMounted && typeof window !== 'undefined') {
-              localStorage.setItem('localUser', JSON.stringify(data.profile));
-            }
           } else {
+            // Profile not found - use minimal defaults based on Firebase user
             const isSuper = firebaseUser.email === 'admin@yeb.local';
             setUserName(isSuper ? 'Sistem Yöneticisi' : (firebaseUser.displayName || ''));
             setRole(isSuper ? 'super_admin' : 'teacher');
@@ -151,35 +151,18 @@ export function AuthProvider({ children }) {
           setInstitutionName(isSuper ? 'Sistem Yönetimi' : null);
         }
       } else {
-        const hasLocalUser = typeof window !== 'undefined' && !!localStorage.getItem('localUser');
-        if (!hasLocalUser) {
-          setUser(null);
-          setUserName(null);
-          setRole(null);
-          setInstitutionId(null);
-          setInstitutionName(null);
-          setLogoUrl('');
-          setPrimaryColor('#06429c');
-        }
+        setUser(null);
+        setUserName(null);
+        setRole(null);
+        setInstitutionId(null);
+        setInstitutionName(null);
+        setLogoUrl('');
+        setPrimaryColor('#06429c');
       }
-      if (isMounted) setLoading(false);
+      setLoading(false);
     });
-
-    // ── Güvenlik ağı: Firebase 2 saniye içinde cevap vermezse loading'i zorla kapat ──
-    const loadingTimeout = setTimeout(() => {
-      if (isMounted) {
-        console.warn('Auth: Firebase timeout — forcing loading=false');
-        setLoading(false);
-      }
-    }, 2000);
-
-    return () => {
-      isMounted = false;
-      clearTimeout(loadingTimeout);
-      unsub();
-    };
+    return unsub;
   }, []);
-
 
   return (
     <AuthContext.Provider value={{

@@ -109,7 +109,7 @@ export async function POST(req) {
       parentPhone: parentPhone.replace(/\s+/g, ''),
       startDate,
       startTime: startTime || '',
-      endDate: endDate || startDate,
+      endDate: endDate || startDate, // fallback to start date if not specified
       endTime: endTime || '',
       reason: reason.trim(),
       status: 'pending',

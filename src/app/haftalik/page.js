@@ -24,9 +24,8 @@ export default function WeeklySummaryPage() {
   const [downloadingCard, setDownloadingCard] = useState(false);
 
   useEffect(() => {
-    const hasLocalSession = typeof window !== 'undefined' && !!localStorage.getItem('localUser');
-    if (!authLoading && !user && !hasLocalSession) window.location.replace('/login');
-  }, [user, authLoading]);
+    if (!authLoading && !user) router.push('/login');
+  }, [user, authLoading, router]);
 
   const fetchWeeklySummary = async () => {
     setLoading(true);
