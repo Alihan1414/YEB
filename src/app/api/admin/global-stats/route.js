@@ -67,7 +67,7 @@ export async function GET(req) {
             name: f.name?.stringValue || '',
             surname: f.surname?.stringValue || '',
             class: f.class?.stringValue || '',
-            institutionId: f.institutionId?.stringValue || 'yamanevler'
+            institutionId: f.institution_id?.stringValue || f.institutionId?.stringValue || 'yamanevler'
           };
         });
       }
@@ -87,7 +87,7 @@ export async function GET(req) {
             student_id: f.student_id?.stringValue || '',
             category: f.category?.stringValue || 'Diğer',
             created_at: f.created_at?.stringValue || '',
-            institutionId: f.institutionId?.stringValue || 'yamanevler'
+            institutionId: f.institutionId?.stringValue || f.institution_id?.stringValue || 'yamanevler'
           };
         });
       }
@@ -105,7 +105,7 @@ export async function GET(req) {
           return {
             id: doc.name.split('/').pop(),
             status: f.status?.stringValue || 'pending',
-            institutionId: f.institutionId?.stringValue || 'yamanevler'
+            institutionId: f.institutionId?.stringValue || f.institution_id?.stringValue || 'yamanevler'
           };
         });
       }
@@ -142,7 +142,7 @@ export async function GET(req) {
             name: ls.name || '',
             surname: ls.surname || '',
             class: ls.class || '',
-            institutionId: ls.institution_id || 'yamanevler'
+            institutionId: ls.institution_id || ls.institutionId || 'yamanevler'
           });
         }
       });
