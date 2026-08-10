@@ -88,76 +88,98 @@ export async function GET(req) {
 // â”€â”€â”€ POST â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 export async function POST(req) {
   try {
+    const body = await req.json();
     const {
       studentId, studentName, className, parentPhone,
+      students, // Optional array for bulk reports: [{ studentId, studentName, className, parentPhone }]
       content, category, isPositive, notifyParent, institutionId = 'yamanevler',
       createdBy
-    } = await req.json();
+    } = body;
 
-    if (!studentId || !content) {
-      return NextResponse.json({ success: false, error: 'Eksik bilgi: Ã–ÄŸrenci ve iÃ§erik gereklidir.' }, { status: 400 });
+    if (!content) {
+      return NextResponse.json({ success: false, error: 'Eksik bilgi: Rapor içeriği gereklidir.' }, { status: 400 });
+    }
+
+    const targetStudents = Array.isArray(students) && students.length > 0
+      ? students
+      : studentId ? [{ studentId, studentName, className, parentPhone }] : [];
+
+    if (targetStudents.length === 0) {
+      return NextResponse.json({ success: false, error: 'Eksik bilgi: En az 1 öğrenci seçilmelidir.' }, { status: 400 });
     }
 
     const instId = (institutionId || 'yamanevler').trim().toLowerCase();
-    const cleanStudentId = String(studentId).trim();
-    const reportId = `report-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const nowIso = new Date().toISOString();
+    const createdReports = [];
 
-    const newReport = {
-      id: reportId,
-      student_id:     cleanStudentId,
-      student_name:   studentName || '',
-      class:          className || '',
-      parent_phone:   parentPhone || '',
-      content:        content.trim(),
-      category:       category || 'Dahili',
-      isPositive:     isPositive !== false,
-      notified:       !!notifyParent,
-      institution_id: instId,
-      created_at:     nowIso,
-      created_by:     createdBy || 'Bilinmeyen Öğretmen',
-    };
-
-    // 1. Local DB Save
     const dbData = readDb();
     dbData.reports = dbData.reports || [];
-    dbData.reports.push(newReport);
-    writeDb(dbData);
 
-    // 2. Firestore Save
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'vision-b1ad5';
     const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCH7bTzvqJqSzJiV0Ou6JudPovkrrWrwdw';
 
-    if (projectId && apiKey) {
-      try {
-        await fetch(
-          `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/reports/${reportId}?key=${apiKey}`,
-          {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              fields: {
-                student_id:     { stringValue: cleanStudentId },
-                student_name:   { stringValue: studentName || '' },
-                class:          { stringValue: className || '' },
-                parent_phone:   { stringValue: parentPhone || '' },
-                content:        { stringValue: content.trim() },
-                category:       { stringValue: category || 'Dahili' },
-                isPositive:     { booleanValue: isPositive !== false },
-                notified:       { booleanValue: !!notifyParent },
-                institution_id: { stringValue: instId },
-                created_at:     { timestampValue: nowIso },
-                created_by:     { stringValue: createdBy || 'Bilinmeyen Öğretmen' },
-              },
-            }),
-          }
-        );
-      } catch (err) {
-        console.warn('Firestore POST REPORT warning:', err.message);
+    for (let i = 0; i < targetStudents.length; i++) {
+      const item = targetStudents[i];
+      const cleanStudentId = String(item.studentId || item.id).trim();
+      const reportId = `report-${Date.now()}-${i}-${Math.floor(Math.random() * 1000)}`;
+
+      const newReport = {
+        id: reportId,
+        student_id:     cleanStudentId,
+        student_name:   item.studentName || item.name || '',
+        class:          item.className || item.class || '',
+        parent_phone:   item.parentPhone || item.parent_phone || '',
+        content:        content.trim(),
+        category:       category || 'Dahili',
+        isPositive:     isPositive !== false,
+        notified:       !!notifyParent,
+        institution_id: instId,
+        created_at:     nowIso,
+        created_by:     createdBy || 'Bilinmeyen Öğretmen',
+      };
+
+      dbData.reports.push(newReport);
+      createdReports.push(newReport);
+
+      if (projectId && apiKey) {
+        try {
+          await fetch(
+            `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/reports/${reportId}?key=${apiKey}`,
+            {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                fields: {
+                  student_id:     { stringValue: cleanStudentId },
+                  student_name:   { stringValue: item.studentName || item.name || '' },
+                  class:          { stringValue: item.className || item.class || '' },
+                  parent_phone:   { stringValue: item.parentPhone || item.parent_phone || '' },
+                  content:        { stringValue: content.trim() },
+                  category:       { stringValue: category || 'Dahili' },
+                  isPositive:     { booleanValue: isPositive !== false },
+                  notified:       { booleanValue: !!notifyParent },
+                  institution_id: { stringValue: instId },
+                  created_at:     { timestampValue: nowIso },
+                  created_by:     { stringValue: createdBy || 'Bilinmeyen Öğretmen' },
+                },
+              }),
+            }
+          );
+        } catch (err) {
+          console.warn('Firestore POST REPORT warning:', err.message);
+        }
       }
     }
 
-    return NextResponse.json({ success: true, id: reportId, report: newReport });
+    // 1. Local DB Save
+    writeDb(dbData);
+
+    return NextResponse.json({
+      success: true,
+      count: createdReports.length,
+      reports: createdReports,
+      id: createdReports[0]?.id
+    });
   } catch (err) {
     console.error('ADD REPORT API ERROR:', err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
