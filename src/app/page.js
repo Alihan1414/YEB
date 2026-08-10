@@ -152,18 +152,24 @@ export default function StudentsPage() {
     try {
       const res = await fetch(`/api/students/reports?studentId=${studentId}&institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' });
       const apiData = await res.json();
-      if (apiData.success && apiData.reports) {
-        setReports(apiData.reports);
+      if (apiData.success && Array.isArray(apiData.reports)) {
+        setReports(prev => {
+          const map = new Map();
+          // Add newly fetched reports
+          apiData.reports.forEach(r => map.set(r.id, r));
+          // Keep existing reports for this student if not yet returned by API
+          prev.forEach(r => {
+            const rStId = (r.student_id || r.studentId || '').trim();
+            if (rStId === String(studentId).trim() && !map.has(r.id)) {
+              map.set(r.id, r);
+            }
+          });
+          const merged = Array.from(map.values());
+          merged.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+          return merged;
+        });
         return;
       }
-      const q = query(collection(db, 'reports'), where('student_id', '==', studentId));
-      const snap = await getDocs(q);
-      const list = snap.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      list.sort((a, b) => new Date(b.created_at?.toDate?.() || 0) - new Date(a.created_at?.toDate?.() || 0));
-      setReports(list);
     } catch (e) { console.error('fetchReports error:', e); }
   };
 

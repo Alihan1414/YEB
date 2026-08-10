@@ -33,11 +33,15 @@ export async function GET(req) {
             const rStudentId = (fields.student_id?.stringValue || fields.studentId?.stringValue || '').trim();
             const normRStudentId = rStudentId.toLowerCase();
 
-            if (!institutionId || institutionId === 'platform' || rInst === institutionId) {
+            const isStudentMatch = normStudentId && normRStudentId === normStudentId;
+            const isInstMatch    = !institutionId || institutionId === 'platform' || rInst === institutionId;
+
+            if (isStudentMatch || isInstMatch) {
               if (!normStudentId || normRStudentId === normStudentId) {
                 const fsReport = {
                   id,
                   student_id:     rStudentId,
+                  studentId:      rStudentId,
                   student_name:   fields.student_name?.stringValue || '',
                   class:          fields.class?.stringValue || '',
                   parent_phone:   fields.parent_phone?.stringValue || '',
@@ -46,6 +50,7 @@ export async function GET(req) {
                   isPositive:     fields.isPositive?.booleanValue !== false,
                   notified:       fields.notified?.booleanValue || false,
                   institution_id: rInst,
+                  institutionId:  rInst,
                   created_at:     fields.created_at?.timestampValue || fields.created_at?.stringValue || new Date().toISOString(),
                   created_by:     fields.created_by?.stringValue || 'Bilinmeyen Öğretmen',
                 };
@@ -66,10 +71,14 @@ export async function GET(req) {
       localReports.forEach(r => {
         const rInst = (r.institution_id || r.institutionId || 'yamanevler').trim().toLowerCase();
         const rStId = (r.student_id || r.studentId || '').trim().toLowerCase();
-        if (!institutionId || institutionId === 'platform' || rInst === institutionId) {
+
+        const isStudentMatch = normStudentId && rStId === normStudentId;
+        const isInstMatch    = !institutionId || institutionId === 'platform' || rInst === institutionId;
+
+        if (isStudentMatch || isInstMatch) {
           if (!normStudentId || rStId === normStudentId) {
             if (!reportsMap.has(r.id)) {
-              reportsMap.set(r.id, { ...r, institution_id: rInst });
+              reportsMap.set(r.id, { ...r, institution_id: rInst, institutionId: rInst });
             }
           }
         }
