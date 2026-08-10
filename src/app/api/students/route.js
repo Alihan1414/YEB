@@ -77,8 +77,8 @@ export async function GET(req) {
     const reportsByStudent = {};
     reportDocs.forEach(doc => {
       const f  = doc.fields || {};
-      const ri = (f.institution_id?.stringValue || '').trim().toLowerCase();
-      const si = f.student_id?.stringValue || '';
+      const ri = (f.institution_id?.stringValue || f.institutionId?.stringValue || '').trim().toLowerCase();
+      const si = (f.student_id?.stringValue || f.studentId?.stringValue || '').trim();
       if (!normInstId || ri === normInstId) {
         if (!reportsByStudent[si]) reportsByStudent[si] = [];
         reportsByStudent[si].push({
@@ -87,6 +87,28 @@ export async function GET(req) {
         });
       }
     });
+
+    // Also include Local DB reports into reportsByStudent to prevent status rollback
+    try {
+      const { readDb } = require('@/lib/db');
+      const dbData = readDb();
+      (dbData.reports || []).forEach(r => {
+        const ri = (r.institution_id || r.institutionId || '').trim().toLowerCase();
+        const si = (r.student_id || r.studentId || '').trim();
+        if (!normInstId || ri === normInstId) {
+          if (!reportsByStudent[si]) reportsByStudent[si] = [];
+          // Avoid duplicate report content if already present
+          if (!reportsByStudent[si].some(ex => ex.created_at === r.created_at)) {
+            reportsByStudent[si].push({
+              content: r.content || '',
+              created_at: r.created_at || null
+            });
+          }
+        }
+      });
+    } catch (dbErr) {
+      console.warn("Local DB merge in GET students error:", dbErr.message);
+    }
 
     students = students.map(s => {
       const info = buildStatus(reportsByStudent[s.id] || []);
