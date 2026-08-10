@@ -71,9 +71,9 @@ export function AuthProvider({ children }) {
     try {
       if (typeof window !== 'undefined') {
         const storedVersion = localStorage.getItem('app_session_version');
-        // If phone/browser has old version marker, force clear all stale local storage!
         if (storedVersion !== CURRENT_SESSION_VERSION) {
-          localStorage.clear();
+          // Only clear localUser (not entire localStorage) to avoid wiping valid sessions on dev
+          localStorage.removeItem('localUser');
           localStorage.setItem('app_session_version', CURRENT_SESSION_VERSION);
         }
       }
@@ -119,7 +119,6 @@ export function AuthProvider({ children }) {
             { cache: 'no-store' }
           );
           if (res.status === 403) {
-            // Disabled account — sign out immediately
             await logout();
             return;
           }
@@ -132,8 +131,11 @@ export function AuthProvider({ children }) {
             setLogoUrl(data.profile.logoUrl || '');
             setPrimaryColor(data.profile.primaryColor || '#06429c');
             if (data.profile.enabledModules) setEnabledModules(data.profile.enabledModules);
+            // Save to localStorage for fallback
+            if (isMounted && typeof window !== 'undefined') {
+              localStorage.setItem('localUser', JSON.stringify(data.profile));
+            }
           } else {
-            // Profile not found - use minimal defaults based on Firebase user
             const isSuper = firebaseUser.email === 'admin@yeb.local';
             setUserName(isSuper ? 'Sistem Yöneticisi' : (firebaseUser.displayName || ''));
             setRole(isSuper ? 'super_admin' : 'teacher');
@@ -149,7 +151,6 @@ export function AuthProvider({ children }) {
           setInstitutionName(isSuper ? 'Sistem Yönetimi' : null);
         }
       } else {
-        // Only clear state if there is no localUser fallback session in localStorage
         const hasLocalUser = typeof window !== 'undefined' && !!localStorage.getItem('localUser');
         if (!hasLocalUser) {
           setUser(null);
@@ -161,10 +162,24 @@ export function AuthProvider({ children }) {
           setPrimaryColor('#06429c');
         }
       }
-      setLoading(false);
+      if (isMounted) setLoading(false);
     });
-    return unsub;
+
+    // ── Güvenlik ağı: Firebase 2 saniye içinde cevap vermezse loading'i zorla kapat ──
+    const loadingTimeout = setTimeout(() => {
+      if (isMounted) {
+        console.warn('Auth: Firebase timeout — forcing loading=false');
+        setLoading(false);
+      }
+    }, 2000);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(loadingTimeout);
+      unsub();
+    };
   }, []);
+
 
   return (
     <AuthContext.Provider value={{

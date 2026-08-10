@@ -130,6 +130,29 @@ export default function StudentsPage() {
     }
   }, [user, authLoading]);
 
+  // Show spinner while auth is loading
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#eef5fc] flex items-center justify-center flex-col gap-4">
+        <div className="w-16 h-16 bg-white rounded-3xl shadow-lg flex items-center justify-center">
+          <Loader2 size={28} className="text-blue-600 animate-spin" />
+        </div>
+        <p className="text-slate-500 text-sm font-medium">Yükleniyor...</p>
+      </div>
+    );
+  }
+
+  // If not authenticated after loading, show nothing (redirect will happen)
+  const hasLocalSession = typeof window !== 'undefined' && !!localStorage.getItem('localUser');
+  if (!user && !hasLocalSession) {
+    return (
+      <div className="min-h-screen bg-[#eef5fc] flex items-center justify-center">
+        <Loader2 size={28} className="text-blue-600 animate-spin" />
+      </div>
+    );
+  }
+
+
   // ─── Data ──────────────────────────────────────────────────────────────────
   const fetchStudents = async () => {
     setDataLoading(true);

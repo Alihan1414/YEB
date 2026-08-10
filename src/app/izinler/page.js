@@ -15,14 +15,14 @@ import PushNotificationManager from '@/components/PushNotificationManager';
 
 export default function LeaveManagementPage() {
   const { user, role, institutionId, institutionName, loading: authLoading, logout } = useAuth();
-  const [leaveEnabled] = useState(true); // this page IS leave management
+  const [leaveEnabled] = useState(true);
   const router = useRouter();
 
   // Requests state
   const [requests, setRequests] = useState([]);
   const [loadingRequests, setLoadingRequests] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState('pending'); // 'pending' | 'approved' | 'rejected'
+  const [activeTab, setActiveTab] = useState('pending');
 
   // Settings state
   const [settings, setSettings] = useState({ enabled: true, assignedTeacherId: '' });
@@ -189,9 +189,7 @@ export default function LeaveManagementPage() {
 
   // Filter requests
   const filteredRequests = requests.filter(req => {
-    // 1. Filter by tab status
     if (req.status !== activeTab) return false;
-    // 2. Filter by search query
     if (searchQuery.trim() === '') return true;
     return (req.studentName || '').toLowerCase().includes(searchQuery.toLowerCase());
   });
@@ -453,7 +451,7 @@ export default function LeaveManagementPage() {
 
             </div>
 
-            {/* Right side: Settings Panel (Visible to admin only) */}
+            {/* Right side: Settings Panel */}
             <div className="space-y-6">
               
               <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm space-y-5">
