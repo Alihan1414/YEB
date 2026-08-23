@@ -5,17 +5,54 @@ import { readDb } from '@/lib/db';
 function trClean(str) {
   if (!str) return '';
   return str
-    .replace(/Ä°/g, 'i')
-    .replace(/I/g, 'Ä±')
+    .replace(/İ/g, 'i')
+    .replace(/I/g, 'ı')
     .toLowerCase()
-    .replace(/Ã§/g, 'c')
-    .replace(/ÄŸ/g, 'g')
-    .replace(/Ä±/g, 'i')
-    .replace(/Ã¶/g, 'o')
-    .replace(/ÅŸ/g, 's')
-    .replace(/Ã¼/g, 'u')
+    .replace(/ç/g, 'c')
+    .replace(/ğ/g, 'g')
+    .replace(/ı/g, 'i')
+    .replace(/ö/g, 'o')
+    .replace(/ş/g, 's')
+    .replace(/ü/g, 'u')
     .replace(/[^a-z0-9\s]/g, '')
     .trim();
+}
+
+// Rapor metninden öğrenci isimlerini ve bağlaçları temizleyerek sadece faaliyeti bırakan yardımcı fonksiyon
+function stripStudentNames(text, matchedStudents = []) {
+  if (!text) return '';
+  let cleaned = text;
+
+  matchedStudents.forEach(st => {
+    const rawName = st.name || '';
+    const parts = rawName.split(/\s+/).filter(p => p && p.length >= 2);
+    if (rawName.trim().length >= 3) {
+      const escapedFull = rawName.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      cleaned = cleaned.replace(new RegExp(`\\b${escapedFull}\\b`, 'gi'), ' ');
+    }
+    parts.forEach(p => {
+      const escapedPart = p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      cleaned = cleaned.replace(new RegExp(`\\b${escapedPart}\\b`, 'gi'), ' ');
+    });
+  });
+
+  // "adlı öğrenciler", "ve", "ile", vb. kelimeleri ve baştaki noktalama işaretlerini temizle
+  cleaned = cleaned
+    .replace(/\b(adlı|isimli|olan|adlarındaki|isimlerindeki)\s+(öğrenciler|öğrencileri|talebeler|talebeleri|arkadaşlar|öğrenci|talebe)\b/gi, ' ')
+    .replace(/\b(öğrenciler|öğrencileri|talebeler|talebeleri)\b/gi, ' ')
+    .replace(/^[\s,;:\-–—\.\/\\&]+/, '')
+    .replace(/^\s*(ve|ile|de|da|dahi)\s+/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (cleaned.length > 0) {
+    cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+    if (!/[.!?]$/.test(cleaned)) {
+      cleaned += '.';
+    }
+  }
+
+  return cleaned || text.trim();
 }
 
 export async function POST(req) {
@@ -108,7 +145,7 @@ Geçerli Kategoriler (YALNIZCA şu 6 kategoriden birini seç):
 Kurallar:
 1. Öğrenci Eşleştirme (Çoklu veya Tekli): Girişte geçen isim veya isimleri listedeki öğrencilerle esnek bir şekilde (Türkçe karakter uyuşmazlığı "ergon" -> "Ergön" veya konuşma-metin ses dönüşüm hataları dahil) en doğru şekilde eşleştir. Eğer 1'den fazla öğrencinin adı geçiyorsa (örneğin "Ali, Ahmet, Mehmet ve Burak etüde katıldı"), geçen TÜM öğrencileri "matchedStudents" dizisine ekle.
 2. matchedStudents: Her biri { "id": "student-id", "name": "Öğrenci Adı Soyadı", "class": "Sınıfı" } objesi içeren dizi.
-3. Rapor Metni: Rapor içeriğini dilbilgisine uygun, temiz ve profesyonel Türkçe ile düzelt ("ali, ahmet, mehmet ödevlerini teslim etti kaydet" -> "Ödevlerini teslim etti."). Öğrenci isimlerini temiz rapordan çıkarıp ortak eylemi yaz.
+3. Rapor Metni (ÖNEMLİ KURAL): Rapor içeriğinde KESİNLİKLE öğrenci isimleri yer almamalıdır! Sadece gerçekleştirilen faaliyet, eylem veya durum yazılmalıdır ("ali, ahmet, mehmet ödevlerini teslim etti" -> "Ödevlerini teslim etti."). Öğrencilerin isimleri bireysel veya toplu raporda asla metin içine yazılmamalı, çünkü her öğrencinin kendi raporunda diğer öğrencilerin isimlerinin gözükmesi istenmez!
 4. Kategori: Rapor içeriğine en uygun kategoriyi belirle.
 5. isPositive: Rapor olumlu bir davranış/durum içeriyorsa true, olumsuzsa false.
 6. Güven Skoru: 0.0 ile 1.0 arasında güven skoru ver.
@@ -121,7 +158,7 @@ SADECE geçerli şu JSON formatında yanıt ver:
   "matchedStudentId": "ilk öğrencinin id'si veya null",
   "matchedStudentName": "ilk öğrencinin adı veya null",
   "confidence": 0.95,
-  "extractedText": "Temizlenmiş Türkçe rapor metni",
+  "extractedText": "Öğrenci isimleri İÇERMEYEN temiz Türkçe faaliyet/eylem metni",
   "category": "Akademik",
   "isPositive": true,
   "rawInput": "${text.replace(/"/g, '\\"')}"
@@ -151,6 +188,9 @@ SADECE geçerli şu JSON formatında yanıt ver:
           parsed.matchedStudentId = parsed.matchedStudents[0].id;
           parsed.matchedStudentName = parsed.matchedStudents[0].name;
         }
+
+        // Always strip student names from extractedText to guarantee clean action text
+        parsed.extractedText = stripStudentNames(parsed.extractedText, parsed.matchedStudents);
 
         return NextResponse.json({ success: true, data: parsed });
       } catch (err) {
@@ -208,10 +248,8 @@ SADECE geçerli şu JSON formatında yanıt ver:
       isPositive = false;
     }
 
-    let extractedText = text.trim();
-    if (extractedText.length > 0) {
-      extractedText = extractedText.charAt(0).toUpperCase() + extractedText.slice(1);
-    }
+    // Strip student names in fallback too
+    const extractedText = stripStudentNames(text, matchedStudentsList);
 
     const firstMatch = matchedStudentsList[0] || null;
 
