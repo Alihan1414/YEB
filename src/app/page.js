@@ -147,27 +147,16 @@ export default function StudentsPage() {
     }
   };
 
+  const [selectedBulkStudents, setSelectedBulkStudents] = useState([]);
+  const [isBulkSaving, setIsBulkSaving]                 = useState(false);
+
   const fetchReports = async (studentId) => {
     const instId = institutionId || 'yamanevler';
     try {
       const res = await fetch(`/api/students/reports?studentId=${studentId}&institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' });
       const apiData = await res.json();
       if (apiData.success && Array.isArray(apiData.reports)) {
-        setReports(prev => {
-          const map = new Map();
-          // Add newly fetched reports
-          apiData.reports.forEach(r => map.set(r.id, r));
-          // Keep existing reports for this student if not yet returned by API
-          prev.forEach(r => {
-            const rStId = (r.student_id || r.studentId || '').trim();
-            if (rStId === String(studentId).trim() && !map.has(r.id)) {
-              map.set(r.id, r);
-            }
-          });
-          const merged = Array.from(map.values());
-          merged.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
-          return merged;
-        });
+        setReports(apiData.reports);
         return;
       }
     } catch (e) { console.error('fetchReports error:', e); }
@@ -250,37 +239,35 @@ export default function StudentsPage() {
       if (data.success && data.data) {
         setAiMatch(data.data);
         
-        if (data.data.matchedStudentId || data.data.matchedStudentName) {
-          const normAiId = String(data.data.matchedStudentId || '').trim().toLowerCase();
-          const normAiName = String(data.data.matchedStudentName || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-          
-          const student = students.find(s => normAiId && String(s.id).trim().toLowerCase() === normAiId)
-                       || students.find(s => normAiId && String(s.id).trim().toLowerCase().includes(normAiId))
-                       || students.find(s => {
-                            const full = `${s.name || ''} ${s.surname || ''}`.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-                            return normAiName && (full === normAiName || full.includes(normAiName) || normAiName.includes(full));
-                          });
-                       
-          if (student) {
-            // Automatically switch view back to student list so drawer is visible
-            setActiveView('students');
-            // Open the student's file
-            setSelectedStudent(student);
-            // Pre-fill the quick report inputs in the drawer
-            setDirectText(data.data.extractedText || '');
-            setDirectCategory(data.data.category || 'Diğer');
-            
-            showToast(`${student.name} ${student.surname} dosyası otomatik açıldı!`);
-            
-            // Clean up workspace inputs
-            setVoiceText('');
-            setTextInput('');
-            setAiMatch(null);
-          } else {
-            showToast(`Öğrenci metinde algılandı fakat sistemde bulunamadı.`, 'error');
+        // Match all students from returned matchedStudents
+        const matchedList = [];
+        const rawMatches = Array.isArray(data.data.matchedStudents) ? [...data.data.matchedStudents] : [];
+        if (data.data.matchedStudentId && !rawMatches.some(m => m.id === data.data.matchedStudentId)) {
+          rawMatches.push({ id: data.data.matchedStudentId, name: data.data.matchedStudentName });
+        }
+
+        rawMatches.forEach(rm => {
+          const normId = String(rm.id || '').trim().toLowerCase();
+          const normName = String(rm.name || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+          const st = students.find(s => normId && String(s.id).trim().toLowerCase() === normId)
+                  || students.find(s => normId && String(s.id).trim().toLowerCase().includes(normId))
+                  || students.find(s => {
+                       const full = `${s.name || ''} ${s.surname || ''}`.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+                       return normName && (full === normName || full.includes(normName) || normName.includes(full));
+                     });
+          if (st && !matchedList.some(m => m.id === st.id)) {
+            matchedList.push(st);
           }
+        });
+
+        setSelectedBulkStudents(matchedList);
+
+        if (matchedList.length === 1) {
+          showToast(`${matchedList[0].name} ${matchedList[0].surname} tespit edildi!`);
+        } else if (matchedList.length > 1) {
+          showToast(`${matchedList.length} öğrenci tespit edildi (Toplu Rapor)!`);
         } else {
-          showToast('Eşleşen öğrenci adı algılanamadı.', 'error');
+          showToast('Eşleşen öğrenci adı metinde bulunamadı.', 'error');
         }
       }
       else showToast('Yapay zekâ analizi başarısız.', 'error');
@@ -345,67 +332,64 @@ export default function StudentsPage() {
     }
   };
 
-  // ─── Save AI Report ────────────────────────────────────────────────────────
+  // ─── Save AI Report (Supports Single & Multi/Bulk Students) ──────────────────
   const handleSaveAiReport = async () => {
-    if (!aiMatch || !aiMatch.matchedStudentId) {
-      showToast('Eşleşen öğrenci bulunamadı. Rapor kaydedilemez.', 'error');
+    if (!aiMatch || selectedBulkStudents.length === 0) {
+      showToast('Eşleşen veya seçilen öğrenci bulunamadı. Rapor kaydedilemez.', 'error');
       return;
     }
-    // Normalize ID comparison to handle whitespace/case mismatches
-    const normAiId = String(aiMatch.matchedStudentId).trim().toLowerCase();
-    const student = students.find(s => String(s.id).trim().toLowerCase() === normAiId)
-                 || students.find(s => String(s.id).trim().toLowerCase().includes(normAiId))
-                 || students.find(s => normAiId.includes(String(s.id).trim().toLowerCase()));
-    if (!student) {
-      showToast(`Öğrenci bulunamadı (ID: ${aiMatch.matchedStudentId}). Lütfen manuel ekleyin.`, 'error');
-      return;
-    }
+
+    setIsBulkSaving(true);
+    const targetStudents = [...selectedBulkStudents];
+    const instId = institutionId || 'yamanevler';
+    const author = userName || user?.displayName || user?.name || user?.email || 'Öğretmen';
+    let savedCount = 0;
+
     try {
-      const res = await fetch('/api/students/reports', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          studentId: student.id,
-          studentName: `${student.name} ${student.surname}`,
-          className: student.class || '',
-          parentPhone: student.parent_phone || '',
-          content: aiMatch.extractedText,
-          category: aiMatch.category || 'Dahili',
-          isPositive: aiMatch.isPositive !== false,
-          notifyParent: !!notifyParent,
-          institutionId: institutionId || 'yamanevler',
-          createdBy: userName || user?.displayName || user?.name || user?.email || 'Öğretmen',
-        }),
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error || 'Rapor kaydı başarısız');
-
-      if (notifyParent && student.parent_phone) {
-        const msg = `${institutionName || 'Yamanevler Enderun Bilişim'}'den merhaba. Öğrencimiz ${student.name} ${student.surname} için günlük rapor:\n\nKategori: ${aiMatch.category}\nRapor: ${aiMatch.extractedText}`;
-        const waUrl = `https://wa.me/${formatPhoneForWa(student.parent_phone)}?text=${encodeURIComponent(msg)}`;
-        window.open(waUrl, '_blank');
-
-        await fetch('/api/notify', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
+      for (const st of targetStudents) {
+        const res = await fetch('/api/students/reports', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            parentPhone: student.parent_phone,
-            studentName: `${student.name} ${student.surname}`,
-            reportText: aiMatch.extractedText,
-            category: aiMatch.category,
+            studentId: st.id,
+            studentName: `${st.name} ${st.surname}`,
+            className: st.class || '',
+            parentPhone: st.parent_phone || '',
+            content: aiMatch.extractedText,
+            category: aiMatch.category || 'Dahili',
+            isPositive: aiMatch.isPositive !== false,
+            notifyParent: !!notifyParent,
+            institutionId: instId,
+            createdBy: author,
           }),
         });
+        const data = await res.json();
+        if (data.success) {
+          savedCount++;
+          if (data.report) {
+            setReports(prev => [data.report, ...prev.filter(r => r.id !== data.report.id)]);
+          }
+        }
       }
 
-      setAiMatch(null); setVoiceText(''); setTextInput(''); setNotifyParent(false);
-      showToast(`Rapor ${student.name} ${student.surname} için başarıyla kaydedildi!`);
-      if (data.report) {
-        setReports(prev => [data.report, ...prev.filter(r => r.id !== data.report.id)]);
+      showToast(`${savedCount} öğrenci için rapor başarıyla kaydedildi!`);
+      setAiMatch(null);
+      setSelectedBulkStudents([]);
+      setVoiceText('');
+      setTextInput('');
+      setNotifyParent(false);
+
+      if (targetStudents.length === 1) {
+        setSelectedStudent(targetStudents[0]);
+        await fetchReports(targetStudents[0].id);
       }
-      setSelectedStudent(student);
-      await fetchReports(student.id);
       await fetchStudents();
       await fetchWeeklyReports();
-    } catch (e) { showToast('Kayıt hatası: ' + e.message, 'error'); }
+    } catch (e) {
+      showToast('Kayıt hatası: ' + e.message, 'error');
+    } finally {
+      setIsBulkSaving(false);
+    }
   };
 
   // ─── Add Single Student ────────────────────────────────────────────────────
@@ -480,14 +464,18 @@ export default function StudentsPage() {
   const handleDeleteReport = async (reportId, studentId) => {
     if (!confirm('Bu raporu silmek istediğinize emin misiniz?')) return;
     try {
-      const res = await fetch(`/api/students/reports?id=${reportId}`, { method: 'DELETE' });
+      // Optimistically remove from state immediately
+      setReports(prev => prev.filter(r => r.id !== reportId));
+      const res = await fetch(`/api/students/reports?id=${encodeURIComponent(reportId)}`, { method: 'DELETE' });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Silme başarısız');
-      showToast('Rapor silindi');
-      await fetchReports(studentId);
+      showToast('Rapor başarıyla silindi');
+      if (studentId) await fetchReports(studentId);
       await fetchStudents();
+      await fetchWeeklyReports();
     } catch (err) {
       showToast('Hata: ' + err.message, 'error');
+      if (studentId) await fetchReports(studentId);
     }
   };
 
@@ -696,6 +684,14 @@ export default function StudentsPage() {
               <Trophy size={18} />
               Haftalık Özet
             </a>
+
+            <Link
+              href="/menu"
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-white hover:bg-white/10 font-semibold text-sm transition-all"
+            >
+              <Utensils size={18} />
+              Yemek Menüsü
+            </Link>
 
             <Link
               href="/tv"
@@ -1179,48 +1175,133 @@ export default function StudentsPage() {
                         <Search size={30} />
                       </div>
                       <p className="text-xs text-slate-400 max-w-xs leading-relaxed">
-                        Sesli komut veya yazılı metin girdiğinizde<br />analiz sonucu ve eşleşen öğrenci burada gösterilir.
+                        Sesli komut veya yazılı metin girdiğinizde<br />analiz sonucu ve eşleşen öğrenciler burada gösterilir.
                       </p>
                     </div>
                   ) : (
-                    <div className="my-auto space-y-3 py-4">
-                      <div className="bg-blue-50/60 border border-blue-100 p-3.5 rounded-2xl">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-blue-600">Eşleşen Öğrenci</div>
-                        <div className="text-sm font-bold text-slate-900 mt-0.5">
-                          {aiMatch.matchedStudentName ? (
-                            <span className="text-emerald-700">✓ {aiMatch.matchedStudentName}</span>
-                          ) : (
-                            <span className="text-red-500">⚠ Öğrenci Bulunamadı</span>
+                    <div className="my-auto space-y-3.5 py-3">
+                      {/* Eşleşen Öğrenciler (Tekil veya Çoklu / Toplu Rapor) */}
+                      <div className="bg-blue-50/70 border border-blue-100 p-3.5 rounded-2xl space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-black uppercase tracking-wider text-blue-700 flex items-center gap-1.5">
+                            <User size={12} />
+                            Eşleşen Öğrenciler ({selectedBulkStudents.length})
+                          </span>
+                          <span className="text-[10px] text-blue-600 font-semibold">
+                            {selectedBulkStudents.length > 1 ? 'Toplu Rapor Girişi' : 'Tekil Rapor'}
+                          </span>
+                        </div>
+
+                        {/* Student Chips */}
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                          {selectedBulkStudents.map(st => (
+                            <span
+                              key={st.id}
+                              className="inline-flex items-center gap-1.5 bg-white border border-blue-200 text-blue-900 px-2.5 py-1 rounded-xl text-xs font-bold shadow-xs"
+                            >
+                              <span>{st.name} {st.surname}</span>
+                              <span className="text-[10px] text-blue-500 font-normal">({st.class || 'Sınıf Yok'})</span>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedBulkStudents(prev => prev.filter(s => s.id !== st.id))}
+                                className="text-slate-400 hover:text-red-600 ml-0.5"
+                                title="Listeden Çıkar"
+                              >
+                                <X size={12} />
+                              </button>
+                            </span>
+                          ))}
+
+                          {selectedBulkStudents.length === 0 && (
+                            <span className="text-xs text-red-500 font-medium italic">
+                              ⚠ Eşleşen öğrenci bulunamadı. Lütfen aşağıdan öğrenci ekleyin:
+                            </span>
                           )}
                         </div>
+
+                        {/* Add student quickly to batch dropdown */}
+                        <div className="pt-1">
+                          <select
+                            onChange={e => {
+                              const found = students.find(s => s.id === e.target.value);
+                              if (found && !selectedBulkStudents.some(s => s.id === found.id)) {
+                                setSelectedBulkStudents(prev => [...prev, found]);
+                              }
+                              e.target.value = '';
+                            }}
+                            defaultValue=""
+                            className="bg-white border border-blue-200/80 rounded-xl px-3 py-1.5 text-xs text-slate-700 font-medium focus:outline-none focus:border-blue-500 cursor-pointer w-full"
+                          >
+                            <option value="" disabled>+ Listeye Başka Öğrenci Ekle...</option>
+                            {students
+                              .filter(s => !selectedBulkStudents.some(b => b.id === s.id))
+                              .map(s => (
+                                <option key={s.id} value={s.id}>
+                                  {s.name} {s.surname} ({s.class})
+                                </option>
+                              ))}
+                          </select>
+                        </div>
                       </div>
-                      <div className="bg-slate-50 border border-slate-100 p-3.5 rounded-2xl">
-                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Temiz Rapor Metni</div>
-                        <div className="text-xs text-slate-800 mt-0.5 leading-relaxed">{aiMatch.extractedText}</div>
+
+                      {/* Temiz Rapor Metni */}
+                      <div className="bg-slate-50 border border-slate-100 p-3.5 rounded-2xl space-y-1">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Rapor İçeriği (Düzenlenebilir)</div>
+                        <input
+                          type="text"
+                          value={aiMatch.extractedText}
+                          onChange={e => setAiMatch(prev => ({ ...prev, extractedText: e.target.value }))}
+                          className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500 font-medium"
+                        />
                       </div>
-                      <div className="flex items-center justify-between text-xs pt-2">
-                        <span className="font-bold text-slate-500">Kategori: <span className="text-blue-700">{aiMatch.category}</span></span>
-                        
+
+                      {/* Kategori ve Kaydet Butonu */}
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1 text-xs">
                         <div className="flex items-center gap-2">
-                          <label className="flex items-center gap-1 cursor-pointer text-xs font-semibold text-slate-500">
+                          <span className="font-bold text-slate-500">Kategori:</span>
+                          <select
+                            value={aiMatch.category || 'Dahili'}
+                            onChange={e => setAiMatch(prev => ({ ...prev, category: e.target.value }))}
+                            className="bg-slate-100 border border-slate-200 rounded-xl px-2.5 py-1 text-xs font-bold text-blue-800 outline-none"
+                          >
+                            {CATEGORIES.map(cat => (
+                              <option key={cat} value={cat}>{cat}</option>
+                            ))}
+                          </select>
+                        </div>
+                        
+                        <div className="flex items-center justify-end gap-3">
+                          <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-600 select-none">
                             <input
                               type="checkbox"
                               checked={notifyParent}
                               onChange={e => setNotifyParent(e.target.checked)}
-                              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                              className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
                             />
                             Veliye Bildir (WP)
                           </label>
                           <button
                             onClick={handleSaveAiReport}
-                            disabled={!aiMatch.matchedStudentId}
-                            className={`px-4 py-2 rounded-xl font-bold text-xs shadow-md transition-all ${
-                              aiMatch.matchedStudentId
-                                ? 'bg-blue-600 text-white hover:bg-blue-700'
+                            disabled={selectedBulkStudents.length === 0 || isBulkSaving}
+                            className={`px-5 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all flex items-center gap-1.5 ${
+                              selectedBulkStudents.length > 0 && !isBulkSaving
+                                ? 'bg-[#06429c] text-white hover:bg-blue-700'
                                 : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                             }`}
                           >
-                            Kaydet
+                            {isBulkSaving ? (
+                              <>
+                                <Loader2 size={14} className="animate-spin" />
+                                Kaydediliyor...
+                              </>
+                            ) : (
+                              <>
+                                <Check size={14} />
+                                {selectedBulkStudents.length > 1
+                                  ? `Seçili (${selectedBulkStudents.length}) Talebeye Kaydet`
+                                  : 'Raporu Kaydet'}
+                              </>
+                            )}
                           </button>
                         </div>
                       </div>

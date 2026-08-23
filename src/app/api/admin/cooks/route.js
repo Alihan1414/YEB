@@ -6,7 +6,6 @@ export const dynamic = 'force-dynamic';
 const FIREBASE_API_KEY    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY    || 'AIzaSyCH7bTzvqJqSzJiV0Ou6JudPovkrrWrwdw';
 const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'vision-b1ad5';
 
-// Helper to latinize Turkish characters and create a clean email prefix
 function slugifyName(name) {
   return name
     .toLowerCase()
@@ -21,19 +20,19 @@ export async function GET(req) {
     const { searchParams } = new URL(req.url);
     const institutionId = searchParams.get('institutionId') || 'yamanevler';
 
-    let teachers = [];
+    let cooks = [];
 
     // 1. Fetch from local DB
     try {
       const dbData = readDb();
       const localUsers = dbData.users || [];
       localUsers.forEach(lu => {
-        if (lu.institutionId === institutionId && lu.role === 'teacher') {
-          teachers.push({
+        if (lu.institutionId === institutionId && lu.role === 'cook') {
+          cooks.push({
             id: lu.id || lu.email,
             name: lu.name,
             email: lu.email,
-            role: 'teacher',
+            role: 'cook',
             institutionId: lu.institutionId,
             institutionName: lu.institutionName,
             disabled: lu.disabled || false
@@ -41,13 +40,13 @@ export async function GET(req) {
         }
       });
     } catch (err) {
-      console.warn("Local DB fetch failed in teachers API:", err.message);
+      console.warn("Local DB fetch failed in cooks API:", err.message);
     }
 
     // 2. Fetch from Firestore
     try {
       const res = await fetch(
-        `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users?key=${FIREBASE_API_KEY}`,
+        `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users?key=${FIREBASE_API_KEY}&pageSize=300`,
         { cache: 'no-store' }
       );
       if (res.ok) {
@@ -55,17 +54,17 @@ export async function GET(req) {
         const docs = data.documents || [];
         docs.forEach(doc => {
           const f = doc.fields || {};
-          const role = f.role?.stringValue || 'teacher';
+          const role = f.role?.stringValue || '';
           const uInstId = f.institutionId?.stringValue || '';
           const email = f.email?.stringValue || '';
           
-          if (uInstId === institutionId && role === 'teacher') {
-            if (!teachers.some(t => t.email.toLowerCase() === email.toLowerCase())) {
-              teachers.push({
+          if (uInstId === institutionId && role === 'cook') {
+            if (!cooks.some(c => c.email.toLowerCase() === email.toLowerCase())) {
+              cooks.push({
                 id: doc.name.split('/').pop(),
                 name: f.name?.stringValue || '',
                 email: email,
-                role: 'teacher',
+                role: 'cook',
                 institutionId: uInstId,
                 institutionName: f.institutionName?.stringValue || '',
                 disabled: f.disabled?.booleanValue || false
@@ -75,12 +74,12 @@ export async function GET(req) {
         });
       }
     } catch (err) {
-      console.warn("Firestore fetch failed in teachers API:", err.message);
+      console.warn("Firestore fetch failed in cooks API:", err.message);
     }
 
-    return NextResponse.json({ success: true, teachers });
+    return NextResponse.json({ success: true, cooks });
   } catch (error) {
-    console.error("GET Teachers error:", error);
+    console.error("GET Cooks error:", error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
@@ -90,7 +89,7 @@ export async function POST(req) {
     const { name, surname, email: customEmail, password, institutionId, institutionName } = await req.json();
 
     if (!name || !password || !institutionId) {
-      return NextResponse.json({ success: false, error: 'Öğretmen adı, şifre ve kurum ID gereklidir.' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Aşçı adı, şifre ve kurum ID gereklidir.' }, { status: 400 });
     }
 
     const instId = institutionId.trim().toLowerCase();
@@ -98,7 +97,6 @@ export async function POST(req) {
     
     let email = (customEmail || '').trim().toLowerCase();
     
-    // Normalize email: Firebase Auth requires a valid domain with TLD (e.g. yenicecinardere@01 -> yenicecinardere@01.com)
     const normalizeEmail = (addr) => {
       if (!addr) return '';
       const parts = addr.split('@');
@@ -109,16 +107,15 @@ export async function POST(req) {
     if (!email) {
       const slugName = slugifyName(name);
       const slugSurname = surname ? slugifyName(surname) : '';
-      email = `${slugName}${slugSurname ? '.' + slugSurname : ''}@${instId}.com`;
+      email = `asci.${slugName}${slugSurname ? '.' + slugSurname : ''}@${instId}.com`;
     } else {
       email = normalizeEmail(email);
     }
 
-    // 1. Get local DB data
     const dbData = readDb();
     const localUsers = dbData.users || [];
 
-    // 2. Try to register user in Firebase Auth
+    // Register in Firebase Auth
     let firebaseUid = null;
     try {
       const signUpRes = await fetch(
@@ -133,18 +130,17 @@ export async function POST(req) {
       if (signUpData && !signUpData.error) {
         firebaseUid = signUpData.localId;
       } else if (signUpData?.error?.message === 'EMAIL_EXISTS') {
-        // If account already exists in Firebase Auth, fetch or update UID
-        firebaseUid = `user-${Date.now()}`;
+        firebaseUid = `asci-${Date.now()}`;
       }
     } catch (fbErr) {
-      console.warn("Firebase Auth teacher creation failed:", fbErr.message);
+      console.warn("Firebase Auth cook creation failed:", fbErr.message);
     }
 
     if (!firebaseUid) {
-      firebaseUid = `teacher-${Date.now()}`;
+      firebaseUid = `asci-${Date.now()}`;
     }
 
-    // ALWAYS save profile to Firestore so it persists across Vercel deployments!
+    // Save profile to Firestore
     try {
       await fetch(
         `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users/${firebaseUid}?key=${FIREBASE_API_KEY}`,
@@ -156,7 +152,7 @@ export async function POST(req) {
               name:            { stringValue: cleanName },
               email:           { stringValue: email },
               password:        { stringValue: password },
-              role:            { stringValue: 'teacher' },
+              role:            { stringValue: 'cook' },
               institutionId:   { stringValue: instId },
               institutionName: { stringValue: institutionName || 'Enderun Bilişim' },
               disabled:        { booleanValue: false },
@@ -165,38 +161,39 @@ export async function POST(req) {
         }
       );
     } catch (fsErr) {
-      console.warn("Firestore save failed for teacher:", fsErr.message);
+      console.warn("Firestore save failed for cook:", fsErr.message);
     }
 
-    // 3. Save to local DB (always, as source of truth and fallback)
-    const newTeacher = {
-      id: firebaseUid || `teacher-${Date.now()}`,
+    // Save to local DB
+    const newCook = {
+      id: firebaseUid,
       name: cleanName,
       email: email,
-      password: password, // For local DB auth fallback
-      role: 'teacher',
+      password: password,
+      role: 'cook',
       institutionId: instId,
       institutionName: institutionName || 'Enderun Bilişim',
       disabled: false,
       created_at: new Date().toISOString()
     };
 
-    localUsers.push(newTeacher);
-    dbData.users = localUsers;
+    // Remove any existing user with same id/email before pushing
+    dbData.users = localUsers.filter(u => u.email !== email && u.id !== firebaseUid);
+    dbData.users.push(newCook);
     writeDb(dbData);
 
     return NextResponse.json({
       success: true,
-      teacher: {
-        id: newTeacher.id,
-        name: newTeacher.name,
-        email: newTeacher.email,
-        role: 'teacher'
+      cook: {
+        id: newCook.id,
+        name: newCook.name,
+        email: newCook.email,
+        role: 'cook'
       }
     });
 
   } catch (error) {
-    console.error("POST Teachers error:", error);
+    console.error("POST Cook error:", error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
@@ -204,38 +201,33 @@ export async function POST(req) {
 export async function DELETE(req) {
   try {
     const { searchParams } = new URL(req.url);
-    const teacherId = searchParams.get('id');
+    const cookId = searchParams.get('id');
 
-    if (!teacherId) {
-      return NextResponse.json({ success: false, error: 'Öğretmen ID gereklidir.' }, { status: 400 });
+    if (!cookId) {
+      return NextResponse.json({ success: false, error: 'Aşçı ID gereklidir.' }, { status: 400 });
     }
 
     // Remove from local DB
     const dbData = readDb();
     const initialCount = dbData.users?.length || 0;
-    dbData.users = (dbData.users || []).filter(u => u.id !== teacherId && u.email !== teacherId);
-    
-    if (dbData.users.length === initialCount) {
-      return NextResponse.json({ success: false, error: 'Öğretmen bulunamadı.' }, { status: 404 });
-    }
-
+    dbData.users = (dbData.users || []).filter(u => u.id !== cookId && u.email !== cookId);
     writeDb(dbData);
 
-    // Try deleting from Firestore if matches ID
+    // Try deleting from Firestore
     try {
-      if (!teacherId.includes('@')) {
+      if (!cookId.includes('@')) {
         await fetch(
-          `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users/${teacherId}?key=${FIREBASE_API_KEY}`,
+          `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users/${cookId}?key=${FIREBASE_API_KEY}`,
           { method: 'DELETE' }
         );
       }
     } catch (e) {
-      console.warn("Firestore delete failed:", e.message);
+      console.warn("Firestore delete cook failed:", e.message);
     }
 
-    return NextResponse.json({ success: true, message: 'Öğretmen başarıyla silindi.' });
+    return NextResponse.json({ success: true, message: 'Aşçı hesabı başarıyla silindi.' });
   } catch (error) {
-    console.error("DELETE Teacher error:", error);
+    console.error("DELETE Cook error:", error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }

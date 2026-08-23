@@ -4,7 +4,7 @@ import { useAuth } from '@/lib/AuthContext';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import {
-  User, Trophy, Tv, Calendar, Settings, LogOut, Shield
+  User, Trophy, Tv, Calendar, Settings, LogOut, Shield, HeartPulse, Utensils
 } from 'lucide-react';
 
 import Link from 'next/link';
@@ -57,6 +57,8 @@ export default function Sidebar() {
 
   const navLinks = [
     { href: '/', icon: User, label: 'Öğrenciler' },
+    { href: '/menu', icon: Utensils, label: 'Yemek Menüsü' },
+    { href: '/diyabet', icon: HeartPulse, label: 'TD1 Diyabetim Yanımda' },
     { href: '/haftalik', icon: Trophy, label: 'Haftalık Özet' },
     { href: '/tv', icon: Tv, label: 'TV Ekranı' },
     ...(leaveEnabled ? [{ href: '/izinler', icon: Calendar, label: 'İzin Yönetimi' }] : []),

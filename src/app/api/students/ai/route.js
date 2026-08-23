@@ -89,7 +89,7 @@ export async function POST(req) {
         const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
         const prompt = `
-Sen bir okul öğrenci takip uygulaması için akıllı bir asistansın. Görevin, Türkçe ses/metin rapor girişini analiz ederek öğrenci raporu oluşturmaktır.
+Sen bir okul ve yurt talebe takip uygulaması için akıllı bir asistansın. Görevin, Türkçe ses/metin rapor girişini analiz ederek bir veya birden fazla öğrenci için ortak veya tekil rapor oluşturmaktır.
 
 Kayıtlı Öğrenciler (Sadece bu listeden eşleştirme yap):
 ${JSON.stringify(students, null, 2)}
@@ -106,20 +106,23 @@ Geçerli Kategoriler (YALNIZCA şu 6 kategoriden birini seç):
 - Kurum içi dahili konular, idari notlar, diğer konular -> Kategori: "Dahili"
 
 Kurallar:
-1. Öğrenci Adı Eşleştirme: Girişte geçen ismi listedeki öğrencilerle esnek bir şekilde (Türkçe karakter uyuşmazlığı "ergon" -> "Ergön" veya konuşma-metin ses dönüşüm hataları dahil) en doğru şekilde eşleştir.
-2. Eşleşen öğrencinin ID'sini "matchedStudentId" olarak, tam adını "matchedStudentName" olarak döndür. Listedeki hiç kimseyle eşleşmezse null ver.
-3. Rapor Metni: Rapor içeriğini dilbilgisine uygun, temiz ve profesyonel Türkçe ile düzelt ("ali ödevlerini teslim etti kaydet" -> "Ödevlerini teslim etti.").
-4. Kategori: Rapor içeriğine en uygun kategoriyi yukarıdaki örnekler doğrultusunda belirle.
-5. isPositive: Rapor olumlu bir davranış/durum içeriyorsa true, olumsuz bir davranış/durum içeriyorsa false. Örneğin "namaza katıldı" true, "namaza katılmadı" false; "ödevini teslim etti" true, "ödevini yapmadı" false.
+1. Öğrenci Eşleştirme (Çoklu veya Tekli): Girişte geçen isim veya isimleri listedeki öğrencilerle esnek bir şekilde (Türkçe karakter uyuşmazlığı "ergon" -> "Ergön" veya konuşma-metin ses dönüşüm hataları dahil) en doğru şekilde eşleştir. Eğer 1'den fazla öğrencinin adı geçiyorsa (örneğin "Ali, Ahmet, Mehmet ve Burak etüde katıldı"), geçen TÜM öğrencileri "matchedStudents" dizisine ekle.
+2. matchedStudents: Her biri { "id": "student-id", "name": "Öğrenci Adı Soyadı", "class": "Sınıfı" } objesi içeren dizi.
+3. Rapor Metni: Rapor içeriğini dilbilgisine uygun, temiz ve profesyonel Türkçe ile düzelt ("ali, ahmet, mehmet ödevlerini teslim etti kaydet" -> "Ödevlerini teslim etti."). Öğrenci isimlerini temiz rapordan çıkarıp ortak eylemi yaz.
+4. Kategori: Rapor içeriğine en uygun kategoriyi belirle.
+5. isPositive: Rapor olumlu bir davranış/durum içeriyorsa true, olumsuzsa false.
 6. Güven Skoru: 0.0 ile 1.0 arasında güven skoru ver.
 
 SADECE geçerli şu JSON formatında yanıt ver:
 {
-  "matchedStudentId": "student-id veya null",
-  "matchedStudentName": "tam ad veya null",
+  "matchedStudents": [
+    { "id": "student-id", "name": "Öğrenci Adı Soyadı", "class": "Sınıfı" }
+  ],
+  "matchedStudentId": "ilk öğrencinin id'si veya null",
+  "matchedStudentName": "ilk öğrencinin adı veya null",
   "confidence": 0.95,
   "extractedText": "Temizlenmiş Türkçe rapor metni",
-  "category": "Kategori",
+  "category": "Akademik",
   "isPositive": true,
   "rawInput": "${text.replace(/"/g, '\\"')}"
 }`;
@@ -135,46 +138,60 @@ SADECE geçerli şu JSON formatında yanıt ver:
           parsed.category = 'Dahili';
         }
 
+        if (!Array.isArray(parsed.matchedStudents)) {
+          parsed.matchedStudents = [];
+          if (parsed.matchedStudentId) {
+            parsed.matchedStudents.push({
+              id: parsed.matchedStudentId,
+              name: parsed.matchedStudentName || '',
+              class: ''
+            });
+          }
+        } else if (parsed.matchedStudents.length > 0 && !parsed.matchedStudentId) {
+          parsed.matchedStudentId = parsed.matchedStudents[0].id;
+          parsed.matchedStudentName = parsed.matchedStudents[0].name;
+        }
+
         return NextResponse.json({ success: true, data: parsed });
       } catch (err) {
         console.warn("Gemini execution failed, falling back to local matcher:", err);
       }
     }
 
-    // 3. Robust Local Fallback Matcher (Normalized & Fuzzy)
+    // 3. Robust Local Fallback Matcher (Normalized & Multi-Student Support)
     const cleanedInput = trClean(text);
-    let matchedStudent = null;
-    let maxMatchScore = 0;
+    const matchedStudentsList = [];
 
     for (const student of students) {
       const cleanedFullName = trClean(student.fullName);
       const nameParts = cleanedFullName.split(' ').filter(Boolean);
 
-      // Check exact full name match or contained substring
-      if (cleanedFullName && cleanedInput.includes(cleanedFullName)) {
-        matchedStudent = student;
-        maxMatchScore = 100;
-        break;
-      }
-
-      // Check matching individual parts
-      let matchedCount = 0;
-      for (const part of nameParts) {
-        if (part.length >= 2 && cleanedInput.includes(part)) {
-          matchedCount++;
+      let isMatch = false;
+      if (cleanedFullName && cleanedFullName.length >= 3 && cleanedInput.includes(cleanedFullName)) {
+        isMatch = true;
+      } else {
+        // Match if at least first name (min 3 chars) is distinct in input
+        const firstName = nameParts[0] || '';
+        if (firstName.length >= 3) {
+          const regex = new RegExp(`\\b${firstName}\\b`, 'i');
+          if (regex.test(cleanedInput)) {
+            isMatch = true;
+          }
         }
       }
 
-      const score = (matchedCount / nameParts.length) * 100;
-      if (score > maxMatchScore && matchedCount > 0) {
-        maxMatchScore = score;
-        matchedStudent = student;
+      if (isMatch && !matchedStudentsList.some(m => m.id === student.id)) {
+        matchedStudentsList.push({
+          id: student.id,
+          name: student.fullName,
+          class: student.class || ''
+        });
       }
     }
 
-    // Determine category via keyword analysis (Order matters: Akademik high priority)
+    // Determine category via keyword analysis
     let category = 'Dahili';
-    let isPositive = true; // default olumlu
+    let isPositive = true;
     if (/(odev|sinav|not|test|soru|deneme|karne|matematik|fizik|kimya|biyoloji|turkce|tarih|cografya|kitap|okum|calis|teslim|akademik|derse|dersini|ders)/i.test(cleanedInput)) {
       category = 'Akademik';
     } else if (/(namaz|sabah|ogle|ikindi|aksam|yatsi|cami|cemaat|tesbih|kild)/i.test(cleanedInput)) {
@@ -186,7 +203,7 @@ SADECE geçerli şu JSON formatında yanıt ver:
     } else if (/(program|etkinlik|faaliyet|toplanti|seminer|sohbet|kuran)/i.test(cleanedInput)) {
       category = 'Program';
     }
-    // Olumsuzluk tespiti: "katilmadi", "yapmadi", "gelmedi", "teslim etmedi", "eksik"
+    
     if (/(katilmadi|yapmadi|gelmedi|etmedi|eksik|olmadi|basmadi|vermedi|gitmedi|uyumadi|kalkmadi)/i.test(cleanedInput)) {
       isPositive = false;
     }
@@ -196,10 +213,13 @@ SADECE geçerli şu JSON formatında yanıt ver:
       extractedText = extractedText.charAt(0).toUpperCase() + extractedText.slice(1);
     }
 
+    const firstMatch = matchedStudentsList[0] || null;
+
     const fallbackResponse = {
-      matchedStudentId: matchedStudent ? matchedStudent.id : null,
-      matchedStudentName: matchedStudent ? matchedStudent.fullName : null,
-      confidence: matchedStudent ? (maxMatchScore >= 100 ? 0.95 : 0.85) : 0.40,
+      matchedStudents: matchedStudentsList,
+      matchedStudentId: firstMatch ? firstMatch.id : null,
+      matchedStudentName: firstMatch ? firstMatch.name : null,
+      confidence: matchedStudentsList.length > 0 ? 0.90 : 0.40,
       extractedText: extractedText,
       category: category,
       isPositive: isPositive,

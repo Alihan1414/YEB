@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import {
   RefreshCw, BookOpen, Star, Heart, Sun, Moon,
-  ChevronLeft, Maximize, Minimize, Sparkles, User, Users, Home, Award, CheckCircle2, ShieldAlert
+  ChevronLeft, Maximize, Minimize, Sparkles, User, Users, Home, Award, CheckCircle2, ShieldAlert,
+  Utensils, Coffee
 } from 'lucide-react';
 
 // Dönen Hadis-i Şerifler
@@ -238,6 +239,8 @@ function TVContent() {
   const [classesCount, setClassesCount]   = useState(0);
   const [reports, setReports]             = useState([]);
   const [attendanceRate, setAttendanceRate] = useState(100);
+  const [foodMenu, setFoodMenu]           = useState(null);
+  const [activeRightTab, setActiveRightTab] = useState('menu'); // 'menu' | 'motto'
   const [loading, setLoading]             = useState(true);
   const [lastRefresh, setLastRefresh]     = useState(new Date());
   const [hadithIdx, setHadithIdx]         = useState(0);
@@ -272,13 +275,14 @@ function TVContent() {
     }
   };
 
-  // ── Hadis/Motto rotasyonu — HOOK: must be before any early returns ──
+  // ── Hadis/Motto/Menü rotasyonu — HOOK: must be before any early returns ──
   useEffect(() => {
     const interval = setInterval(() => {
       setHadithVisible(false);
       setTimeout(() => {
         setHadithIdx(i => (i + 1) % HADITHS.length);
         setMottoIdx(i => (i + 1) % MOTTOS.length);
+        setActiveRightTab(prev => prev === 'menu' ? 'motto' : 'menu');
         setHadithVisible(true);
       }, 500);
     }, 12000);
@@ -289,13 +293,14 @@ function TVContent() {
   const fetchData = useCallback(async () => {
     const instId = institutionId || 'yamanevler';
     try {
-      const [sRes, rRes, tRes, lRes] = await Promise.all([
+      const [sRes, rRes, tRes, lRes, mRes] = await Promise.all([
         fetch(`/api/students?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' }),
         fetch(`/api/students/reports?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' }),
         fetch(`/api/users/list-teachers?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' }),
         fetch(`/api/leave?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' }),
+        fetch(`/api/food-menu?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' }),
       ]);
-      const [sData, rData, tData, lData] = await Promise.all([sRes.json(), rRes.json(), tRes.json(), lRes.json()]);
+      const [sData, rData, tData, lData, mData] = await Promise.all([sRes.json(), rRes.json(), tRes.json(), lRes.json(), mRes.json()]);
       let totalStudents = 0;
       if (sData.success && Array.isArray(sData.students)) {
         setStudents(sData.students);
@@ -311,6 +316,11 @@ function TVContent() {
         const active = lData.requests.filter(req => req.status === 'approved').length;
         setAttendanceRate(Math.round((Math.max(0, totalStudents - active) / totalStudents) * 100));
       } else { setAttendanceRate(100); }
+
+      if (mData.success && (mData.menu || mData.currentMenu)) {
+        setFoodMenu(mData.menu || mData.currentMenu);
+      }
+      
       setLastRefresh(new Date());
     } catch (e) { console.error('TV Data Fetch Error:', e); }
     finally { setLoading(false); }
@@ -647,33 +657,98 @@ function TVContent() {
           <div className="absolute inset-0 pointer-events-none opacity-10 bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:16px_16px]" />
         </div>
 
-        {/* SAĞ KUTU: İyilik, Bilgide ve Sabırla İlerleyin (Görseldeki Renkli Degrade Kartı) */}
-        <div className="col-span-12 lg:col-span-4 bg-gradient-to-b from-[#131c54]/90 via-[#1b1968]/85 to-[#24135e]/90 backdrop-blur-xl border border-purple-500/25 rounded-3xl p-8 flex flex-col justify-between items-center text-center relative overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
-          
-          {/* Üst Güneş / İkon Vurgusu */}
-          <div className="w-16 h-16 rounded-full bg-indigo-500/15 border border-purple-400/30 flex items-center justify-center text-sky-300 mt-4 shadow-inner">
-            <Sun size={32} className="text-amber-300" />
-          </div>
+        {/* SAĞ KUTU: Günün Yemek Menüsü veya İyilik & Motivasyon Kartı */}
+        {foodMenu && (foodMenu.breakfast || foodMenu.lunch || foodMenu.dinner) && activeRightTab === 'menu' ? (
+          <div className="col-span-12 lg:col-span-4 bg-gradient-to-b from-[#1a1442]/95 via-[#231554]/90 to-[#120d33]/95 backdrop-blur-xl border border-amber-500/30 rounded-3xl p-6 flex flex-col justify-between relative overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+            
+            {/* Üst Başlık Vurgusu */}
+            <div className="flex items-center justify-between border-b border-amber-500/20 pb-3">
+              <div className="flex items-center gap-2 text-amber-400 font-black text-xs md:text-sm tracking-wider uppercase">
+                <Utensils size={18} />
+                <span>GÜNÜN YEMEK MENÜSÜ</span>
+              </div>
+              <span className="text-[10px] font-bold text-amber-200 bg-amber-500/20 border border-amber-400/30 px-2 py-0.5 rounded-md">
+                {foodMenu.dayName || 'Bugün'}
+              </span>
+            </div>
 
-          {/* Motto Metni */}
-          <div className={`my-auto hadith-transition ${hadithVisible ? 'hadith-visible' : 'hadith-hidden'}`}>
-            <h2 className="text-2xl md:text-3xl font-extrabold text-white leading-tight mb-4 tracking-wide">
-              {motto.title}
-            </h2>
-            <div className="w-12 h-0.5 bg-purple-400/40 mx-auto mb-4" />
-            <p className="text-slate-300 text-sm font-medium">
-              {motto.sub}
-            </p>
-          </div>
+            {/* Menü Maddeleri */}
+            <div className={`space-y-3 my-auto py-2 hadith-transition ${hadithVisible ? 'hadith-visible' : 'hadith-hidden'}`}>
+              {foodMenu.breakfast && (
+                <div className="bg-white/5 border border-amber-500/15 rounded-2xl p-3 text-left">
+                  <div className="text-amber-300 font-extrabold text-[11px] uppercase tracking-wide flex items-center gap-1.5 mb-0.5">
+                    <Coffee size={12} className="text-amber-400" />
+                    Sabah Kahvaltısı
+                  </div>
+                  <div className="text-slate-100 text-xs font-medium leading-relaxed">
+                    {foodMenu.breakfast}
+                  </div>
+                </div>
+              )}
 
-          {/* Alt Kalp İkonu Vurgusu */}
-          <div className="mb-2 text-purple-300/60">
-            <Heart size={20} className="mx-auto text-purple-400/60" />
-          </div>
+              {foodMenu.lunch && (
+                <div className="bg-white/5 border border-orange-500/15 rounded-2xl p-3 text-left">
+                  <div className="text-orange-300 font-extrabold text-[11px] uppercase tracking-wide flex items-center gap-1.5 mb-0.5">
+                    <Sun size={12} className="text-orange-400" />
+                    Öğle Yemeği
+                  </div>
+                  <div className="text-slate-100 text-xs font-medium leading-relaxed">
+                    {foodMenu.lunch}
+                  </div>
+                </div>
+              )}
 
-          {/* Arka Plan Dağ / Mor İllüstrasyonu */}
-          <div className="absolute bottom-0 inset-x-0 h-32 pointer-events-none opacity-20 bg-gradient-to-t from-purple-900 via-purple-800 to-transparent" />
-        </div>
+              {foodMenu.dinner && (
+                <div className="bg-white/5 border border-indigo-500/15 rounded-2xl p-3 text-left">
+                  <div className="text-sky-300 font-extrabold text-[11px] uppercase tracking-wide flex items-center gap-1.5 mb-0.5">
+                    <Moon size={12} className="text-sky-400" />
+                    Akşam Yemeği
+                  </div>
+                  <div className="text-slate-100 text-xs font-medium leading-relaxed">
+                    {foodMenu.dinner}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Alt Not / Şifa Olsun */}
+            <div className="text-center pt-2 border-t border-white/5">
+              <span className="text-amber-300/80 text-[11px] font-semibold italic">
+                {foodMenu.note || 'Afiyet ve şifa olsun 🤍'}
+              </span>
+            </div>
+
+            {/* Arka plan ışık efekti */}
+            <div className="absolute top-0 right-0 w-36 h-36 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+          </div>
+        ) : (
+          <div className="col-span-12 lg:col-span-4 bg-gradient-to-b from-[#131c54]/90 via-[#1b1968]/85 to-[#24135e]/90 backdrop-blur-xl border border-purple-500/25 rounded-3xl p-8 flex flex-col justify-between items-center text-center relative overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+            
+            {/* Üst Güneş / İkon Vurgusu */}
+            <div className="w-16 h-16 rounded-full bg-indigo-500/15 border border-purple-400/30 flex items-center justify-center text-sky-300 mt-4 shadow-inner">
+              <Sun size={32} className="text-amber-300" />
+            </div>
+
+            {/* Motto Metni */}
+            <div className={`my-auto hadith-transition ${hadithVisible ? 'hadith-visible' : 'hadith-hidden'}`}>
+              <h2 className="text-2xl md:text-3xl font-extrabold text-white leading-tight mb-4 tracking-wide">
+                {motto.title}
+              </h2>
+              <div className="w-12 h-0.5 bg-purple-400/40 mx-auto mb-4" />
+              <p className="text-slate-300 text-sm font-medium">
+                {motto.sub}
+              </p>
+            </div>
+
+            {/* Alt Kalp İkonu Vurgusu */}
+            <div className="mb-2 text-purple-300/60">
+              <Heart size={20} className="mx-auto text-purple-400/60" />
+            </div>
+
+            {/* Arka Plan Dağ / Mor İllüstrasyonu */}
+            <div className="absolute bottom-0 inset-x-0 h-32 pointer-events-none opacity-20 bg-gradient-to-t from-purple-900 via-purple-800 to-transparent" />
+          </div>
+        )}
       </div>
 
       {/* ─── İSTATİSTİK KARTLARI (Kuruma Özel Canlı Gerçek Veriler) ─── */}

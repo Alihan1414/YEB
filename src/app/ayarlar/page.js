@@ -8,7 +8,7 @@ import {
   Settings, ToggleLeft, ToggleRight, Calendar, User, Trophy, Tv,
   LogOut, ShieldCheck, AlertCircle, Loader2, Copy, Check, Link2,
   Bell, BellOff, Target, Building2, ChevronRight, ExternalLink,
-  Info, RefreshCw, Lock
+  Info, RefreshCw, Lock, Utensils
 } from 'lucide-react';
 import Sidebar, { MobileHeader } from '@/components/Sidebar';
 import Link from 'next/link';
@@ -37,6 +37,13 @@ export default function AyarlarPage() {
   const [newTeacherEmail, setNewTeacherEmail] = useState('');
   const [newTeacherPassword, setNewTeacherPassword] = useState('');
   const [addingTeacher, setAddingTeacher] = useState(false);
+
+  // ── Aşçı Yönetimi ───────────────────────────────────────────────────────────
+  const [cooks, setCooks] = useState([]);
+  const [newCookName, setNewCookName] = useState('');
+  const [newCookEmail, setNewCookEmail] = useState('');
+  const [newCookPassword, setNewCookPassword] = useState('');
+  const [addingCook, setAddingCook] = useState(false);
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
@@ -94,6 +101,69 @@ export default function AyarlarPage() {
     }
   };
 
+  // ── Fetch cooks ─────────────────────────────────────────────────────────────
+  const fetchCooks = useCallback(async () => {
+    const instId = institutionId || 'yamanevler';
+    try {
+      const res = await fetch(`/api/admin/cooks?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' });
+      const data = await res.json();
+      if (data.success && data.cooks) setCooks(data.cooks);
+    } catch (err) {
+      console.error('fetchCooks error:', err);
+    }
+  }, [institutionId]);
+
+  const handleAddCook = async (e) => {
+    e.preventDefault();
+    if (!newCookName || !newCookPassword) {
+      showToast('Lütfen aşçı adını ve şifresini girin.', 'error');
+      return;
+    }
+    setAddingCook(true);
+    const instId = institutionId || 'yamanevler';
+    try {
+      const res = await fetch('/api/admin/cooks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newCookName,
+          email: newCookEmail || undefined,
+          password: newCookPassword,
+          institutionId: instId,
+          institutionName: institutionName || 'Enderun Bilişim'
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Aşçı hesabı başarıyla eklendi.');
+        setNewCookName(''); setNewCookEmail(''); setNewCookPassword('');
+        fetchCooks();
+      } else {
+        throw new Error(data.error || 'Aşçı eklenemedi.');
+      }
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setAddingCook(false);
+    }
+  };
+
+  const handleDeleteCook = async (cookId) => {
+    if (!confirm('Bu aşçı hesabını silmek istediğinize emin misiniz?')) return;
+    try {
+      const res = await fetch(`/api/admin/cooks?id=${encodeURIComponent(cookId)}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        showToast('Aşçı hesabı silindi.');
+        fetchCooks();
+      } else {
+        throw new Error(data.error || 'Silinemedi.');
+      }
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
   // ── Auth guard ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!authLoading && !user) router.push('/login');
@@ -130,10 +200,13 @@ export default function AyarlarPage() {
     if (user) {
       Promise.resolve().then(() => {
         fetchLeaveSettings();
-        if (role === 'admin') fetchTeachers();
+        if (role === 'admin') {
+          fetchTeachers();
+          fetchCooks();
+        }
       });
     }
-  }, [user, role, fetchLeaveSettings, fetchTeachers]);
+  }, [user, role, fetchLeaveSettings, fetchTeachers, fetchCooks]);
 
   // ── Save leave settings ─────────────────────────────────────────────────────
   const handleSaveLeave = async (e) => {
@@ -550,6 +623,127 @@ export default function AyarlarPage() {
                             onClick={() => handleDeleteTeacher(t.id || t.email)}
                             className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs transition-all font-bold"
                             title="Öğretmeni Sil"
+                          >
+                            Sil
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.section>
+          )}
+
+          {/* ── Section: Aşçı Ekle & Aşçı Yönetimi (Sadece Kurum İdarecisi) ── */}
+          {role === 'admin' && (
+            <motion.section
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.18 }}
+              className="bg-white rounded-3xl border border-amber-200/80 shadow-sm overflow-hidden"
+            >
+              <div className="px-6 py-4 border-b border-amber-100 bg-amber-50/40 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center font-bold text-sm shadow-sm">
+                    👨‍🍳
+                  </div>
+                  <div>
+                    <h2 className="font-extrabold text-slate-900 text-sm">Aşçı Ekle & Yemek Menüsü Yönetimi</h2>
+                    <p className="text-[11px] text-slate-500">Mutfak personeli hesabı tanımlayarak menü girişi yapmalarını sağlayın.</p>
+                  </div>
+                </div>
+
+                <Link
+                  href="/menu"
+                  className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm"
+                >
+                  <Utensils size={13} />
+                  <span>Menü Paneline Git</span>
+                </Link>
+              </div>
+
+              <div className="p-6 space-y-6">
+                {/* Aşçı Ekleme Formu */}
+                <form onSubmit={handleAddCook} className="bg-amber-50/30 border border-amber-100 p-4.5 rounded-2xl space-y-4">
+                  <h3 className="text-xs font-black text-amber-950 uppercase tracking-wider flex items-center gap-2">
+                    <Utensils size={14} className="text-amber-600" />
+                    Yeni Aşçı Hesabı Oluştur
+                  </h3>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Aşçı Adı Soyadı *</label>
+                      <input
+                        type="text"
+                        placeholder="Örn: Hasan Usta"
+                        value={newCookName}
+                        onChange={e => setNewCookName(e.target.value)}
+                        required
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-semibold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Kullanıcı Adı / E-posta (Opsiyonel)</label>
+                      <input
+                        type="text"
+                        placeholder="Boş bırakılırsa otomatik üretilir"
+                        value={newCookEmail}
+                        onChange={e => setNewCookEmail(e.target.value)}
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-semibold"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Şifre *</label>
+                      <input
+                        type="password"
+                        placeholder="Giriş şifresi belirleyin"
+                        value={newCookPassword}
+                        onChange={e => setNewCookPassword(e.target.value)}
+                        required
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500 font-semibold"
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={addingCook}
+                    className="w-full sm:w-auto px-6 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl transition-all shadow-md flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {addingCook ? <Loader2 size={14} className="animate-spin" /> : <ShieldCheck size={14} />}
+                    Aşçı Hesabını Kaydet
+                  </button>
+                </form>
+
+                {/* Aşçı Listesi */}
+                <div className="space-y-3">
+                  <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider">Kurum Aşçıları Listesi</h3>
+                  
+                  {cooks.length === 0 ? (
+                    <div className="text-center py-6 bg-slate-50 rounded-2xl border border-slate-100 text-slate-400 text-xs italic">
+                      Henüz eklenmiş aşçı kaydı bulunmuyor.
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-slate-100 border border-slate-100 rounded-2xl overflow-hidden">
+                      {cooks.map(c => (
+                        <div key={c.id || c.email} className="px-4 py-3 bg-white flex items-center justify-between hover:bg-amber-50/30 transition-all">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-xs">
+                              👨‍🍳
+                            </div>
+                            <div>
+                              <p className="font-extrabold text-slate-800 text-xs">{c.name}</p>
+                              <p className="text-[10px] text-slate-400 font-mono">{c.email}</p>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => handleDeleteCook(c.id || c.email)}
+                            className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg text-xs transition-all font-bold"
+                            title="Aşçıyı Sil"
                           >
                             Sil
                           </button>

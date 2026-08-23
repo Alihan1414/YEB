@@ -122,6 +122,8 @@ export default function LoginPage() {
         // Hard redirect to prevent stale context from previous session
         if (data.profile.role === 'super_admin') {
           window.location.href = '/admin';
+        } else if (data.profile.role === 'cook') {
+          window.location.href = '/menu';
         } else {
           window.location.href = '/';
         }

@@ -4,6 +4,21 @@ import { readDb } from '@/lib/db';
 const FIREBASE_API_KEY    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY    || 'AIzaSyCH7bTzvqJqSzJiV0Ou6JudPovkrrWrwdw';
 const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'vision-b1ad5';
 
+async function fetchAllDocs(projectId, apiKey, collectionName) {
+  const docs = [];
+  let pageToken = '';
+  do {
+    const tokenParam = pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : '';
+    const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${collectionName}?key=${apiKey}&pageSize=300${tokenParam}`;
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) break;
+    const data = await res.json();
+    (data.documents || []).forEach(d => docs.push(d));
+    pageToken = data.nextPageToken || '';
+  } while (pageToken);
+  return docs;
+}
+
 export async function GET(req) {
   try {
     let allUsers = [];
@@ -14,101 +29,86 @@ export async function GET(req) {
 
     // --- 1. Fetch Users ---
     try {
-      const res = await fetch(`https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users?key=${FIREBASE_API_KEY}`, { cache: 'no-store' });
-      if (res.ok) {
-        const data = await res.json();
-        allUsers = (data.documents || []).map(doc => {
-          const f = doc.fields || {};
-          return {
-            id: doc.name.split('/').pop(),
-            name: f.name?.stringValue || '',
-            email: f.email?.stringValue || '',
-            role: f.role?.stringValue || 'teacher',
-            institutionId: f.institutionId?.stringValue || 'yamanevler',
-            institutionName: f.institutionName?.stringValue || 'Yamanevler Enderun Bilişim',
-            disabled: f.disabled?.booleanValue || false
-          };
-        });
-      }
+      const userDocs = await fetchAllDocs(FIREBASE_PROJECT_ID, FIREBASE_API_KEY, 'users');
+      allUsers = userDocs.map(doc => {
+        const f = doc.fields || {};
+        return {
+          id: doc.name.split('/').pop(),
+          name: f.name?.stringValue || '',
+          email: f.email?.stringValue || '',
+          role: f.role?.stringValue || 'teacher',
+          institutionId: f.institutionId?.stringValue || 'yamanevler',
+          institutionName: f.institutionName?.stringValue || 'Yamanevler Enderun Bilişim',
+          disabled: f.disabled?.booleanValue || false
+        };
+      });
     } catch (err) {
       console.warn("Firestore fetch users failed in global-stats:", err.message);
     }
 
     // --- 1b. Fetch Institutions collection directly ---
     try {
-      const res = await fetch(`https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/institutions?key=${FIREBASE_API_KEY}`, { cache: 'no-store' });
-      if (res.ok) {
-        const data = await res.json();
-        allFirestoreInsts = (data.documents || []).map(doc => {
-          const f = doc.fields || {};
-          return {
-            id: doc.name.split('/').pop(),
-            name: f.name?.stringValue || '',
-            email: f.email?.stringValue || '',
-            logoUrl: f.logoUrl?.stringValue || '',
-            primaryColor: f.primaryColor?.stringValue || '#06429c',
-            disabled: f.disabled?.booleanValue || false,
-          };
-        });
-      }
+      const instDocs = await fetchAllDocs(FIREBASE_PROJECT_ID, FIREBASE_API_KEY, 'institutions');
+      allFirestoreInsts = instDocs.map(doc => {
+        const f = doc.fields || {};
+        return {
+          id: doc.name.split('/').pop(),
+          name: f.name?.stringValue || '',
+          email: f.email?.stringValue || '',
+          logoUrl: f.logoUrl?.stringValue || '',
+          primaryColor: f.primaryColor?.stringValue || '#06429c',
+          disabled: f.disabled?.booleanValue || false,
+        };
+      });
     } catch (err) {
       console.warn("Firestore fetch institutions failed in global-stats:", err.message);
     }
 
-    // --- 2. Fetch Students ---
+    // --- 2. Fetch Students (Full Pagination - No Limits) ---
     try {
-      const res = await fetch(`https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/students?key=${FIREBASE_API_KEY}`, { cache: 'no-store' });
-      if (res.ok) {
-        const data = await res.json();
-        allStudents = (data.documents || []).map(doc => {
-          const f = doc.fields || {};
-          return {
-            id: doc.name.split('/').pop(),
-            name: f.name?.stringValue || '',
-            surname: f.surname?.stringValue || '',
-            class: f.class?.stringValue || '',
-            institutionId: f.institution_id?.stringValue || f.institutionId?.stringValue || 'yamanevler'
-          };
-        });
-      }
+      const studentDocs = await fetchAllDocs(FIREBASE_PROJECT_ID, FIREBASE_API_KEY, 'students');
+      allStudents = studentDocs.map(doc => {
+        const f = doc.fields || {};
+        return {
+          id: doc.name.split('/').pop(),
+          name: f.name?.stringValue || '',
+          surname: f.surname?.stringValue || '',
+          class: f.class?.stringValue || '',
+          institutionId: f.institution_id?.stringValue || f.institutionId?.stringValue || 'yamanevler'
+        };
+      });
     } catch (err) {
       console.warn("Firestore fetch students failed in global-stats:", err.message);
     }
 
-    // --- 3. Fetch Reports ---
+    // --- 3. Fetch Reports (Full Pagination - No Limits) ---
     try {
-      const res = await fetch(`https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/reports?key=${FIREBASE_API_KEY}`, { cache: 'no-store' });
-      if (res.ok) {
-        const data = await res.json();
-        allReports = (data.documents || []).map(doc => {
-          const f = doc.fields || {};
-          return {
-            id: doc.name.split('/').pop(),
-            student_id: f.student_id?.stringValue || '',
-            category: f.category?.stringValue || 'Diğer',
-            created_at: f.created_at?.stringValue || '',
-            institutionId: f.institutionId?.stringValue || f.institution_id?.stringValue || 'yamanevler'
-          };
-        });
-      }
+      const reportDocs = await fetchAllDocs(FIREBASE_PROJECT_ID, FIREBASE_API_KEY, 'reports');
+      allReports = reportDocs.map(doc => {
+        const f = doc.fields || {};
+        return {
+          id: doc.name.split('/').pop(),
+          student_id: f.student_id?.stringValue || f.studentId?.stringValue || '',
+          category: f.category?.stringValue || 'Diğer',
+          created_at: f.created_at?.stringValue || f.created_at?.timestampValue || '',
+          institutionId: f.institutionId?.stringValue || f.institution_id?.stringValue || 'yamanevler'
+        };
+      });
     } catch (err) {
       console.warn("Firestore fetch reports failed in global-stats:", err.message);
     }
 
     // --- 4. Fetch Leaves ---
     try {
-      const res = await fetch(`https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/leaveRequests?key=${FIREBASE_API_KEY}`, { cache: 'no-store' });
-      if (res.ok) {
-        const data = await res.json();
-        allLeaves = (data.documents || []).map(doc => {
-          const f = doc.fields || {};
-          return {
-            id: doc.name.split('/').pop(),
-            status: f.status?.stringValue || 'pending',
-            institutionId: f.institutionId?.stringValue || f.institution_id?.stringValue || 'yamanevler'
-          };
-        });
-      }
+      const leaveDocs = await fetchAllDocs(FIREBASE_PROJECT_ID, FIREBASE_API_KEY, 'leaveRequests');
+      allLeaves = leaveDocs.map(doc => {
+        const f = doc.fields || {};
+        return {
+          id: doc.name.split('/').pop(),
+          status: f.status?.stringValue || 'pending',
+          institutionId: f.institutionId?.stringValue || f.institution_id?.stringValue || 'yamanevler'
+        };
+      });
     } catch (err) {
       console.warn("Firestore fetch leaves failed in global-stats:", err.message);
     }
