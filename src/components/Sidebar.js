@@ -4,7 +4,7 @@ import { useAuth } from '@/lib/AuthContext';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import {
-  User, Trophy, Tv, Calendar, Settings, LogOut, Shield, HeartPulse, Utensils
+  User, Trophy, Tv, Calendar, Settings, LogOut, Shield, Utensils
 } from 'lucide-react';
 
 import Link from 'next/link';
@@ -55,16 +55,18 @@ export default function Sidebar() {
 
   const isActive = (href) => pathname === href;
 
-  const navLinks = [
-    { href: '/', icon: User, label: 'Öğrenciler' },
-    { href: '/menu', icon: Utensils, label: 'Yemek Menüsü' },
-    { href: '/diyabet', icon: HeartPulse, label: 'TD1 Diyabetim Yanımda' },
-    { href: '/haftalik', icon: Trophy, label: 'Haftalık Özet' },
-    { href: '/tv', icon: Tv, label: 'TV Ekranı' },
-    ...(leaveEnabled ? [{ href: '/izinler', icon: Calendar, label: 'İzin Yönetimi' }] : []),
-    { href: '/ayarlar', icon: Settings, label: 'Ayarlar' },
-    ...(role === 'super_admin' ? [{ href: '/admin', icon: Shield, label: 'Süper Admin' }] : []),
-  ];
+  const navLinks = role === 'cook'
+    ? [
+        { href: '/menu', icon: Utensils, label: 'Yemek Menüsü' },
+      ]
+    : [
+        { href: '/', icon: User, label: 'Öğrenciler' },
+        { href: '/haftalik', icon: Trophy, label: 'Haftalık Özet' },
+        { href: '/tv', icon: Tv, label: 'TV Ekranı' },
+        ...(leaveEnabled ? [{ href: '/izinler', icon: Calendar, label: 'İzin Yönetimi' }] : []),
+        { href: '/ayarlar', icon: Settings, label: 'Ayarlar' },
+        ...(role === 'super_admin' ? [{ href: '/admin', icon: Shield, label: 'Süper Admin' }] : []),
+      ];
 
   return (
     <aside
@@ -87,7 +89,9 @@ export default function Sidebar() {
             <h2 className="text-xs font-black tracking-widest text-white/70 uppercase">
               {(institutionName || 'Kurumsal Rapor').toUpperCase()}
             </h2>
-            <p className="text-sm font-extrabold tracking-wider text-white">YÖNETİCİ PANELİ</p>
+            <p className="text-sm font-extrabold tracking-wider text-white">
+              {role === 'cook' ? 'AŞÇI PANELİ' : role === 'super_admin' ? 'SÜPER ADMİN' : 'YÖNETİCİ PANELİ'}
+            </p>
           </div>
         </div>
 

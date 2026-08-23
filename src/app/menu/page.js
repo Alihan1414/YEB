@@ -46,10 +46,14 @@ export default function MenuPage() {
 
   // Auth guard
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/login');
+    if (!authLoading) {
+      if (!user) {
+        router.push('/login');
+      } else if (role === 'teacher') {
+        router.push('/');
+      }
     }
-  }, [user, authLoading, router]);
+  }, [user, role, authLoading, router]);
 
   // Update day name when selectedDate changes
   useEffect(() => {
@@ -158,15 +162,18 @@ export default function MenuPage() {
       {/* Top Navbar */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-30 px-6 py-4 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-4">
-          <button
-            onClick={() => router.push('/')}
-            className="p-2 hover:bg-slate-100 text-slate-600 rounded-xl transition-all flex items-center gap-1 text-xs font-bold"
-          >
-            <ArrowLeft size={16} />
-            <span className="hidden sm:inline">Ana Sayfa</span>
-          </button>
-          
-          <div className="h-6 w-px bg-slate-200" />
+          {role !== 'cook' && (
+            <>
+              <button
+                onClick={() => router.push('/')}
+                className="p-2 hover:bg-slate-100 text-slate-600 rounded-xl transition-all flex items-center gap-1 text-xs font-bold"
+              >
+                <ArrowLeft size={16} />
+                <span className="hidden sm:inline">Ana Sayfa</span>
+              </button>
+              <div className="h-6 w-px bg-slate-200" />
+            </>
+          )}
 
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-600 shadow-inner">
@@ -174,9 +181,9 @@ export default function MenuPage() {
             </div>
             <div>
               <h1 className="text-base font-black text-slate-900 leading-tight flex items-center gap-2">
-                Yemek Menüsü Yönetimi
+                {role === 'cook' ? 'Aşçı Paneli' : 'Yemek Menüsü Yönetimi'}
                 <span className="px-2 py-0.5 text-[10px] font-black uppercase rounded-full bg-amber-100 text-amber-800 border border-amber-200">
-                  {role === 'cook' ? '👨‍🍳 Aşçı Paneli' : 'Yönetim'}
+                  {role === 'cook' ? '👨‍🍳 Aşçı' : 'Yönetim'}
                 </span>
               </h1>
               <p className="text-xs text-slate-500">{institutionName || 'Kurum Mutfağı'}</p>

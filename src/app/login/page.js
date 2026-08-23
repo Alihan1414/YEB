@@ -218,7 +218,7 @@ export default function LoginPage() {
                   </option>
                   {resolvedTeachers.map(t => (
                     <option key={t.email} value={t.email} className="bg-[#0c1933] text-white font-medium">
-                      {t.name || t.email} ({t.role === 'admin' || t.role === 'super_admin' ? 'Kurum Yöneticisi' : 'Öğretmen'})
+                      {t.name || t.email} ({t.role === 'admin' || t.role === 'super_admin' ? 'Kurum Yöneticisi' : t.role === 'cook' ? 'Aşçı' : 'Öğretmen'})
                     </option>
                   ))}
                 </select>

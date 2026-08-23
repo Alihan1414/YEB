@@ -124,10 +124,14 @@ export default function StudentsPage() {
 
   // Auth redirect
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/login');
+    if (!authLoading) {
+      if (!user) {
+        router.push('/login');
+      } else if (role === 'cook') {
+        router.push('/menu');
+      }
     }
-  }, [user, authLoading, router]);
+  }, [user, role, authLoading, router]);
 
   // ─── Data ──────────────────────────────────────────────────────────────────
   const fetchStudents = async () => {
@@ -684,14 +688,6 @@ export default function StudentsPage() {
               <Trophy size={18} />
               Haftalık Özet
             </a>
-
-            <Link
-              href="/menu"
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-white hover:bg-white/10 font-semibold text-sm transition-all"
-            >
-              <Utensils size={18} />
-              Yemek Menüsü
-            </Link>
 
             <Link
               href="/tv"
