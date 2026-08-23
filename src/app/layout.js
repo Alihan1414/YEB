@@ -1,6 +1,7 @@
 import { Plus_Jakarta_Sans, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/AuthContext";
+import PwaAutoUpdater from "@/components/PwaAutoUpdater";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
   variable: "--font-plus-jakarta",
@@ -32,6 +33,7 @@ export default function RootLayout({ children }) {
     >
       <body className="min-h-full flex flex-col bg-slate-50 text-slate-900 font-sans antialiased">
         <AuthProvider>
+          <PwaAutoUpdater />
           {children}
         </AuthProvider>
       </body>
