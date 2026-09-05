@@ -4,7 +4,7 @@ import { useAuth } from '@/lib/AuthContext';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import {
-  User, Trophy, Tv, Calendar, Settings, LogOut, Shield, Utensils
+  User, Trophy, Tv, Calendar, Settings, LogOut, Shield, Utensils, Sparkles
 } from 'lucide-react';
 
 import Link from 'next/link';
