@@ -18,21 +18,31 @@ function trClean(str) {
     .trim();
 }
 
-// Rapor metninden öğrenci isimlerini ve bağlaçları temizleyerek sadece faaliyeti bırakan yardımcı fonksiyon
+// Rapor metninden öğrenci isimlerini ve Türkçe eklerini temizleyerek sadece faaliyeti bırakan yardımcı fonksiyon
 function stripStudentNames(text, matchedStudents = []) {
   if (!text) return '';
   let cleaned = text;
 
+  // Türkçe çekim ekleri (iyelik, yönelme, belirtme, ayrılma vb.)
+  // 'ı, 'i, 'u, 'ü, 'e, 'a, 'in, 'ın, 'un, 'ün, 'den, 'dan, 'ten, 'tan, -ı, -i vb.
+  const trSuffixRegex = `(?:['’\\-](?:[ıieeaouü][nmst]?|[ıieeaouü]n[ıieeaouü]?|[dt][ae]n|[y][ıieeaouü])|in|ın|un|ün|e|a|i|ı|u|ü|ye|ya|yi|yı|yu|yü|den|dan|ten|tan|de|da|te|ta)?`;
+
   matchedStudents.forEach(st => {
     const rawName = st.name || '';
     const parts = rawName.split(/\s+/).filter(p => p && p.length >= 2);
+    
+    // Önce tam adı ekleriyle temizle
     if (rawName.trim().length >= 3) {
       const escapedFull = rawName.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      cleaned = cleaned.replace(new RegExp(`\\b${escapedFull}\\b`, 'gi'), ' ');
+      cleaned = cleaned.replace(new RegExp(`\\b${escapedFull}${trSuffixRegex}\\b`, 'gi'), ' ');
     }
+    
+    // Sonra tekil parçaları (soyadı veya adı) ekleriyle temizle
     parts.forEach(p => {
       const escapedPart = p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      cleaned = cleaned.replace(new RegExp(`\\b${escapedPart}\\b`, 'gi'), ' ');
+      cleaned = cleaned.replace(new RegExp(`\\b${escapedPart}${trSuffixRegex}\\b`, 'gi'), ' ');
+      // Tire veya kesme ile ayrılmış halleri de (örn: Divan-ı, Divanlı'ya)
+      cleaned = cleaned.replace(new RegExp(`\\b${escapedPart}[\\-–—'’][a-zA-ZçğıöşüÇĞİÖŞÜ]+\\b`, 'gi'), ' ');
     });
   });
 
@@ -57,17 +67,30 @@ function stripStudentNames(text, matchedStudents = []) {
 
 export async function POST(req) {
   try {
-    const { text, institutionId = 'yamanevler' } = await req.json();
+    const { text, institutionId = 'yamanevler', students: clientStudents } = await req.json();
     if (!text || text.trim() === '') {
-      return NextResponse.json({ success: false, error: 'Metin giriÅŸi zorunludur.' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Metin girişi zorunludur.' }, { status: 400 });
     }
 
     const normInstId = (institutionId || 'yamanevler').trim().toLowerCase();
 
-    // 1. Get current students (Combining Firestore + Local DB for absolute complete list)
+    // 1. Get current students (Combining Client Passed + Firestore + Local DB for absolute complete list)
     const studentMap = new Map();
 
-    // A. Fetch Local DB students first
+    // A. Add client passed students directly if present
+    if (Array.isArray(clientStudents) && clientStudents.length > 0) {
+      clientStudents.forEach(s => {
+        if (s && s.id) {
+          studentMap.set(String(s.id), {
+            id: String(s.id),
+            fullName: (s.fullName || `${s.name || ''} ${s.surname || ''}`).trim(),
+            class: s.class || ''
+          });
+        }
+      });
+    }
+
+    // B. Fetch Local DB students
     try {
       const dbData = readDb();
       (dbData.students || []).forEach(s => {
@@ -198,33 +221,96 @@ SADECE geçerli şu JSON formatında yanıt ver:
       }
     }
 
-    // 3. Robust Local Fallback Matcher (Normalized & Multi-Student Support)
+    // 3. Robust Local Fallback Matcher (Ranked Scoring & Disambiguation)
     const cleanedInput = trClean(text);
-    const matchedStudentsList = [];
+    const scoredStudents = [];
 
     for (const student of students) {
       const cleanedFullName = trClean(student.fullName);
       const nameParts = cleanedFullName.split(' ').filter(Boolean);
+      const firstName = nameParts[0] || '';
+      const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
 
-      let isMatch = false;
-      if (cleanedFullName && cleanedFullName.length >= 3 && cleanedInput.includes(cleanedFullName)) {
-        isMatch = true;
-      } else {
-        // Match if at least first name (min 3 chars) is distinct in input
-        const firstName = nameParts[0] || '';
-        if (firstName.length >= 3) {
-          const regex = new RegExp(`\\b${firstName}\\b`, 'i');
-          if (regex.test(cleanedInput)) {
-            isMatch = true;
+      let score = 0;
+      let matchType = 'none';
+
+      // 1. Tam İsim Birebir veya Ekli Kontrolü (örn: "Alihan Divanlı", "Alihan Divan")
+      if (cleanedFullName && cleanedFullName.length >= 3) {
+        if (cleanedInput.includes(cleanedFullName)) {
+          score = 100;
+          matchType = 'full_exact';
+        } else if (lastName && lastName.length >= 3) {
+          // Soyadının kökü ve adın birlikte geçmesi (örn: "alihan divan" metinde "alihan divanlı" veya "alihan divan-ı")
+          const lastNameStem = lastName.slice(0, Math.max(3, lastName.length - 2));
+          if (cleanedInput.includes(firstName) && cleanedInput.includes(lastNameStem)) {
+            score = 90;
+            matchType = 'full_stem';
           }
         }
       }
 
-      if (isMatch && !matchedStudentsList.some(m => m.id === student.id)) {
+      // 2. Yalnızca Soyisim Kontrolü (Nadir ve ayırt edici soyadlar için)
+      if (score === 0 && lastName && lastName.length >= 4) {
+        const lastNameStem = lastName.slice(0, Math.max(3, lastName.length - 2));
+        const regexLast = new RegExp(`\\b${lastNameStem}`, 'i');
+        if (regexLast.test(cleanedInput)) {
+          score = 70;
+          matchType = 'last_only';
+        }
+      }
+
+      // 3. Yalnızca İsim Kontrolü (En düşük öncelik: min 3 karakter)
+      if (score === 0 && firstName && firstName.length >= 3) {
+        const regexFirst = new RegExp(`\\b${firstName}\\b`, 'i');
+        if (regexFirst.test(cleanedInput)) {
+          score = 40;
+          matchType = 'first_only';
+        }
+      }
+
+      if (score > 0) {
+        scoredStudents.push({
+          student,
+          score,
+          matchType,
+          firstName,
+          lastName
+        });
+      }
+    }
+
+    // DISAMBIGUATION:
+    // Eğer bir öğrenci tam isimle (score >= 90) eşleştiyse (örn: "Alihan Divanlı"),
+    // sadece ilk adı aynı olan diğer öğrencileri (örn: "Alihan Karakoç") hariç tut!
+    const hasHighScore = scoredStudents.some(s => s.score >= 90);
+    let finalFilteredScored = scoredStudents;
+
+    if (hasHighScore) {
+      const highScoredFirstNames = new Set(
+        scoredStudents.filter(s => s.score >= 90).map(s => s.firstName)
+      );
+
+      finalFilteredScored = scoredStudents.filter(s => {
+        // Skoru 90 ve üzeri ise kesin al
+        if (s.score >= 90) return true;
+        // Eğer skoru düşükse ve ilk adı yüksek skorlu biriyle çakışıyorsa VE soyadı metinde geçmiyorsa ELE!
+        if (highScoredFirstNames.has(s.firstName)) {
+          return false;
+        }
+        return true;
+      });
+    }
+
+    // Skoruna göre sırala
+    finalFilteredScored.sort((a, b) => b.score - a.score);
+
+    const matchedStudentsList = [];
+    for (const item of finalFilteredScored) {
+      if (!matchedStudentsList.some(m => m.id === item.student.id)) {
         matchedStudentsList.push({
-          id: student.id,
-          name: student.fullName,
-          class: student.class || ''
+          id: item.student.id,
+          name: item.student.fullName,
+          class: item.student.class || ''
         });
       }
     }

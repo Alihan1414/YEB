@@ -230,26 +230,102 @@ export default function StudentsPage() {
 
   // ─── Speech ────────────────────────────────────────────────────────────────
   const startListening = () => {
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SR) { alert('Chrome tarayıcısı gerekli.'); return; }
-    const rec = new SR();
-    rec.lang = 'tr-TR'; rec.continuous = false; rec.interimResults = false;
-    rec.onstart = () => { setIsListening(true); setVoiceText(''); setAiMatch(null); };
-    rec.onresult = e => { const t = e.results[0][0].transcript; setVoiceText(t); analyzeWithAI(t); };
-    rec.onerror  = () => setIsListening(false);
-    rec.onend    = () => setIsListening(false);
-    recognitionRef.current = rec;
-    rec.start();
+    const SR = typeof window !== 'undefined' ? (window.SpeechRecognition || window.webkitSpeechRecognition) : null;
+    if (!SR) { 
+      showToast('Tarayıcınız ses tanımayı desteklemiyor. Lütfen Chrome, Edge veya Safari kullanın.', 'error'); 
+      return; 
+    }
+
+    try {
+      if (recognitionRef.current) {
+        try { recognitionRef.current.abort(); } catch (e) {}
+      }
+
+      const rec = new SR();
+      rec.lang = 'tr-TR';
+      rec.continuous = false;
+      rec.interimResults = true;
+      rec.maxAlternatives = 1;
+
+      rec.onstart = () => {
+        setIsListening(true);
+        setVoiceText('');
+        setAiMatch(null);
+      };
+
+      rec.onresult = (e) => {
+        let interimTranscript = '';
+        let finalTranscript = '';
+        for (let i = e.resultIndex; i < e.results.length; ++i) {
+          if (e.results[i].isFinal) {
+            finalTranscript += e.results[i][0].transcript;
+          } else {
+            interimTranscript += e.results[i][0].transcript;
+          }
+        }
+        const textSoFar = (finalTranscript || interimTranscript).trim();
+        if (textSoFar) {
+          setVoiceText(textSoFar);
+        }
+        if (finalTranscript.trim()) {
+          analyzeWithAI(finalTranscript.trim());
+        }
+      };
+
+      rec.onerror = (event) => {
+        setIsListening(false);
+        console.warn('Speech recognition error:', event.error);
+        if (event.error === 'not-allowed') {
+          showToast('Mikrofon erişimi engellendi. Lütfen tarayıcı ayarlarından mikrofon izni verin.', 'error');
+        } else if (event.error === 'no-speech') {
+          // No speech detected, ignore silently or notify user gently
+        } else if (event.error === 'network') {
+          showToast('Ses tanıma için internet bağlantısı gerekiyor.', 'error');
+        }
+      };
+
+      rec.onend = () => {
+        setIsListening(false);
+      };
+
+      recognitionRef.current = rec;
+      rec.start();
+    } catch (err) {
+      console.error('startListening failed:', err);
+      setIsListening(false);
+      showToast('Mikrofon başlatılamadı.', 'error');
+    }
   };
-  const stopListening = () => recognitionRef.current?.stop();
+
+  const stopListening = () => {
+    try {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+    } catch (e) {}
+    setIsListening(false);
+  };
 
   // ─── AI Analysis ───────────────────────────────────────────────────────────
   const analyzeWithAI = async (text) => {
+    if (!text || !text.trim()) return;
     setIsAnalyzing(true);
     try {
+      // Öğrenci listesini doğrudan göndererek yapay zekanın tam eşleşmesini garantile
+      const payloadStudents = students.map(s => ({
+        id: s.id,
+        fullName: `${s.name || ''} ${s.surname || ''}`.trim(),
+        class: s.class || ''
+      }));
+
       const res = await fetch('/api/students/ai', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, institutionId: institutionId || 'yamanevler' }),
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          text, 
+          institutionId: institutionId || 'yamanevler',
+          students: payloadStudents
+        }),
       });
       const data = await res.json();
       if (data.success && data.data) {
