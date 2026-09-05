@@ -10,7 +10,7 @@ import {
   Bell, BellOff, Target, Building2, ChevronRight, ExternalLink,
   Info, RefreshCw, Lock, Utensils
 } from 'lucide-react';
-import Sidebar, { MobileHeader } from '@/components/Sidebar';
+import Sidebar, { MobileHeader, MobileBottomNav } from '@/components/Sidebar';
 import Link from 'next/link';
 
 export default function AyarlarPage() {
@@ -838,9 +838,10 @@ export default function AyarlarPage() {
                 { href: '/', label: 'Öğrenci Listesi', icon: User, color: 'text-blue-400' },
                 { href: '/haftalik', label: 'Haftalık Özet', icon: Trophy, color: 'text-amber-400' },
                 { href: '/tv', label: 'TV Ekranı', icon: Tv, color: 'text-cyan-400' },
+                ...(role === 'admin' || role === 'cook' ? [{ href: '/menu', label: 'Yemek Menüsü', icon: Utensils, color: 'text-amber-400' }] : []),
                 ...(leaveSettings.enabled ? [{ href: '/izinler', label: 'İzin Yönetimi', icon: Calendar, color: 'text-emerald-400' }] : []),
               ].map(link => (
-                <a
+                <Link
                   key={link.href}
                   href={link.href}
                   className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl px-4 py-3 hover:bg-white/10 transition-all group"
@@ -848,7 +849,7 @@ export default function AyarlarPage() {
                   <link.icon size={16} className={link.color} />
                   <span className="text-white font-semibold text-sm flex-1">{link.label}</span>
                   <ChevronRight size={14} className="text-white/30 group-hover:text-white/60 transition-all" />
-                </a>
+                </Link>
               ))}
             </div>
           </motion.section>
@@ -857,30 +858,7 @@ export default function AyarlarPage() {
       </main>
 
       {/* ── Mobile Bottom Navigation ── */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex items-center justify-around py-2.5 px-2 z-40 shadow-lg">
-        <Link href="/" className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-600">
-          <User size={18} />
-          <span className="text-[10px] font-medium">Öğrenciler</span>
-        </Link>
-        <Link href="/haftalik" className="flex flex-col items-center gap-1 text-slate-400 hover:text-amber-500">
-          <Trophy size={18} />
-          <span className="text-[10px] font-medium">Haftalık</span>
-        </Link>
-        <Link href="/tv" className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-600">
-          <Tv size={18} />
-          <span className="text-[10px] font-medium">TV</span>
-        </Link>
-        {leaveSettings.enabled && (
-          <Link href="/izinler" className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-600">
-            <Calendar size={18} />
-            <span className="text-[10px] font-medium">İzinler</span>
-          </Link>
-        )}
-        <Link href="/ayarlar" className="flex flex-col items-center gap-1 text-blue-600 font-bold">
-          <Settings size={18} />
-          <span className="text-[10px]">Ayarlar</span>
-        </Link>
-      </nav>
+      <MobileBottomNav />
 
     </div>
   );

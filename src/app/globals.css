@@ -86,3 +86,19 @@ body {
   animation: pulse-subtle 3s ease-in-out infinite;
 }
 
+/* Smooth Page & Section Entry Animations */
+@keyframes pageEnter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.page-enter-anim {
+  animation: pageEnter 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+

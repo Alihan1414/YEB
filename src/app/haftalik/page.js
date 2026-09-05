@@ -8,7 +8,7 @@ import {
   Trophy, ArrowLeft, Loader2, Sparkles, Printer,
   CheckCircle, Target, Sunrise, BookOpen, Flame, MessageCircle, Award
 } from 'lucide-react';
-import Sidebar from '@/components/Sidebar';
+import Sidebar, { MobileHeader, MobileBottomNav } from '@/components/Sidebar';
 
 export default function WeeklySummaryPage() {
   const { user, role, institutionId, institutionName, loading: authLoading } = useAuth();
@@ -223,8 +223,9 @@ export default function WeeklySummaryPage() {
       </div>
 
       {/* ===== SCREEN LAYOUT ===== */}
-      <div className="screen-only"><Sidebar /></div>
-      <main className="screen-only flex-1 pb-10 overflow-y-auto">
+      <Sidebar />
+      <MobileHeader title="Haftalık Özet" />
+      <main className="flex-1 pb-24 md:pb-10 overflow-y-auto">
         <div className="bg-gradient-to-r from-[#eef5fc] via-[#e2eeff] to-[#d6e7ff] pt-8 pb-6 px-6 md:px-10 border-b border-blue-100/60">
           <div className="max-w-6xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
@@ -445,6 +446,9 @@ export default function WeeklySummaryPage() {
           </div>
         </div>
       )}
+
+      {/* Mobile Bottom Navigation */}
+      <MobileBottomNav />
     </div>
   );
 }

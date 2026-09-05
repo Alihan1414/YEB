@@ -15,6 +15,7 @@ import {
   Loader2, Trash2, MessageCircle, Trophy, Target, Tv, BookOpen, Calendar, Settings
 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
+import Sidebar, { MobileHeader, MobileBottomNav } from '@/components/Sidebar';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, getDocs, query, orderBy, where, serverTimestamp } from 'firebase/firestore';
 
@@ -633,149 +634,21 @@ export default function StudentsPage() {
   return (
     <div className="min-h-screen bg-[#eef5fc] text-slate-800 flex flex-col md:flex-row font-sans selection:bg-blue-500 selection:text-white">
       {/* ── Desktop Left Sidebar (Visible on md+) ── */}
-      <aside
-        className="hidden md:flex w-64 text-white flex-col justify-between p-6 shrink-0 shadow-2xl relative z-20"
-        style={{ background: `linear-gradient(180deg, ${sidebarColor} 0%, #0f172a 100%)` }}
-      >
-        <div>
-          {/* Logo Header */}
-          <div className="flex flex-col items-center text-center space-y-3 pt-4 pb-8 border-b border-white/10">
-            {logoUrl ? (
-              <img src={logoUrl} alt={institutionName} className="w-16 h-16 rounded-2xl object-cover bg-white p-1 shadow-lg" />
-            ) : (
-              <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center p-2.5 shadow-lg shadow-black/20">
-                <svg viewBox="0 0 100 100" className="w-full h-full" style={{ color: sidebarColor }} fill="currentColor">
-                  <path d="M50 15 L20 30 L50 45 L80 30 Z M20 40 L20 70 L50 85 L50 55 Z M80 40 L50 55 L50 85 L80 70 Z" />
-                </svg>
-              </div>
-            )}
-            <div>
-              <h2 className="text-xs font-black tracking-widest text-blue-200 uppercase">KURUM PORTALI</h2>
-              <h1 className="text-sm font-extrabold tracking-wider text-white uppercase">{institutionName || 'Talebe Takip'}</h1>
-            </div>
-          </div>
-
-          {/* Navigation Links */}
-          <nav className="mt-8 space-y-2">
-            <button
-              onClick={() => { setActiveView('ai'); setSelectedStudent(null); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${
-                activeView === 'ai'
-                  ? 'bg-blue-600/90 text-white shadow-md border border-blue-400/30'
-                  : 'text-blue-100/70 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <Sparkles size={18} />
-              Sesli AI Giriş
-            </button>
-
-            <button
-              onClick={() => { setActiveView('students'); setSelectedStudent(null); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${
-                activeView === 'students'
-                  ? 'bg-blue-600/90 text-white shadow-md border border-blue-400/30'
-                  : 'text-blue-100/70 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <User size={18} />
-              Öğrenciler
-            </button>
-
-            <a
-              href="/haftalik"
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-white hover:bg-white/10 font-semibold text-sm transition-all"
-            >
-              <Trophy size={18} />
-              Haftalık Özet
-            </a>
-
-            <Link
-              href="/tv"
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-white hover:bg-white/10 font-semibold text-sm transition-all"
-            >
-              <Tv size={18} />
-              TV Ekranı
-            </Link>
-
-            {leaveEnabled && (
-              <a
-                href="/izinler"
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-white hover:bg-white/10 font-semibold text-sm transition-all"
-              >
-                <Calendar size={18} />
-                İzin Yönetimi
-              </a>
-            )}
-
-            <a
-              href="/ayarlar"
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-white hover:bg-white/10 font-semibold text-sm transition-all"
-            >
-              <Settings size={18} />
-              Ayarlar
-            </a>
-
-            {role === 'admin' && (
-              <button
-                onClick={() => setShowCSV(!showCSV)}
-                className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-white hover:bg-white/10 font-semibold text-sm transition-all"
-              >
-                <Upload size={18} />
-                CSV İçe Aktar
-              </button>
-            )}
-            <button
-              onClick={logout}
-              className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-blue-100/70 hover:text-red-300 hover:bg-red-500/10 font-semibold text-sm transition-all"
-            >
-              <LogOut size={18} />
-              Çıkış
-            </button>
-          </nav>
-        </div>
-
-
-        {/* Bottom Logo Branding */}
-        <div className="pt-6 border-t border-white/10 flex items-center gap-3">
-          <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center p-2 text-white">
-            <svg viewBox="0 0 100 100" className="w-full h-full" fill="currentColor">
-              <path d="M50 15 L20 30 L50 45 L80 30 Z M20 40 L20 70 L50 85 L50 55 Z M80 40 L50 55 L50 85 L80 70 Z" />
-            </svg>
-          </div>
-          <div className="text-[11px] leading-tight">
-            <div className="font-bold text-white">{(institutionName || 'Yamanevler Enderun Bilişim').toUpperCase()}</div>
-            <div className="text-blue-200 text-[10px]">Aktif Kurum</div>
-          </div>
-        </div>
-      </aside>
+      <Sidebar activeView={activeView} onSelectView={(v) => { setActiveView(v); setSelectedStudent(null); }} />
 
       {/* ── Mobile Top Header (Visible on Mobile only) ── */}
-      <header className="md:hidden bg-white px-5 py-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
-        <div className="flex items-center gap-2">
-          {logoUrl ? (
-            <img src={logoUrl} alt={institutionName} className="w-8 h-8 rounded-xl object-cover border border-slate-200" />
-          ) : (
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center p-1.5 text-white" style={{ backgroundColor: sidebarColor }}>
-              <svg viewBox="0 0 100 100" className="w-full h-full" fill="currentColor">
-                <path d="M50 15 L20 30 L50 45 L80 30 Z M20 40 L20 70 L50 85 L50 55 Z M80 40 L50 55 L50 85 L80 70 Z" />
-              </svg>
-            </div>
-          )}
-          <div className="text-left min-w-0">
-            <div className="text-[9px] font-bold text-slate-400 leading-none uppercase">{institutionId || 'KURUM'}</div>
-            <div className="text-[11px] font-extrabold text-slate-800 leading-none truncate uppercase">{institutionName || 'Talebe Takip'}</div>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <button onClick={() => setShowAddStudent(!showAddStudent)} className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+      <MobileHeader
+        title="Talebe Takip"
+        rightAction={
+          <button
+            onClick={() => setShowAddStudent(!showAddStudent)}
+            className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors"
+            title="Öğrenci Ekle"
+          >
             <Plus size={18} />
           </button>
-          <button onClick={logout} className="p-2 bg-red-50 text-red-600 rounded-xl">
-            <LogOut size={18} />
-          </button>
-        </div>
-      </header>
+        }
+      />
 
       {/* ── Toast ── */}
       <AnimatePresence>
@@ -1627,45 +1500,7 @@ export default function StudentsPage() {
       </AnimatePresence>
 
       {/* ── Mobile Bottom Navigation Bar (Visible on Mobile only) ── */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex items-center justify-around py-2.5 px-2 z-40 shadow-lg">
-        <button
-          onClick={() => { setActiveView('ai'); setSelectedStudent(null); }}
-          className={`flex flex-col items-center gap-1 ${activeView === 'ai' ? 'text-blue-600' : 'text-slate-400'}`}
-        >
-          <Sparkles size={18} />
-          <span className="text-[10px] font-bold">Sesli AI</span>
-        </button>
-
-        <button
-          onClick={() => { setActiveView('students'); setSelectedStudent(null); }}
-          className={`flex flex-col items-center gap-1 ${activeView === 'students' ? 'text-blue-600' : 'text-slate-400'}`}
-        >
-          <User size={18} />
-          <span className="text-[10px] font-bold">Öğrenciler</span>
-        </button>
-
-        <a href="/haftalik" className="flex flex-col items-center gap-1 text-slate-400 hover:text-amber-500">
-          <Trophy size={18} />
-          <span className="text-[10px] font-medium">Haftalık</span>
-        </a>
-
-        <a href="/tv" className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-600">
-          <Tv size={18} />
-          <span className="text-[10px] font-medium">TV</span>
-        </a>
-
-        {leaveEnabled && (
-          <a href="/izinler" className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-600">
-            <Calendar size={18} />
-            <span className="text-[10px] font-medium">İzinler</span>
-          </a>
-        )}
-
-        <a href="/ayarlar" className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-600">
-          <Settings size={18} />
-          <span className="text-[10px] font-medium">Ayarlar</span>
-        </a>
-      </nav>
+      <MobileBottomNav activeView={activeView} onSelectView={(v) => { setActiveView(v); setSelectedStudent(null); }} />
     </div>
   );
 }

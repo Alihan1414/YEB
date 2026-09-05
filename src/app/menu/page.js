@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Utensils, Calendar, Clock, Sparkles, Check, X,
   Save, Trash2, ArrowLeft, Tv, ChevronRight, User,
-  Coffee, Sun, Moon, Apple, Info, AlertCircle, Loader2
+  Coffee, Sun, Moon, Apple, Info, AlertCircle, Loader2, Settings
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -192,6 +192,15 @@ export default function MenuPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          {role === 'admin' && (
+            <Link
+              href="/ayarlar"
+              className="hidden sm:flex items-center gap-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all"
+            >
+              <Settings size={14} className="text-blue-600" />
+              Ayarlar
+            </Link>
+          )}
           <Link
             href="/tv"
             target="_blank"

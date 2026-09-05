@@ -14,7 +14,7 @@ import { Building2 } from 'lucide-react';
  * Shared Sidebar — fetches leave settings internally from the API.
  * No longer depends on a leaveEnabled prop from parent pages.
  */
-export default function Sidebar() {
+export default function Sidebar({ activeView, onSelectView }) {
   const {
     institutionName, institutionId, logoUrl, primaryColor,
     role, user, logout
@@ -53,7 +53,14 @@ export default function Sidebar() {
     background: `linear-gradient(to bottom, ${pc}, ${darkerColor}, ${darkestColor})`,
   };
 
-  const isActive = (href) => pathname === href;
+  const isActive = (href) => {
+    if (pathname === '/') {
+      // If we have activeView prop (on home page), only highlight Öğrenciler if activeView === 'students'
+      if (href === '/') return !activeView || activeView === 'students';
+      return pathname === href;
+    }
+    return pathname === href;
+  };
 
   const navLinks = role === 'cook'
     ? [
@@ -70,7 +77,7 @@ export default function Sidebar() {
 
   return (
     <aside
-      className="hidden md:flex w-64 text-white flex-col justify-between p-6 shrink-0 shadow-2xl print:hidden"
+      className="hidden md:flex w-64 text-white flex-col justify-between p-6 shrink-0 shadow-2xl print:hidden sticky top-0 h-screen overflow-y-auto z-30 transition-all duration-300"
       style={sidebarStyle}
     >
       <div>
@@ -97,20 +104,40 @@ export default function Sidebar() {
 
         {/* Nav */}
         <nav className="mt-8 space-y-2">
-          {navLinks.map(({ href, icon: Icon, label }) => (
-            <Link
-              key={href}
-              href={href}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-sm transition-all ${
-                isActive(href)
-                  ? 'bg-white/20 text-white font-bold shadow-md border border-white/20'
-                  : 'text-white/70 hover:text-white hover:bg-white/10'
-              }`}
-            >
-              <Icon size={18} />
-              {label}
-            </Link>
-          ))}
+          {navLinks.map(({ href, icon: Icon, label }) => {
+            const active = isActive(href);
+            if (href === '/' && onSelectView) {
+              return (
+                <button
+                  key={href}
+                  type="button"
+                  onClick={() => onSelectView('students')}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-sm transition-all text-left ${
+                    active
+                      ? 'bg-white/20 text-white font-bold shadow-md border border-white/20'
+                      : 'text-white/70 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  <Icon size={18} />
+                  {label}
+                </button>
+              );
+            }
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-sm transition-all ${
+                  active
+                    ? 'bg-white/20 text-white font-bold shadow-md border border-white/20'
+                    : 'text-white/70 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <Icon size={18} />
+                {label}
+              </Link>
+            );
+          })}
 
           <button
             onClick={logout}
@@ -143,14 +170,14 @@ export default function Sidebar() {
 }
 
 /** Mobile top header — also uses institution primaryColor */
-export function MobileHeader({ title }) {
+export function MobileHeader({ title, rightAction }) {
   const { institutionName, institutionId, logoUrl, primaryColor, logout } = useAuth();
   const [imgErr, setImgErr] = useState(false);
   const pc = primaryColor || '#06429c';
 
   return (
     <header className="md:hidden bg-white px-5 py-4 flex items-center justify-between shadow-sm sticky top-0 z-30">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 min-w-0">
         <div
           className="w-8 h-8 rounded-xl bg-white flex items-center justify-center overflow-hidden shrink-0 p-0.5 border border-slate-100"
         >
@@ -162,18 +189,138 @@ export function MobileHeader({ title }) {
             </div>
           )}
         </div>
-        <div className="text-left">
-          <div className="text-[9px] font-bold leading-none" style={{ color: pc }}>
+        <div className="text-left min-w-0">
+          <div className="text-[9px] font-bold leading-none truncate" style={{ color: pc }}>
             {(institutionName || '').toUpperCase()}
           </div>
-          <div className="text-[11px] font-extrabold leading-none text-slate-800">
+          <div className="text-[11px] font-extrabold leading-none text-slate-800 truncate">
             {title || institutionName || 'PANEL'}
           </div>
         </div>
       </div>
-      <button onClick={logout} className="p-2 bg-red-50 text-red-600 rounded-xl">
-        <LogOut size={18} />
-      </button>
+      <div className="flex items-center gap-2 shrink-0">
+        {rightAction}
+        <button onClick={logout} className="p-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors">
+          <LogOut size={18} />
+        </button>
+      </div>
     </header>
+  );
+}
+
+/** Unified Mobile Bottom Navigation Bar */
+export function MobileBottomNav({ activeView, onSelectView }) {
+  const { user, institutionId, role } = useAuth();
+  const pathname = usePathname();
+  const [leaveEnabled, setLeaveEnabled] = useState(false);
+
+  useEffect(() => {
+    if (!user || !institutionId) return;
+    const instId = institutionId || 'yamanevler';
+    fetch(`/api/admin/leave-settings?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' })
+      .then(r => r.json())
+      .then(d => {
+        if (d.success && d.settings) setLeaveEnabled(!!d.settings.enabled);
+      })
+      .catch(() => {});
+  }, [user, institutionId, pathname]);
+
+  if (role === 'cook') {
+    return (
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex items-center justify-around py-2.5 px-2 z-40 shadow-lg">
+        <Link href="/menu" className="flex flex-col items-center gap-1 text-amber-600 font-bold">
+          <Utensils size={18} />
+          <span className="text-[10px]">Menü</span>
+        </Link>
+        <Link href="/tv" className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-600">
+          <Tv size={18} />
+          <span className="text-[10px] font-medium">TV</span>
+        </Link>
+      </nav>
+    );
+  }
+
+  const isHomeActive = pathname === '/' && (!activeView || activeView === 'students');
+  const isAiActive = pathname === '/' && activeView === 'ai';
+
+  return (
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex items-center justify-around py-2.5 px-2 z-40 shadow-lg">
+      {pathname === '/' && onSelectView ? (
+        <>
+          <button
+            type="button"
+            onClick={() => onSelectView('ai')}
+            className={`flex flex-col items-center gap-1 transition-colors ${
+              isAiActive ? 'text-blue-600 font-bold' : 'text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            <Sparkles size={18} />
+            <span className="text-[10px]">Sesli AI</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => onSelectView('students')}
+            className={`flex flex-col items-center gap-1 transition-colors ${
+              isHomeActive ? 'text-blue-600 font-bold' : 'text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            <User size={18} />
+            <span className="text-[10px]">Öğrenciler</span>
+          </button>
+        </>
+      ) : (
+        <Link
+          href="/"
+          className={`flex flex-col items-center gap-1 transition-colors ${
+            pathname === '/' ? 'text-blue-600 font-bold' : 'text-slate-400 hover:text-blue-600'
+          }`}
+        >
+          <User size={18} />
+          <span className="text-[10px]">Öğrenciler</span>
+        </Link>
+      )}
+
+      <Link
+        href="/haftalik"
+        className={`flex flex-col items-center gap-1 transition-colors ${
+          pathname === '/haftalik' ? 'text-amber-500 font-bold' : 'text-slate-400 hover:text-amber-500'
+        }`}
+      >
+        <Trophy size={18} />
+        <span className="text-[10px]">Haftalık</span>
+      </Link>
+
+      <Link
+        href="/tv"
+        className={`flex flex-col items-center gap-1 transition-colors ${
+          pathname === '/tv' ? 'text-cyan-500 font-bold' : 'text-slate-400 hover:text-cyan-500'
+        }`}
+      >
+        <Tv size={18} />
+        <span className="text-[10px]">TV</span>
+      </Link>
+
+      {leaveEnabled && (
+        <Link
+          href="/izinler"
+          className={`flex flex-col items-center gap-1 transition-colors ${
+            pathname === '/izinler' ? 'text-emerald-600 font-bold' : 'text-slate-400 hover:text-emerald-600'
+          }`}
+        >
+          <Calendar size={18} />
+          <span className="text-[10px]">İzinler</span>
+        </Link>
+      )}
+
+      <Link
+        href="/ayarlar"
+        className={`flex flex-col items-center gap-1 transition-colors ${
+          pathname === '/ayarlar' ? 'text-blue-600 font-bold' : 'text-slate-400 hover:text-blue-600'
+        }`}
+      >
+        <Settings size={18} />
+        <span className="text-[10px]">Ayarlar</span>
+      </Link>
+    </nav>
   );
 }

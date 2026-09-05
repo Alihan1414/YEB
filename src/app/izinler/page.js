@@ -9,7 +9,7 @@ import {
   Phone, ToggleLeft, ToggleRight, Settings,
   ShieldCheck, AlertCircle, CheckCircle2, XCircle, Copy, ExternalLink, Link2
 } from 'lucide-react';
-import Sidebar, { MobileHeader } from '@/components/Sidebar';
+import Sidebar, { MobileHeader, MobileBottomNav } from '@/components/Sidebar';
 import Link from 'next/link';
 import PushNotificationManager from '@/components/PushNotificationManager';
 
@@ -550,28 +550,7 @@ export default function LeaveManagementPage() {
       </main>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 flex items-center justify-around py-2.5 px-2 z-40 shadow-lg">
-        <Link href="/" className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-600">
-          <User size={18} />
-          <span className="text-[10px] font-medium">Öğrenciler</span>
-        </Link>
-        <Link href="/haftalik" className="flex flex-col items-center gap-1 text-slate-400 hover:text-amber-500">
-          <Trophy size={18} />
-          <span className="text-[10px] font-medium">Haftalık</span>
-        </Link>
-        <Link href="/tv" className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-600">
-          <Tv size={18} />
-          <span className="text-[10px] font-medium">TV</span>
-        </Link>
-        <Link href="/izinler" className="flex flex-col items-center gap-1 text-blue-600 font-bold">
-          <Calendar size={18} />
-          <span className="text-[10px]">İzinler</span>
-        </Link>
-        <Link href="/ayarlar" className="flex flex-col items-center gap-1 text-slate-400 hover:text-blue-600">
-          <Settings size={18} />
-          <span className="text-[10px] font-medium">Ayarlar</span>
-        </Link>
-      </nav>
+      <MobileBottomNav />
       
     </div>
   );
