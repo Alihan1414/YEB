@@ -123,6 +123,17 @@ export default function StudentsPage() {
   // İzin modülü aktif mi?
   const [leaveEnabled, setLeaveEnabled] = useState(false);
 
+  // Sync view from URL if navigating from other pages (e.g. /?view=ai or /?view=students)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const v = params.get('view');
+      if (v === 'ai' || v === 'students') {
+        setActiveView(v);
+      }
+    }
+  }, []);
+
   // Auth redirect
   useEffect(() => {
     if (!authLoading) {

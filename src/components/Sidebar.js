@@ -53,13 +53,14 @@ export default function Sidebar({ activeView, onSelectView }) {
     background: `linear-gradient(to bottom, ${pc}, ${darkerColor}, ${darkestColor})`,
   };
 
-  const isActive = (href) => {
+  const isActive = (item) => {
     if (pathname === '/') {
-      // If we have activeView prop (on home page), only highlight Öğrenciler if activeView === 'students'
-      if (href === '/') return !activeView || activeView === 'students';
-      return pathname === href;
+      if (item.view) {
+        return activeView === item.view;
+      }
+      return pathname === item.href;
     }
-    return pathname === href;
+    return pathname === item.href || (item.view && pathname === '/');
   };
 
   const navLinks = role === 'cook'
@@ -67,7 +68,8 @@ export default function Sidebar({ activeView, onSelectView }) {
         { href: '/menu', icon: Utensils, label: 'Yemek Menüsü' },
       ]
     : [
-        { href: '/', icon: User, label: 'Öğrenciler' },
+        { href: '/?view=ai', icon: Sparkles, label: 'Sesli Yapay Zekâ', view: 'ai' },
+        { href: '/', icon: User, label: 'Öğrenciler', view: 'students' },
         { href: '/haftalik', icon: Trophy, label: 'Haftalık Özet' },
         { href: '/tv', icon: Tv, label: 'TV Ekranı' },
         ...(leaveEnabled ? [{ href: '/izinler', icon: Calendar, label: 'İzin Yönetimi' }] : []),
@@ -104,14 +106,16 @@ export default function Sidebar({ activeView, onSelectView }) {
 
         {/* Nav */}
         <nav className="mt-8 space-y-2">
-          {navLinks.map(({ href, icon: Icon, label }) => {
-            const active = isActive(href);
-            if (href === '/' && onSelectView) {
+          {navLinks.map((item) => {
+            const { href, icon: Icon, label, view } = item;
+            const active = isActive(item);
+
+            if (view && onSelectView) {
               return (
                 <button
                   key={href}
                   type="button"
-                  onClick={() => onSelectView('students')}
+                  onClick={() => onSelectView(view)}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-semibold text-sm transition-all text-left ${
                     active
                       ? 'bg-white/20 text-white font-bold shadow-md border border-white/20'
@@ -123,6 +127,7 @@ export default function Sidebar({ activeView, onSelectView }) {
                 </button>
               );
             }
+
             return (
               <Link
                 key={href}
