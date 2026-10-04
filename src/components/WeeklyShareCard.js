@@ -36,7 +36,7 @@ export default function WeeklyShareCard({ stats, institutionName, dateRange, car
             <div className="text-[8px] text-blue-200/50 mt-0.5">Rapor</div>
           </div>
           <div className="bg-white/5 backdrop-blur-sm rounded-2xl p-3 border border-white/5 text-center">
-            <div className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">Namaz</div>
+            <div className="text-[9px] font-black text-emerald-400 uppercase tracking-widest mb-1">Girdi Çıktı</div>
             <div className="text-xl font-black text-emerald-400">{stats.weeklyNamazCount || 0}</div>
             <div className="text-[8px] text-emerald-400/50 mt-0.5">Kayıt</div>
           </div>

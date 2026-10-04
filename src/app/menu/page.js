@@ -67,7 +67,7 @@ export default function MenuPage() {
   // Fetch menus
   const fetchMenus = useCallback(async () => {
     setLoading(true);
-    const instId = institutionId || 'yamanevler';
+    const instId = institutionId || 'bolu-kilicaslan';
     try {
       const res = await fetch(`/api/food-menu?institutionId=${encodeURIComponent(instId)}&date=${selectedDate}`, { cache: 'no-store' });
       const data = await res.json();
@@ -104,7 +104,7 @@ export default function MenuPage() {
   const handleSave = async (e) => {
     e.preventDefault();
     setSaving(true);
-    const instId = institutionId || 'yamanevler';
+    const instId = institutionId || 'bolu-kilicaslan';
     try {
       const res = await fetch('/api/food-menu', {
         method: 'POST',
@@ -141,7 +141,7 @@ export default function MenuPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-800 font-sans flex flex-col">
+    <div className="min-h-screen bg-[#f8fafc] text-slate-800 font-sans flex flex-col w-full max-w-full overflow-x-hidden">
       {/* Toast */}
       <AnimatePresence>
         {toast && (
@@ -149,49 +149,49 @@ export default function MenuPage() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className={`fixed top-6 right-6 z-[9999] px-5 py-3 rounded-2xl shadow-2xl text-sm font-semibold flex items-center gap-3 border ${
+            className={`fixed top-6 right-6 z-[9999] px-4 sm:px-5 py-2.5 sm:py-3 rounded-2xl shadow-2xl text-xs sm:text-sm font-semibold flex items-center gap-2.5 sm:gap-3 border max-w-[90vw] ${
               toast.type === 'error' ? 'bg-red-50 border-red-200 text-red-700' : 'bg-emerald-50 border-emerald-200 text-emerald-700'
             }`}
           >
             {toast.type === 'error' ? <X size={16} /> : <Check size={16} />}
-            {toast.msg}
+            <span className="truncate">{toast.msg}</span>
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Top Navbar */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 px-6 py-4 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-4">
+      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 px-3.5 sm:px-6 py-3 sm:py-4 flex items-center justify-between shadow-xs">
+        <div className="flex items-center gap-2.5 sm:gap-4 min-w-0">
           {role !== 'cook' && (
             <>
               <button
                 onClick={() => router.push('/')}
-                className="p-2 hover:bg-slate-100 text-slate-600 rounded-xl transition-all flex items-center gap-1 text-xs font-bold"
+                className="p-1.5 sm:p-2 hover:bg-slate-100 text-slate-600 rounded-xl transition-all flex items-center gap-1 text-xs font-bold cursor-pointer shrink-0"
               >
                 <ArrowLeft size={16} />
                 <span className="hidden sm:inline">Ana Sayfa</span>
               </button>
-              <div className="h-6 w-px bg-slate-200" />
+              <div className="h-6 w-px bg-slate-200 shrink-0" />
             </>
           )}
 
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-600 shadow-inner">
-              <Utensils size={20} />
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-600 shadow-inner shrink-0">
+              <Utensils size={18} />
             </div>
-            <div>
-              <h1 className="text-base font-black text-slate-900 leading-tight flex items-center gap-2">
-                {role === 'cook' ? 'Aşçı Paneli' : 'Yemek Menüsü Yönetimi'}
-                <span className="px-2 py-0.5 text-[10px] font-black uppercase rounded-full bg-amber-100 text-amber-800 border border-amber-200">
+            <div className="min-w-0">
+              <h1 className="text-sm sm:text-base font-black text-slate-900 leading-tight flex items-center gap-1.5 sm:gap-2 truncate">
+                {role === 'cook' ? 'Aşçı Paneli' : 'Yemek Menüsü'}
+                <span className="px-1.5 sm:px-2 py-0.5 text-[9px] sm:text-[10px] font-black uppercase rounded-full bg-amber-100 text-amber-800 border border-amber-200 shrink-0">
                   {role === 'cook' ? '👨‍🍳 Aşçı' : 'Yönetim'}
                 </span>
               </h1>
-              <p className="text-xs text-slate-500">{institutionName || 'Kurum Mutfağı'}</p>
+              <p className="text-[11px] sm:text-xs text-slate-500 truncate">{institutionName || 'Kurum Mutfağı'}</p>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {role === 'admin' && (
             <Link
               href="/ayarlar"
@@ -211,7 +211,7 @@ export default function MenuPage() {
           </Link>
           <button
             onClick={logout}
-            className="px-3.5 py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl text-xs font-bold transition-all"
+            className="px-3 py-1.5 sm:px-3.5 sm:py-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-xl text-xs font-bold transition-all cursor-pointer"
           >
             Çıkış Yap
           </button>
@@ -219,33 +219,33 @@ export default function MenuPage() {
       </header>
 
       {/* Main Container */}
-      <main className="flex-1 max-w-6xl w-full mx-auto p-4 md:p-8 space-y-6">
+      <main className="flex-1 max-w-6xl w-full mx-auto p-3.5 sm:p-6 md:p-8 space-y-4 sm:space-y-6 pb-28 md:pb-8">
         
         {/* Date Selector Banner */}
-        <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 rounded-3xl p-6 md:p-8 text-white shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
-          <div className="relative z-10">
-            <span className="text-xs font-black uppercase tracking-widest text-amber-100 flex items-center gap-1.5">
+        <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 text-white shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4 sm:gap-6 relative overflow-hidden">
+          <div className="relative z-10 min-w-0">
+            <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-amber-100 flex items-center gap-1.5">
               <Calendar size={14} /> GÜNLÜK & HAFTALIK MENÜ GİRİŞİ
             </span>
-            <h2 className="text-2xl md:text-3xl font-black mt-1">
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-black mt-1 truncate">
               {new Date(selectedDate).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}
               <span className="text-amber-200 font-semibold ml-2">({dayName})</span>
             </h2>
-            <p className="text-amber-100 text-xs md:text-sm mt-1 max-w-md">
+            <p className="text-amber-100 text-xs sm:text-sm mt-1 max-w-md">
               Girilen menüler anında kuruma ait TV ekranında ve sistemde canlı olarak yayınlanır.
             </p>
           </div>
 
-          <div className="relative z-10 flex items-center gap-3 bg-white/15 backdrop-blur-md p-2 rounded-2xl border border-white/20">
+          <div className="relative z-10 flex flex-wrap items-center gap-2 sm:gap-3 bg-white/15 backdrop-blur-md p-2 rounded-2xl border border-white/20">
             <input
               type="date"
               value={selectedDate}
               onChange={e => setSelectedDate(e.target.value)}
-              className="bg-white text-slate-800 font-bold text-xs md:text-sm rounded-xl px-4 py-2.5 outline-none shadow-sm cursor-pointer"
+              className="bg-white text-slate-800 font-bold text-xs sm:text-sm rounded-xl px-3 sm:px-4 py-2 sm:py-2.5 outline-none shadow-xs cursor-pointer flex-1"
             />
             <button
               onClick={() => setSelectedDate(getTodayString())}
-              className="px-3 py-2.5 bg-amber-900/40 hover:bg-amber-900/60 text-white rounded-xl text-xs font-extrabold transition-all shrink-0"
+              className="px-3 py-2 sm:py-2.5 bg-amber-900/40 hover:bg-amber-900/60 text-white rounded-xl text-xs font-extrabold transition-all shrink-0 cursor-pointer"
             >
               Bugün
             </button>

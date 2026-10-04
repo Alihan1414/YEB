@@ -55,7 +55,7 @@ async function getInstitutionId(emailOrInst) {
           const fields = doc.fields || {};
           const email = fields.email?.stringValue || '';
           if (turkishToAscii(email.toLowerCase()) === normalizedInput) {
-            return fields.institutionId?.stringValue || 'yamanevler';
+            return fields.institutionId?.stringValue || 'bolu-kilicaslan';
           }
         }
       }

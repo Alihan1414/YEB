@@ -71,7 +71,7 @@ export default function PushNotificationManager() {
         body: JSON.stringify({
           subscription: sub,
           userId: user?.uid || user?.email || '',
-          institutionId: institutionId || 'yamanevler',
+          institutionId: institutionId || 'bolu-kilicaslan',
           role: role || 'teacher',
         }),
       });

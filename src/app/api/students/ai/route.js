@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { readDb } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
+// ─── 1. Türkçe Karakter Temizleme & Normalizasyon ────────────────────────────
 function trClean(str) {
   if (!str) return '';
   return str
@@ -14,46 +17,269 @@ function trClean(str) {
     .replace(/ö/g, 'o')
     .replace(/ş/g, 's')
     .replace(/ü/g, 'u')
-    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
-// Rapor metninden öğrenci isimlerini ve Türkçe eklerini temizleyerek sadece faaliyeti bırakan yardımcı fonksiyon
-function stripStudentNames(text, matchedStudents = []) {
-  if (!text) return '';
-  let cleaned = text;
+// ─── 2. Boşluksuz Türkçe Normalizasyon ───────────────────────────────────────
+function trSpaceless(str) {
+  return trClean(str).replace(/\s+/g, '');
+}
 
-  // Türkçe çekim ekleri (iyelik, yönelme, belirtme, ayrılma vb.)
-  // 'ı, 'i, 'u, 'ü, 'e, 'a, 'in, 'ın, 'un, 'ün, 'den, 'dan, 'ten, 'tan, -ı, -i vb.
-  const trSuffixRegex = `(?:['’\\-](?:[ıieeaouü][nmst]?|[ıieeaouü]n[ıieeaouü]?|[dt][ae]n|[y][ıieeaouü])|in|ın|un|ün|e|a|i|ı|u|ü|ye|ya|yi|yı|yu|yü|den|dan|ten|tan|de|da|te|ta)?`;
+// ─── 3. Çift / Tekrarlayan Harfleri Teke İndirme ─────────────────────────────
+function collapseDuplicates(str) {
+  if (!str) return '';
+  return str.replace(/(.)\1+/g, '$1');
+}
 
-  matchedStudents.forEach(st => {
-    const rawName = st.name || '';
-    const parts = rawName.split(/\s+/).filter(p => p && p.length >= 2);
-    
-    // Önce tam adı ekleriyle temizle
-    if (rawName.trim().length >= 3) {
-      const escapedFull = rawName.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      cleaned = cleaned.replace(new RegExp(`\\b${escapedFull}${trSuffixRegex}\\b`, 'gi'), ' ');
+// ─── 4. Türkçe Çekim Eklerini Ayıklama (Kök Bulma) ───────────────────────────
+function stripTurkishSuffixes(word) {
+  if (!word || word.length <= 3) return word;
+  let w = trClean(word);
+  // İsmin halleri, tamlama, çoğul ve yapım ekleri
+  w = w.replace(/(lerden|lardan|lerde|larda|lerin|ların|lerini|larını|lere|lara|ler|lar|den|dan|ten|tan|de|da|te|ta|nin|nın|nün|nun|in|ın|un|ün|ye|ya|yu|yü|yi|yı|e|a|i|ı|u|ü|le|la|ce|ca)$/gi, '');
+  return w;
+}
+
+// ─── 5. Grup ve Sınıf İsimleri Normalizasyonu ────────────────────────────────
+function normalizeGroup(str) {
+  if (!str) return '';
+  let s = trSpaceless(str);
+  s = s.replace(/(grubu|ekibi|sinifi|takimi|talebe|talebeleri|ogrencileri|ogrenci|arkadaslar|lar|ler|in|ın|un|ün|den|dan|ten|tan|de|da|te|ta|e|a|i|ı|u|ü)$/gi, '');
+  return collapseDuplicates(s);
+}
+
+// ─── 6. Sınıf İsmi Eşleştirme Normalizasyonu (11-A, 11A, 11/A, 10 B) ─────────
+function normalizeClass(str) {
+  if (!str) return '';
+  return trClean(str)
+    .replace(/\s*(sinifi|sinif|sube|subesi)\s*/gi, '')
+    .replace(/[\s\-\/\.]+/g, '')
+    .trim();
+}
+
+// ─── 7. Levenshtein Mesafesi Hesaplama ─────────────────────────────────────────
+function levenshteinDistance(s1, s2) {
+  if (!s1) return s2 ? s2.length : 0;
+  if (!s2) return s1 ? s1.length : 0;
+  const a = s1.toLowerCase();
+  const b = s2.toLowerCase();
+  if (a === b) return 0;
+
+  const matrix = Array.from({ length: b.length + 1 }, () =>
+    new Array(a.length + 1).fill(0)
+  );
+
+  for (let i = 0; i <= a.length; i++) matrix[0][i] = i;
+  for (let j = 0; j <= b.length; j++) matrix[j][0] = j;
+
+  for (let j = 1; j <= b.length; j++) {
+    for (let i = 1; i <= a.length; i++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      matrix[j][i] = Math.min(
+        matrix[j][i - 1] + 1,
+        matrix[j - 1][i] + 1,
+        matrix[j - 1][i - 1] + cost
+      );
     }
-    
-    // Sonra tekil parçaları (soyadı veya adı) ekleriyle temizle
-    parts.forEach(p => {
-      const escapedPart = p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      cleaned = cleaned.replace(new RegExp(`\\b${escapedPart}${trSuffixRegex}\\b`, 'gi'), ' ');
-      // Tire veya kesme ile ayrılmış halleri de (örn: Divan-ı, Divanlı'ya)
-      cleaned = cleaned.replace(new RegExp(`\\b${escapedPart}[\\-–—'’][a-zA-ZçğıöşüÇĞİÖŞÜ]+\\b`, 'gi'), ' ');
+  }
+  return matrix[b.length][a.length];
+}
+
+// ─── 8. Fonetik & Bulanık Kelime Benzerlik Skoru (0 - 100) ────────────────────
+function fuzzyWordScore(w1, w2) {
+  if (!w1 || !w2) return 0;
+  const c1 = collapseDuplicates(trClean(w1));
+  const c2 = collapseDuplicates(trClean(w2));
+  if (c1 === c2) return 100;
+  
+  // Ekleri atıp kökleri karşılaştır
+  const root1 = stripTurkishSuffixes(c1);
+  const root2 = stripTurkishSuffixes(c2);
+  if (root1 && root2 && (root1 === root2 || root1.startsWith(root2) || root2.startsWith(root1))) {
+    if (Math.abs(root1.length - root2.length) <= 2 && Math.min(root1.length, root2.length) >= 3) {
+      return 90;
+    }
+  }
+
+  const maxLen = Math.max(c1.length, c2.length);
+  if (Math.abs(c1.length - c2.length) > 2) return 0;
+  const dist = levenshteinDistance(c1, c2);
+  const allowed = maxLen <= 3 ? 0 : maxLen <= 5 ? 1 : 2;
+  if (dist <= allowed) {
+    return Math.round((1 - dist / maxLen) * 100);
+  }
+  return 0;
+}
+
+// ─── 9. Genel Fonetik Benzerlik Skoru ─────────────────────────────────────────
+function fuzzyMatchScore(query, target) {
+  if (!query || !target) return 0;
+  const cleanQ = trClean(query);
+  const cleanT = trClean(target);
+  if (!cleanQ || !cleanT) return 0;
+  if (cleanQ === cleanT) return 100;
+
+  const spaceQ = trSpaceless(cleanQ);
+  const spaceT = trSpaceless(cleanT);
+  if (spaceQ === spaceT) return 99;
+
+  const collQ = collapseDuplicates(cleanQ);
+  const collT = collapseDuplicates(cleanT);
+  if (collQ === collT) return 98;
+
+  const normQ = normalizeGroup(cleanQ);
+  const normT = normalizeGroup(cleanT);
+  if (normQ && normT && (normQ === normT || normQ.includes(normT) || normT.includes(normQ))) {
+    return 96;
+  }
+
+  if (spaceQ.includes(spaceT) || spaceT.includes(spaceQ)) return 95;
+
+  const qWords = collQ.split(/\s+/).filter(Boolean);
+  const tWords = collT.split(/\s+/).filter(Boolean);
+
+  if (qWords.length === tWords.length && qWords.length > 1) {
+    let allWordsMatch = true;
+    for (let i = 0; i < qWords.length; i++) {
+      const dist = levenshteinDistance(qWords[i], tWords[i]);
+      const maxLen = Math.max(qWords[i].length, tWords[i].length);
+      const allowed = maxLen <= 3 ? 0 : maxLen <= 5 ? 1 : 2;
+      if (dist > allowed) {
+        allWordsMatch = false;
+        break;
+      }
+    }
+    if (allWordsMatch) return 94;
+  }
+
+  const maxLen = Math.max(collQ.length, collT.length);
+  const minLen = Math.min(collQ.length, collT.length);
+  if (maxLen === 0) return 0;
+
+  if (maxLen - minLen > 2 && !spaceQ.includes(spaceT) && !spaceT.includes(spaceQ)) {
+    return 0;
+  }
+
+  const dist = levenshteinDistance(collQ, collT);
+  const allowed = maxLen <= 3 ? 0 : maxLen <= 5 ? 1 : maxLen <= 8 ? 2 : 3;
+
+  if (dist <= allowed) {
+    return Math.round((1 - (dist / maxLen)) * 100);
+  }
+
+  return 0;
+}
+
+// ─── 10. Metinden İsim, Grup ve Sınıfları Ayıklayarak Temiz Rapor Üretme ────────
+function stripStudentNames(text, matchedStudents = [], matchedGroupNames = [], matchedClassName = null) {
+  if (!text) return '';
+
+  const normGroups = matchedGroupNames.map(g => normalizeGroup(g)).filter(Boolean);
+  const normClass = matchedClassName ? normalizeClass(matchedClassName) : null;
+
+  const studentTokens = new Set();
+  matchedStudents.forEach(st => {
+    trClean(st.name || '').split(/\s+/).forEach(w => { 
+      if (w.length >= 2) {
+        studentTokens.add(w);
+        studentTokens.add(stripTurkishSuffixes(w));
+      }
+    });
+    collapseDuplicates(trClean(st.name || '')).split(/\s+/).forEach(w => { 
+      if (w.length >= 2) {
+        studentTokens.add(w);
+        studentTokens.add(stripTurkishSuffixes(w));
+      }
     });
   });
 
-  // "adlı öğrenciler", "ve", "ile", vb. kelimeleri ve baştaki noktalama işaretlerini temizle
-  cleaned = cleaned
-    .replace(/\b(adlı|isimli|olan|adlarındaki|isimlerindeki)\s+(öğrenciler|öğrencileri|talebeler|talebeleri|arkadaşlar|öğrenci|talebe)\b/gi, ' ')
-    .replace(/\b(öğrenciler|öğrencileri|talebeler|talebeleri)\b/gi, ' ')
+  const words = text.split(/\s+/);
+  const keep = [];
+  
+  let i = 0;
+  while (i < words.length) {
+    let matched = false;
+
+    // 1. Çok kelimeli veya tekil grup adı eşleşmesini tara
+    for (let len = 3; len >= 1; len--) {
+      if (i + len <= words.length) {
+        const slice = words.slice(i, i + len).join(' ');
+        const normSlice = normalizeGroup(slice);
+        if (normGroups.some(ng => ng && (ng === normSlice || normSlice.includes(ng) || ng.includes(normSlice)))) {
+          i += len;
+          matched = true;
+          break;
+        }
+      }
+    }
+
+    if (matched) continue;
+
+    // 2. Sınıf adı kontrolü (örn: 11-A, 10/B, 11-A sınıfı)
+    if (normClass) {
+      const slice = normalizeClass(words[i]);
+      if (slice === normClass || slice.includes(normClass)) {
+        i++;
+        continue;
+      }
+    }
+
+    // 3. Öğrenci ismi ve takı kelimeleri kontrolü
+    const cleanWord = trClean(words[i]);
+    const rootWord = stripTurkishSuffixes(cleanWord);
+    const collWord = collapseDuplicates(cleanWord);
+
+    if (/^(adli|isimli|olan|adlarindaki|ogrenciler|ogrencileri|talebeler|talebeleri|arkadaslar|ogrenci|talebe|grup|grubu|ekip|ekibi|sinifi|sinif)$/i.test(cleanWord)) {
+      i++;
+      continue;
+    }
+
+    let isStMatched = false;
+    for (const token of studentTokens) {
+      if (token.length >= 3 && cleanWord.length >= 3) {
+        if (cleanWord === token || rootWord === token || collWord === token) {
+          isStMatched = true;
+          break;
+        }
+        if (cleanWord.startsWith(token) && cleanWord.length - token.length <= 4) {
+          isStMatched = true;
+          break;
+        }
+        if (Math.abs(cleanWord.length - token.length) <= 2) {
+          const score = fuzzyWordScore(cleanWord, token);
+          if (score >= 80) {
+            isStMatched = true;
+            break;
+          }
+        }
+      }
+    }
+
+    if (isStMatched) {
+      i++;
+      continue;
+    }
+
+    keep.push(words[i]);
+    i++;
+  }
+
+  let cleaned = keep.join(' ')
+    .replace(/\b(adli|isimli|olan|grubu|ekibi|ogrencileri|talebeleri|sinifi|sinif)\b/gi, '')
     .replace(/^[\s,;:\-–—\.\/\\&]+/, '')
-    .replace(/^\s*(ve|ile|de|da|dahi)\s+/gi, '')
+    .replace(/^\s*(ve|ile|de|da|dahi|hepsi|tamami|komple|eksiksiz)\s+/gi, '')
     .replace(/\s+/g, ' ')
     .trim();
+
+  // Türkçe yazım ve kategori düzeltmeleri
+  cleaned = cleaned
+    .replace(/\bdahil derste\b/gi, 'Dahili derste')
+    .replace(/\bdahil derse\b/gi, 'Dahili derse')
+    .replace(/\bnamazda\b/gi, 'Namazda')
+    .replace(/\brevirde\b/gi, 'Revirde')
+    .replace(/\betutte\b/gi, 'Etütte');
 
   if (cleaned.length > 0) {
     cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
@@ -62,22 +288,27 @@ function stripStudentNames(text, matchedStudents = []) {
     }
   }
 
-  return cleaned || text.trim();
+  return cleaned || 'Faaliyet kaydı tamamlandı.';
 }
 
 export async function POST(req) {
   try {
-    const { text, institutionId = 'yamanevler', students: clientStudents } = await req.json();
+    const { 
+      text, 
+      institutionId = 'bolu-kilicaslan', 
+      students: clientStudents,
+      teacherGroups: clientTeacherGroups
+    } = await req.json();
+
     if (!text || text.trim() === '') {
       return NextResponse.json({ success: false, error: 'Metin girişi zorunludur.' }, { status: 400 });
     }
 
-    const normInstId = (institutionId || 'yamanevler').trim().toLowerCase();
+    const normInstId = (institutionId || 'bolu-kilicaslan').trim().toLowerCase();
 
-    // 1. Get current students (Combining Client Passed + Firestore + Local DB for absolute complete list)
+    // ─── 1. Öğrenci Listesini Topla (Client + Local DB + Firestore) ───────────────
     const studentMap = new Map();
 
-    // A. Add client passed students directly if present
     if (Array.isArray(clientStudents) && clientStudents.length > 0) {
       clientStudents.forEach(s => {
         if (s && s.id) {
@@ -90,11 +321,10 @@ export async function POST(req) {
       });
     }
 
-    // B. Fetch Local DB students
     try {
       const dbData = readDb();
       (dbData.students || []).forEach(s => {
-        const sInst = (s.institution_id || 'yamanevler').trim().toLowerCase();
+        const sInst = (s.institution_id || 'bolu-kilicaslan').trim().toLowerCase();
         if (sInst === normInstId) {
           const fullName = `${s.name || ''} ${s.surname || ''}`.trim();
           studentMap.set(s.id, {
@@ -104,11 +334,8 @@ export async function POST(req) {
           });
         }
       });
-    } catch (e) {
-      console.warn("AI Local DB fetch warning:", e.message);
-    }
+    } catch (e) {}
 
-    // B. Fetch Firestore students and merge
     try {
       const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'vision-b1ad5';
       const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCH7bTzvqJqSzJiV0Ou6JudPovkrrWrwdw';
@@ -121,7 +348,7 @@ export async function POST(req) {
         if (data.documents) {
           data.documents.forEach(doc => {
             const fields = doc.fields || {};
-            const docInst = (fields.institution_id?.stringValue || 'yamanevler').trim().toLowerCase();
+            const docInst = (fields.institution_id?.stringValue || 'bolu-kilicaslan').trim().toLowerCase();
             if (docInst === normInstId) {
               const id = doc.name.split('/').pop();
               const fullName = `${fields.name?.stringValue || ''} ${fields.surname?.stringValue || ''}`.trim();
@@ -134,55 +361,153 @@ export async function POST(req) {
           });
         }
       }
-    } catch (e) {
-      console.warn("AI Firestore student fetch warning:", e.message);
-    }
+    } catch (e) {}
 
     const students = Array.from(studentMap.values());
 
+    // ─── 2. Öğretmen Gruplarını Topla (Client + Local DB + Firestore) ────────────
+    const groupsMap = new Map();
+
+    if (Array.isArray(clientTeacherGroups) && clientTeacherGroups.length > 0) {
+      clientTeacherGroups.forEach(g => {
+        if (g && g.id) {
+          groupsMap.set(String(g.id), {
+            id: String(g.id),
+            name: g.name || '',
+            teacher_name: g.teacher_name || '',
+            student_ids: Array.isArray(g.student_ids) ? g.student_ids : []
+          });
+        }
+      });
+    }
+
+    try {
+      const dbData = readDb();
+      if (dbData.teacher_groups) {
+        dbData.teacher_groups.forEach(g => {
+          const gInst = (g.institution_id || g.institutionId || 'bolu-kilicaslan').trim().toLowerCase();
+          if (gInst === normInstId && !groupsMap.has(g.id)) {
+            groupsMap.set(g.id, g);
+          }
+        });
+      }
+    } catch (e) {}
+
+    try {
+      const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'vision-b1ad5';
+      const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCH7bTzvqJqSzJiV0Ou6JudPovkrrWrwdw';
+      if (projectId && apiKey) {
+        const res = await fetch(
+          `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/teacher_groups?key=${apiKey}&pageSize=200`,
+          { cache: 'no-store' }
+        );
+        const data = await res.json();
+        if (data.documents) {
+          data.documents.forEach(doc => {
+            const fields = doc.fields || {};
+            const docInst = (fields.institution_id?.stringValue || 'bolu-kilicaslan').trim().toLowerCase();
+            if (docInst === normInstId) {
+              const id = doc.name.split('/').pop();
+              const sIds = (fields.student_ids?.arrayValue?.values || []).map(v => v.stringValue).filter(Boolean);
+              if (!groupsMap.has(id)) {
+                groupsMap.set(id, {
+                  id,
+                  name: fields.name?.stringValue || '',
+                  teacher_name: fields.teacher_name?.stringValue || '',
+                  student_ids: sIds,
+                });
+              }
+            }
+          });
+        }
+      }
+    } catch (e) {}
+
+    const teacherGroups = Array.from(groupsMap.values());
+
+    // ─── 3. Gemini 2.5 Flash Doğal Türkçe & İnsan Dili Analiz Motoru ─────────────
     const geminiKey = process.env.GEMINI_API_KEY;
 
-    // 2. Try Gemini API first
     if (geminiKey && geminiKey.trim() !== '') {
       try {
         const genAI = new GoogleGenerativeAI(geminiKey);
         const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
 
         const prompt = `
-Sen bir okul ve yurt talebe takip uygulaması için akıllı bir asistansın. Görevin, Türkçe ses/metin rapor girişini analiz ederek bir veya birden fazla öğrenci için ortak veya tekil rapor oluşturmaktır.
+Sen Türk okul ve yurt eğitim kurumları için geliştirilmiş DÜNYA STANDARTLARINDA, TÜRKÇE VE İNSAN DİLİNİ EN DERİNİNE KADAR ANLAYAN YÜKSEK ZEKA SEVİYELİ SES VE METİN ANALİZ UZMANISIN.
 
-Kayıtlı Öğrenciler (Sadece bu listeden eşleştirme yap):
+Kullanıcılar katı komutlar yerine GÜNLÜK TÜRKÇE KONUŞMA DİLİ, DEYİMLER, ARGO, HIZLI SESLİ MESAJLAR, ŞİVELER, DEVREK CÜMLELER veya YURT JARGONU kullanabilirler.
+Görevin: Söylenen Türkçe cümleyi derinlemesine anlayıp; bahsi geçen kişi(ler)i, grubu veya sınıfı tespit etmek, eylemin mahiyetini ve duygu tonunu (olumlu/olumsuz) belirlemek ve temiz bir faaliyet raporu oluşturmaktır.
+
+# 1. TÜRKÇE DİL VE VARLIK EŞLEŞTİRME KURALLARI:
+
+A. TEKİL KİŞİ VE TAM İSİM ÖNCELİĞİ:
+   - Eğer metinde tek bir öğrencinin adı/soyadı geçiyorsa (Örn: "İsmail Abbas namazda"), YALNIZCA o öğrenciyi eşleştir.
+   - Sadece ilk adı aynı olan veya sadece soyadı aynı olan başka öğrencileri LİSTEYE KESİNLİKLE EKLEME!
+   - Türkçe çekim eklerini (Örn: "Ahmet'e", "Mehmet'ten", "Yusuf'ta", "Ömer'in", "Aliler") doğal olarak algıla ve kök ismi bul.
+   - Fonetik yazım hatalarını ve sesli harf uzatmalarını tolere et (Örn: "karrtallar", "yusuuf", "ahmeeet").
+
+B. ÇOKLU ÖĞRENCİ BELİRTİMİ:
+   - Metinde "ve", "ile", virgül veya peş peşe isimler varsa (Örn: "Ahmet Kaya ve Mehmet Demir ödevini teslim etti") her ikisini de 'matchedStudents' listesine ekle.
+
+C. GRUP VE SINIF ADI TESPİTİ:
+   - Kullanıcı öğretmen grubundan bahsettiğinde (Örn: "KaraKARTAL", "kara kartallar", "kartallar", "aslanlar", "hilal timi"):
+     * 'matchedGroupName' alanına grup adını yaz.
+     * O gruptaki TÜM öğrencileri 'matchedStudents' listesine ekle.
+   - Kullanıcı bir sınıftan bahsettiğinde (Örn: "11-A komple seminerdeydi", "10/B derste tam", "9A sınıfı"):
+     * 'matchedClassName' alanına sınıfı yaz (Örn: "11-A").
+     * O sınıfa ait TÜM öğrencileri 'matchedStudents' listesine ekle.
+
+D. RAPOR METNİ TEMİZLİĞİ ('extractedText'):
+   - extractedText alanı, YALNIZCA yapılan faaliyet, eylem, durum veya değerlendirmeyi içermelidir.
+   - extractedText içinde KESİNLİKLE öğrenci isimleri, soyisimleri, grup veya sınıf adları (Örn: "Ahmet Kaya", "Kara kartallar", "11-A") YER ALMAMALIDIR!
+   - extractedText dilbilgisi kurallarına uygun, ilk harfi büyük, düzgün ve kurumsal bir Türkçe cümle olmalıdır.
+
+# 2. KATEGORİ BELİRLEME (Yalnızca şu 6 resmi kategoriden biri):
+1. "Akademik": Ödev, test, sınav, soru çözümü, deneme, netler, kitap okuma, ders çalışma, proje, ezber, başarı.
+2. "Yoklama": Yoklama, tam kadro, eksiksiz, hepsi burada, yemekhane, kahvaltı, çorba, akşam yemeği, oda kontrolü.
+3. "Girdi Çıktı": Kuruma giriş, çıkış, namaz (sabah, öğle, ikindi, akşam, yatsı), cemaat, mescit, çarşı izni, evci izni, vaktinde gelme, geç gelme.
+4. "Sağlık": Revir, hasta, ilaç, doktor, hastane, tansiyon, ateş, baş dönmesi, serum, pansuman, dinlenme. (NOT: Öğrenci soyadındaki "Abbas" gibi heceleri asla sağlık sanma!).
+5. "Program": Seminer, konferans, sohbet, kurum faaliyeti, gezi, maç, turnuva, sinema, toplu etkinlik.
+6. "Dahili Ders": Dahili ders, kurum içi özel ders, birebir etüt, hoca dersi, medrese/kurs müfredat dersi.
+
+# 3. OLUMLU / OLUMSUZ (isPositive) DUYGU ANALİZİ:
+- Olumlu (true): "tam yaptı", "eksiksiz", "başarılı", "katıldı", "dinledi", "gayretli", "soruları çözdü", "vaktinde geldi", "ödül aldı".
+- Olumsuz (false): "dersi kaynattı", "dinlemedi", "uyudu", "kalkamadı", "inmedi", "gecikti", "kaçtı", "ödevini yapmamış", "bahane üretti", "tartıştı", "raporlu/hasta", "gelmedi", "yoktu".
+
+# ÖRNEK ANALİZLER:
+- "Yusuf Demir revire çıktı ateşi var dinleniyor" ->
+  matchedStudents: [{"id": "...", "name": "Yusuf Demir"}], extractedText: "Revire çıktı, ateşi yüksek olduğu için dinleniyor.", category: "Sağlık", isPositive: false
+- "Kara kartallar bu akşamki sohbete tam kadro katıldı" ->
+  matchedGroupName: "Kara kartallar", extractedText: "Bu akşamki sohbete tam kadro katılım sağladı.", category: "Program", isPositive: true
+- "11-A dahili derste çok aktifti soruların hepsini bitirdiler" ->
+  matchedClassName: "11-A", extractedText: "Dahili derste çok aktifti, soruların hepsini bitirdi.", category: "Dahili Ders", isPositive: true
+- "Ahmet dersi kaynattı hocayı hiç dinlemedi" ->
+  matchedStudents: [{"id": "...", "name": "Ahmet ..."}], extractedText: "Dersi kaynattı ve hocayı dinlemedi.", category: "Akademik", isPositive: false
+- "Ömer Faruk yatsı namazına inmedi" ->
+  matchedStudents: [{"id": "...", "name": "Ömer Faruk"}], extractedText: "Yatsı namazına inmedi.", category: "Girdi Çıktı", isPositive: false
+
+Kayıtlı Öğrenciler Listesi:
 ${JSON.stringify(students, null, 2)}
 
-Geçerli Kategoriler (YALNIZCA şu 6 kategoriden birini seç):
-"Akademik", "Yemek", "Program", "Sağlık", "Namaz", "Dahili"
+Kayıtlı Öğretmen Grupları Listesi:
+${JSON.stringify(teacherGroups, null, 2)}
 
-Önemli Kategori Örnekleri:
-- Ödev yapma, ödev teslimi, sınav sonucu, test/soru çözümü, derse katılım, ders çalışması, kitap okuması -> Kategori: "Akademik"
-- Yemek yeme, öğle yemeği, kahvaltı, çorba, yemeğe katıldı/katılmadı -> Kategori: "Yemek"
-- Namaz kılma, sabah/öğle/ikindi/akşam/yatsı namazı, cemaat, tesbihat -> Kategori: "Namaz"
-- Hastalık, revir, ilaç, baş ağrısı, doktor, ateş -> Kategori: "Sağlık"
-- Etkinlik, sohbet, seminer, toplu faaliyet, ders programı -> Kategori: "Program"
-- Kurum içi dahili konular, idari notlar, diğer konular -> Kategori: "Dahili"
+Kullanıcının Söylediği Metin / Ses Kaydı:
+"${text.replace(/"/g, '\\"')}"
 
-Kurallar:
-1. Öğrenci Eşleştirme (Çoklu veya Tekli): Girişte geçen isim veya isimleri listedeki öğrencilerle esnek bir şekilde (Türkçe karakter uyuşmazlığı "ergon" -> "Ergön" veya konuşma-metin ses dönüşüm hataları dahil) en doğru şekilde eşleştir. Eğer 1'den fazla öğrencinin adı geçiyorsa (örneğin "Ali, Ahmet, Mehmet ve Burak etüde katıldı"), geçen TÜM öğrencileri "matchedStudents" dizisine ekle.
-2. matchedStudents: Her biri { "id": "student-id", "name": "Öğrenci Adı Soyadı", "class": "Sınıfı" } objesi içeren dizi.
-3. Rapor Metni (ÖNEMLİ KURAL): Rapor içeriğinde KESİNLİKLE öğrenci isimleri yer almamalıdır! Sadece gerçekleştirilen faaliyet, eylem veya durum yazılmalıdır ("ali, ahmet, mehmet ödevlerini teslim etti" -> "Ödevlerini teslim etti."). Öğrencilerin isimleri bireysel veya toplu raporda asla metin içine yazılmamalı, çünkü her öğrencinin kendi raporunda diğer öğrencilerin isimlerinin gözükmesi istenmez!
-4. Kategori: Rapor içeriğine en uygun kategoriyi belirle.
-5. isPositive: Rapor olumlu bir davranış/durum içeriyorsa true, olumsuzsa false.
-6. Güven Skoru: 0.0 ile 1.0 arasında güven skoru ver.
-
-SADECE geçerli şu JSON formatında yanıt ver:
+SADECE geçerli JSON formatında yanıt ver, başka hiçbir açıklama ekleme:
 {
   "matchedStudents": [
-    { "id": "student-id", "name": "Öğrenci Adı Soyadı", "class": "Sınıfı" }
+    { "id": "öğrenci-id", "name": "Ad Soyad", "class": "Sınıf" }
   ],
   "matchedStudentId": "ilk öğrencinin id'si veya null",
   "matchedStudentName": "ilk öğrencinin adı veya null",
+  "matchedGroupName": "Eğer bir gruptan bahsedildiyse grup adı veya null",
+  "matchedClassName": "Eğer bir sınıftan bahsedildiyse sınıf adı (örn: 11-A) veya null",
   "confidence": 0.95,
-  "extractedText": "Öğrenci isimleri İÇERMEYEN temiz Türkçe faaliyet/eylem metni",
-  "category": "Akademik",
+  "extractedText": "Öğrenci, grup ve sınıf isimlerinden arındırılmış temiz faaliyet metni",
+  "category": "Girdi Çıktı",
   "isPositive": true,
   "rawInput": "${text.replace(/"/g, '\\"')}"
 }`;
@@ -191,11 +516,13 @@ SADECE geçerli şu JSON formatında yanıt ver:
         const resultText = result.response.text().trim();
         const cleanedText = resultText.replace(/^```json\s*/, '').replace(/\s*```$/, '').trim();
         const parsed = JSON.parse(cleanedText);
-        
-        // Ensure category is strictly valid
-        const validCategories = ['Akademik', 'Yemek', 'Program', 'Sağlık', 'Namaz', 'Dahili'];
+
+        const validCategories = ['Akademik', 'Yoklama', 'Program', 'Sağlık', 'Girdi Çıktı', 'Dahili Ders'];
+        if (parsed.category === 'Yemek') parsed.category = 'Yoklama';
+        if (parsed.category === 'Namaz' || /(namaz|cemaat)/i.test(text)) parsed.category = 'Girdi Çıktı';
+        if (parsed.category === 'Dahili' || /(dahil|dahili)/i.test(text)) parsed.category = 'Dahili Ders';
         if (!validCategories.includes(parsed.category)) {
-          parsed.category = 'Dahili';
+          parsed.category = 'Girdi Çıktı';
         }
 
         if (!Array.isArray(parsed.matchedStudents)) {
@@ -212,149 +539,278 @@ SADECE geçerli şu JSON formatında yanıt ver:
           parsed.matchedStudentName = parsed.matchedStudents[0].name;
         }
 
-        // Always strip student names from extractedText to guarantee clean action text
-        parsed.extractedText = stripStudentNames(parsed.extractedText, parsed.matchedStudents);
+        // Grup adı veya metinde grup eşleşmesi bulunduysa grup üyelerini ekle
+        const matchedGrpNames = [];
+        if (parsed.matchedGroupName) matchedGrpNames.push(parsed.matchedGroupName);
+
+        teacherGroups.forEach(grp => {
+          const normGrp = normalizeGroup(grp.name);
+          const normText = normalizeGroup(text);
+          if (normGrp && (normText.includes(normGrp) || normGrp.includes(normText) || fuzzyMatchScore(text, grp.name) >= 75)) {
+            if (!matchedGrpNames.includes(grp.name)) matchedGrpNames.push(grp.name);
+            (grp.student_ids || []).forEach(stId => {
+              const st = students.find(s => s.id === stId);
+              if (st && !parsed.matchedStudents.some(m => m.id === st.id)) {
+                parsed.matchedStudents.push({
+                  id: st.id,
+                  name: st.fullName,
+                  class: st.class || ''
+                });
+              }
+            });
+          }
+        });
+
+        // Sınıf adı tespit edildiyse sınıf üyelerini ekle
+        if (parsed.matchedClassName) {
+          const targetNormClass = normalizeClass(parsed.matchedClassName);
+          students.forEach(st => {
+            if (st.class && normalizeClass(st.class) === targetNormClass) {
+              if (!parsed.matchedStudents.some(m => m.id === st.id)) {
+                parsed.matchedStudents.push({
+                  id: st.id,
+                  name: st.fullName,
+                  class: st.class
+                });
+              }
+            }
+          });
+        }
+
+        parsed.extractedText = stripStudentNames(parsed.extractedText || text, parsed.matchedStudents, matchedGrpNames, parsed.matchedClassName);
 
         return NextResponse.json({ success: true, data: parsed });
       } catch (err) {
-        console.warn("Gemini execution failed, falling back to local matcher:", err);
+        console.warn("Gemini execution failed, utilizing advanced local matcher:", err);
       }
     }
 
-    // 3. Robust Local Fallback Matcher (Ranked Scoring & Disambiguation)
+    // ─── 4. Gelişmiş Yerel Token Tüketimli & Doğal Dil Eşleştirme Motoru ────────
     const cleanedInput = trClean(text);
-    const scoredStudents = [];
+    const spacelessInput = trSpaceless(text);
+    const inputWords = cleanedInput.split(/\s+/).filter(Boolean);
+    const matchedStudentsList = [];
+    const matchedGroupNames = [];
+    let matchedClassName = null;
+    const matchedReservedWords = new Set();
+
+    // A. Sınıf Eşleştirmesi (örn: 11-A, 10/B, 9-A sınıfı)
+    for (const student of students) {
+      if (!student.class) continue;
+      const cleanClass = trClean(student.class);
+      const normCls = normalizeClass(student.class);
+      if (normCls && normCls.length >= 2) {
+        if (cleanedInput.includes(cleanClass) || spacelessInput.includes(normCls)) {
+          matchedClassName = student.class;
+          cleanClass.split(/\s+/).forEach(w => matchedReservedWords.add(w));
+          break;
+        }
+      }
+    }
+
+    if (matchedClassName) {
+      const targetNormClass = normalizeClass(matchedClassName);
+      students.forEach(st => {
+        if (st.class && normalizeClass(st.class) === targetNormClass) {
+          if (!matchedStudentsList.some(m => m.id === st.id)) {
+            matchedStudentsList.push({
+              id: st.id,
+              name: st.fullName,
+              class: st.class
+            });
+          }
+        }
+      });
+    }
+
+    // B. Öğretmen Gruplarını Bulanık Eşleştir
+    for (const grp of teacherGroups) {
+      if (!grp.name) continue;
+      const cleanGrp = trClean(grp.name);
+      const spaceGrp = trSpaceless(grp.name);
+      const normGrp = normalizeGroup(grp.name);
+      let grpMatched = false;
+
+      if (normGrp && (normalizeGroup(cleanedInput).includes(normGrp) || normGrp.includes(normalizeGroup(cleanedInput)))) {
+        grpMatched = true;
+      }
+
+      if (!grpMatched && (fuzzyMatchScore(cleanedInput, cleanGrp) >= 75 || fuzzyMatchScore(spacelessInput, spaceGrp) >= 75)) {
+        grpMatched = true;
+      }
+
+      if (!grpMatched && inputWords.length > 0) {
+        for (let len = 4; len >= 1; len--) {
+          for (let i = 0; i <= inputWords.length - len; i++) {
+            const windowPhrase = inputWords.slice(i, i + len).join(' ');
+            const windowSpaceless = trSpaceless(windowPhrase);
+            const windowNorm = normalizeGroup(windowPhrase);
+
+            if (
+              (normGrp && windowNorm === normGrp) ||
+              fuzzyMatchScore(windowPhrase, cleanGrp) >= 75 ||
+              fuzzyMatchScore(windowSpaceless, spaceGrp) >= 75
+            ) {
+              grpMatched = true;
+              break;
+            }
+          }
+          if (grpMatched) break;
+        }
+      }
+
+      if (grpMatched) {
+        matchedGroupNames.push(grp.name);
+        cleanGrp.split(/\s+/).forEach(w => matchedReservedWords.add(w));
+        collapseDuplicates(cleanGrp).split(/\s+/).forEach(w => matchedReservedWords.add(w));
+        matchedReservedWords.add(spaceGrp);
+        matchedReservedWords.add(normGrp);
+
+        (grp.student_ids || []).forEach(stId => {
+          const st = students.find(s => s.id === stId);
+          if (st && !matchedStudentsList.some(m => m.id === st.id)) {
+            matchedStudentsList.push({
+              id: st.id,
+              name: st.fullName,
+              class: st.class || ''
+            });
+          }
+        });
+      }
+    }
+
+    // C. Öğrencileri Token Tüketimi & Ayrıştırma İle Eşleştir (Tam İsim Önceliği)
+    const candidateMatches = [];
 
     for (const student of students) {
-      const cleanedFullName = trClean(student.fullName);
-      const nameParts = cleanedFullName.split(' ').filter(Boolean);
-      const firstName = nameParts[0] || '';
-      const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+      if (matchedStudentsList.some(m => m.id === student.id)) continue;
 
-      let score = 0;
-      let matchType = 'none';
+      const cleanFullName = trClean(student.fullName);
+      const parts = cleanFullName.split(/\s+/).filter(Boolean);
+      const firstName = parts[0] || '';
+      const lastName = parts.length > 1 ? parts[parts.length - 1] : '';
 
-      // 1. Tam İsim Birebir veya Ekli Kontrolü (örn: "Alihan Divanlı", "Alihan Divan")
-      if (cleanedFullName && cleanedFullName.length >= 3) {
-        if (cleanedInput.includes(cleanedFullName)) {
-          score = 100;
-          matchType = 'full_exact';
-        } else if (lastName && lastName.length >= 3) {
-          // Soyadının kökü ve adın birlikte geçmesi (örn: "alihan divan" metinde "alihan divanlı" veya "alihan divan-ı")
-          const lastNameStem = lastName.slice(0, Math.max(3, lastName.length - 2));
-          if (cleanedInput.includes(firstName) && cleanedInput.includes(lastNameStem)) {
-            score = 90;
-            matchType = 'full_stem';
+      // 1. Tam İsim Bitişik Eşleşmesi (örn: 'ismail abbas' -> kelime index 0 ve 1)
+      if (parts.length >= 2) {
+        for (let i = 0; i <= inputWords.length - parts.length; i++) {
+          let fullMatch = true;
+          for (let p = 0; p < parts.length; p++) {
+            if (matchedReservedWords.has(inputWords[i + p])) {
+              fullMatch = false;
+              break;
+            }
+            if (fuzzyWordScore(inputWords[i + p], parts[p]) < 80) {
+              fullMatch = false;
+              break;
+            }
+          }
+          if (fullMatch) {
+            const usedIndices = [];
+            for (let p = 0; p < parts.length; p++) usedIndices.push(i + p);
+            candidateMatches.push({
+              student,
+              score: 150,
+              type: 'full',
+              usedIndices
+            });
           }
         }
       }
 
-      // 2. Yalnızca Soyisim Kontrolü (Nadir ve ayırt edici soyadlar için)
-      if (score === 0 && lastName && lastName.length >= 4) {
-        const lastNameStem = lastName.slice(0, Math.max(3, lastName.length - 2));
-        const regexLast = new RegExp(`\\b${lastNameStem}`, 'i');
-        if (regexLast.test(cleanedInput)) {
-          score = 70;
-          matchType = 'last_only';
-        }
-      }
+      // 2. Tekil İsim Eşleşmesi (Sadece tam isim eşleşmediyse devreye girer)
+      for (let i = 0; i < inputWords.length; i++) {
+        const word = inputWords[i];
+        if (word.length < 3 || matchedReservedWords.has(word)) continue;
 
-      // 3. Yalnızca İsim Kontrolü (En düşük öncelik: min 3 karakter)
-      if (score === 0 && firstName && firstName.length >= 3) {
-        const regexFirst = new RegExp(`\\b${firstName}\\b`, 'i');
-        if (regexFirst.test(cleanedInput)) {
-          score = 40;
-          matchType = 'first_only';
+        if (firstName && firstName.length >= 3 && fuzzyWordScore(word, firstName) >= 80) {
+          candidateMatches.push({
+            student,
+            score: 60,
+            type: 'first',
+            usedIndices: [i]
+          });
         }
-      }
 
-      if (score > 0) {
-        scoredStudents.push({
-          student,
-          score,
-          matchType,
-          firstName,
-          lastName
-        });
+        if (lastName && lastName.length >= 4 && fuzzyWordScore(word, lastName) >= 80) {
+          candidateMatches.push({
+            student,
+            score: 70,
+            type: 'last',
+            usedIndices: [i]
+          });
+        }
       }
     }
 
-    // DISAMBIGUATION:
-    // Eğer bir öğrenci tam isimle (score >= 90) eşleştiyse (örn: "Alihan Divanlı"),
-    // sadece ilk adı aynı olan diğer öğrencileri (örn: "Alihan Karakoç") hariç tut!
-    const hasHighScore = scoredStudents.some(s => s.score >= 90);
-    let finalFilteredScored = scoredStudents;
+    // Skorlara göre sırala: En yüksek skorlu (tam isimler) en önde
+    candidateMatches.sort((a, b) => b.score - a.score);
 
-    if (hasHighScore) {
-      const highScoredFirstNames = new Set(
-        scoredStudents.filter(s => s.score >= 90).map(s => s.firstName)
-      );
+    const claimedWordIndices = new Set();
 
-      finalFilteredScored = scoredStudents.filter(s => {
-        // Skoru 90 ve üzeri ise kesin al
-        if (s.score >= 90) return true;
-        // Eğer skoru düşükse ve ilk adı yüksek skorlu biriyle çakışıyorsa VE soyadı metinde geçmiyorsa ELE!
-        if (highScoredFirstNames.has(s.firstName)) {
-          return false;
+    for (const match of candidateMatches) {
+      const isAlreadyClaimed = match.usedIndices.some(idx => claimedWordIndices.has(idx));
+      if (!isAlreadyClaimed) {
+        if (!matchedStudentsList.some(m => m.id === match.student.id)) {
+          matchedStudentsList.push({
+            id: match.student.id,
+            name: match.student.fullName,
+            class: match.student.class || ''
+          });
+          match.usedIndices.forEach(idx => claimedWordIndices.add(idx));
         }
-        return true;
-      });
-    }
-
-    // Skoruna göre sırala
-    finalFilteredScored.sort((a, b) => b.score - a.score);
-
-    const matchedStudentsList = [];
-    for (const item of finalFilteredScored) {
-      if (!matchedStudentsList.some(m => m.id === item.student.id)) {
-        matchedStudentsList.push({
-          id: item.student.id,
-          name: item.student.fullName,
-          class: item.student.class || ''
-        });
       }
     }
 
-    // Determine category via keyword analysis
-    let category = 'Dahili';
+    // D. Doğal Türkçe Kategori Belirleme
+    let category = 'Girdi Çıktı';
     let isPositive = true;
-    if (/(odev|sinav|not|test|soru|deneme|karne|matematik|fizik|kimya|biyoloji|turkce|tarih|cografya|kitap|okum|calis|teslim|akademik|derse|dersini|ders)/i.test(cleanedInput)) {
+
+    if (/\b(odev|sinav|not|test|soru|deneme|net|karne|ders|dersi|derste|matematik|fizik|kimya|biyoloji|turkce|tarih|cografya|kitap|okum|okudu|calis|calisti|teslim|akademik|paragraf|ezber|mufredat|performans|proje|derece|basari|kaynatti|dinlemedi)\b/i.test(cleanedInput)) {
       category = 'Akademik';
-    } else if (/(namaz|sabah|ogle|ikindi|aksam|yatsi|cami|cemaat|tesbih|kild)/i.test(cleanedInput)) {
-      category = 'Namaz';
-    } else if (/(yemek|kahvalti|corba|yedi|icti|menu|tabak)/i.test(cleanedInput)) {
-      category = 'Yemek';
-    } else if (/(bas|revir|hasta|ilac|saglik|ates|doktor|agri|kusma|mide|halsiz)/i.test(cleanedInput)) {
+    } else if (/\b(dahil|dahili|dahiliders|ozelders|etut|birebir|sarf|nahiv|fikih|tefsir|hadis|kuran)\b/i.test(cleanedInput)) {
+      category = 'Dahili Ders';
+    } else if (/\b(namaz|namazda|namaza|yatsi|sabah|ogle|ikindi|aksam|girdi|cikti|cikis|giris|izin|carsi|evci|ayrildi|geldi|gitti|yurda|cemaat|vakit|mescit|cami|kapi|turnike|nobet)\b/i.test(cleanedInput)) {
+      category = 'Girdi Çıktı';
+    } else if (/\b(yoklama|tam|hepsi|burada|buradalar|eksiksiz|yemek|kahvalti|corba|yedi|icti|menu|tabak|katilim|yatakhane|oda)\b/i.test(cleanedInput)) {
+      category = 'Yoklama';
+    } else if (/\b(revir|hasta|hastalik|ilac|saglik|ates|doktor|doktora|agri|kusma|mide|halsiz|grip|serum|yaralan|pansuman|tansiyon|raporlu|sevk|hastane|acil)\b|\bbas agrisi\b|\bbas donmesi\b/i.test(cleanedInput)) {
       category = 'Sağlık';
-    } else if (/(program|etkinlik|faaliyet|toplanti|seminer|sohbet|kuran)/i.test(cleanedInput)) {
+    } else if (/\b(program|etkinlik|faaliyet|toplanti|seminer|sohbet|sinema|konferans|gezi|piknik|mac|turnuva|halisaha|tiyatro|munazara)\b/i.test(cleanedInput)) {
       category = 'Program';
     }
-    
-    if (/(katilmadi|yapmadi|gelmedi|etmedi|eksik|olmadi|basmadi|vermedi|gitmedi|uyumadi|kalkmadi)/i.test(cleanedInput)) {
+
+    // E. Doğal Türkçe Olumlu / Olumsuz Duygu Tespiti
+    const cleanNoPositiveExceptions = cleanedInput
+      .replace(/\beksiksiz\b/g, '')
+      .replace(/\btam\b/g, '')
+      .replace(/\btamkadro\b/g, '')
+      .replace(/\bbasarili\b/g, '')
+      .replace(/\bgayretli\b/g, '');
+
+    if (/\b(katilmadi|yapmadi|gelmedi|etmedi|eksik|olmadi|basmadi|vermedi|gitmedi|uyumadi|uyudu|kalkmadi|kalkamadi|inmedi|inmemis|gec|gecikti|kacti|kacmis|olumsuz|disiplinsiz|kaynatti|dinlemedi|bahane|tartisti|kavga|sikayet|rahatsiz|yoktu|bulunmadi|asdi|ihmal)\b/i.test(cleanNoPositiveExceptions)) {
       isPositive = false;
     }
 
-    // Strip student names in fallback too
-    const extractedText = stripStudentNames(text, matchedStudentsList);
-
+    const extractedText = stripStudentNames(text, matchedStudentsList, matchedGroupNames, matchedClassName);
     const firstMatch = matchedStudentsList[0] || null;
 
-    const fallbackResponse = {
+    const responseData = {
       matchedStudents: matchedStudentsList,
       matchedStudentId: firstMatch ? firstMatch.id : null,
       matchedStudentName: firstMatch ? firstMatch.name : null,
-      confidence: matchedStudentsList.length > 0 ? 0.90 : 0.40,
+      matchedGroupName: matchedGroupNames[0] || null,
+      matchedClassName: matchedClassName || null,
+      confidence: matchedStudentsList.length > 0 ? 0.95 : 0.40,
       extractedText: extractedText,
       category: category,
       isPositive: isPositive,
       rawInput: text
     };
 
-    return NextResponse.json({ success: true, data: fallbackResponse });
+    return NextResponse.json({ success: true, data: responseData });
 
   } catch (error) {
     console.error("AI Parser Error:", error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
-

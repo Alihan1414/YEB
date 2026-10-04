@@ -86,3 +86,38 @@ export async function PATCH(req, { params }) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }
 }
+
+export async function DELETE(req, { params }) {
+  try {
+    const { id } = await params;
+    if (!id) {
+      return NextResponse.json({ success: false, error: 'ID gereklidir.' }, { status: 400 });
+    }
+
+    // 1. Delete from local DB
+    try {
+      const dbData = readDb();
+      if (dbData.leaveRequests) {
+        dbData.leaveRequests = dbData.leaveRequests.filter(r => r.id !== id);
+        writeDb(dbData);
+      }
+    } catch (err) {
+      console.warn("Local DB delete error in leave DELETE:", err.message);
+    }
+
+    // 2. Delete from Firestore
+    try {
+      await fetch(
+        `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/leaveRequests/${id}?key=${FIREBASE_API_KEY}`,
+        { method: 'DELETE' }
+      );
+    } catch (err) {
+      console.warn("Firestore delete error in leave DELETE:", err.message);
+    }
+
+    return NextResponse.json({ success: true, id });
+  } catch (error) {
+    console.error("DELETE Leave request error:", error);
+    return NextResponse.json({ success: false, error: error.message }, { status: 500 });
+  }
+}

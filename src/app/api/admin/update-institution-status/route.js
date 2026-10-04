@@ -25,7 +25,7 @@ export async function POST(req) {
       const f = doc.fields || {};
       return {
         id: doc.name.split('/').pop(),
-        institutionId: f.institutionId?.stringValue || 'yamanevler',
+        institutionId: f.institutionId?.stringValue || 'bolu-kilicaslan',
       };
     });
 

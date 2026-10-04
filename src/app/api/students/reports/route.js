@@ -29,7 +29,7 @@ export async function GET(req) {
           docs.forEach(doc => {
             const fields = doc.fields || {};
             const id = doc.name.split('/').pop();
-            const rInst = (fields.institution_id?.stringValue || fields.institutionId?.stringValue || 'yamanevler').trim().toLowerCase();
+            const rInst = (fields.institution_id?.stringValue || fields.institutionId?.stringValue || 'bolu-kilicaslan').trim().toLowerCase();
             const rStudentId = (fields.student_id?.stringValue || fields.studentId?.stringValue || '').trim();
             const normRStudentId = rStudentId.toLowerCase();
 
@@ -69,7 +69,7 @@ export async function GET(req) {
       const dbData = readDb();
       const localReports = dbData.reports || [];
       localReports.forEach(r => {
-        const rInst = (r.institution_id || r.institutionId || 'yamanevler').trim().toLowerCase();
+        const rInst = (r.institution_id || r.institutionId || 'bolu-kilicaslan').trim().toLowerCase();
         const rStId = (r.student_id || r.studentId || '').trim().toLowerCase();
 
         const isStudentMatch = normStudentId && rStId === normStudentId;
@@ -99,15 +99,15 @@ export async function POST(req) {
   try {
     const {
       studentId, studentName, className, parentPhone,
-      content, category, isPositive, notifyParent, institutionId = 'yamanevler',
+      content, category, isPositive, notifyParent, institutionId = 'bolu-kilicaslan',
       createdBy
     } = await req.json();
 
     if (!studentId || !content) {
-      return NextResponse.json({ success: false, error: 'Eksik bilgi: Ã–ÄŸrenci ve iÃ§erik gereklidir.' }, { status: 400 });
+      return NextResponse.json({ success: false, error: 'Eksik bilgi: Öğrenci ve içerik gereklidir.' }, { status: 400 });
     }
 
-    const instId = (institutionId || 'yamanevler').trim().toLowerCase();
+    const instId = (institutionId || 'bolu-kilicaslan').trim().toLowerCase();
     const cleanStudentId = String(studentId).trim();
     const reportId = `report-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const nowIso = new Date().toISOString();

@@ -14,7 +14,7 @@ function getTodayString() {
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
-    const rawInstId = searchParams.get('institutionId') || 'yamanevler';
+    const rawInstId = searchParams.get('institutionId') || 'bolu-kilicaslan';
     const institutionId = rawInstId.trim().toLowerCase();
     const date = searchParams.get('date') || getTodayString();
     const week = searchParams.get('week'); // if 'current', return list of recent/week menus
@@ -90,7 +90,7 @@ export async function POST(req) {
   try {
     const body = await req.json();
     const {
-      institutionId = 'yamanevler',
+      institutionId = 'bolu-kilicaslan',
       date = getTodayString(),
       dayName,
       breakfast = '',
@@ -169,7 +169,7 @@ export async function DELETE(req) {
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
-    if (!id) return NextResponse.json({ success: false, error: 'Menü ID eksik' }, { status: 400 });
+    if (!id) return NextResponse.json({ success: false, error: 'Menü ID eksik.' }, { status: 400 });
 
     const dbData = readDb();
     if (dbData.foodMenus) {

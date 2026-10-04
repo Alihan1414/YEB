@@ -7,7 +7,7 @@ const FIREBASE_API_KEY    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY    || 'AIza
 const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'vision-b1ad5';
 
 function normalizeInstitutionId(id) {
-  if (!id) return 'yamanevler';
+  if (!id) return 'bolu-kilicaslan';
   const clean = id.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
   if (clean.includes('kilicaslan')) return 'bolu-kilicaslan';
   if (clean.includes('erenler') || clean.includes('cinardere')) return 'cinardere-erenler';
@@ -19,7 +19,7 @@ function normalizeInstitutionId(id) {
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
-    const rawInstId = searchParams.get('institutionId') || 'yamanevler';
+    const rawInstId = searchParams.get('institutionId') || 'bolu-kilicaslan';
     const institutionId = normalizeInstitutionId(rawInstId);
     const authHeader = req.headers.get('authorization');
     const headers = {
@@ -38,11 +38,10 @@ export async function GET(req) {
       if (res.ok) {
         const data = await res.json();
         if (data.fields) {
-          const enabled = data.fields.enabled?.booleanValue !== undefined ? data.fields.enabled.booleanValue : true;
           const assignedTeacherId = data.fields.assignedTeacherId?.stringValue || '';
           return NextResponse.json({
             success: true,
-            settings: { enabled: Boolean(enabled), assignedTeacherId }
+            settings: { enabled: true, assignedTeacherId }
           });
         }
       }
@@ -54,11 +53,11 @@ export async function GET(req) {
     try {
       const dbData = readDb();
       if (dbData.leaveSettings && dbData.leaveSettings[institutionId]) {
-        settings = dbData.leaveSettings[institutionId];
+        settings = { ...dbData.leaveSettings[institutionId], enabled: true };
       }
     } catch {}
 
-    return NextResponse.json({ success: true, settings });
+    return NextResponse.json({ success: true, settings: { ...settings, enabled: true } });
   } catch (error) {
     console.error("GET Leave settings error:", error);
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
@@ -67,7 +66,7 @@ export async function GET(req) {
 
 export async function POST(req) {
   try {
-    const { institutionId, enabled, assignedTeacherId } = await req.json();
+    const { institutionId, assignedTeacherId } = await req.json();
     const authHeader = req.headers.get('authorization');
     const headers = {
       'Content-Type': 'application/json',
@@ -79,7 +78,8 @@ export async function POST(req) {
     }
 
     const instId = institutionId.trim().toLowerCase();
-    const isEnabled = Boolean(enabled);
+    // İzin yönetimi bütün kurumlarda daimi olarak açıktır, kapatılamaz!
+    const isEnabled = true;
 
     // 1. Update local DB
     const dbData = readDb();
@@ -103,14 +103,14 @@ export async function POST(req) {
           headers,
           body: JSON.stringify({
             fields: {
-              enabled:           { booleanValue: isEnabled },
+              enabled:           { booleanValue: true },
               assignedTeacherId: { stringValue: assignedTeacherId || '' },
             },
           }),
         }
       );
       if (!fsRes.ok) {
-        console.warn("Firestore leave settings PATCH response not OK:", fsRes.status, await fsRes.text());
+        console.warn("Firestore leave settings PATCH response not OK:", fsRes.status);
       }
     } catch (err) {
       console.warn("Firestore leave settings save failed, saved locally:", err.message);

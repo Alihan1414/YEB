@@ -9,7 +9,7 @@ const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'visi
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
-    const institutionId = searchParams.get('institutionId') || 'yamanevler';
+    const institutionId = searchParams.get('institutionId') || 'bolu-kilicaslan';
 
     let requests = [];
 
@@ -92,13 +92,7 @@ export async function POST(req) {
     }
 
     const instId = institutionId.trim().toLowerCase();
-
-    // Check if leave system is enabled for this institution
     const dbData = readDb();
-    const settings = (dbData.leaveSettings && dbData.leaveSettings[instId]) || { enabled: false };
-    if (!settings.enabled) {
-      return NextResponse.json({ success: false, error: 'İzin başvuruları şu anda kapalıdır.' }, { status: 400 });
-    }
 
     const requestId = `leave-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const nowStr = new Date().toISOString();

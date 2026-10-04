@@ -3,8 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/AuthContext';
-import { Loader2, Eye, EyeOff, User, Lock } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Loader2, Eye, EyeOff, User, Lock, Download, CheckCircle2, X, Smartphone } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 // Username → Firebase email mapping
 const USERNAME_MAP = {
@@ -13,6 +13,7 @@ const USERNAME_MAP = {
   'yeb@2026': 'yeb@2026.com',
   'erenler': 'erenler@2026',
   'kilicaslan': 'kilicaslan@2026',
+  'kilicarslan': 'kilicaslan@2026',
   'pty': 'pty@2026',
   'alihan': 'alihan@2026',
 };
@@ -61,6 +62,67 @@ export default function LoginPage() {
   const [selectedTeacherEmail, setSelectedTeacherEmail] = useState('');
   const [userManuallySelected, setUserManuallySelected] = useState(false);
   const [resolvingTeachers, setResolvingTeachers] = useState(false);
+
+  // PWA Install state
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [isInstalled, setIsInstalled] = useState(false);
+  const [showInstallGuide, setShowInstallGuide] = useState(false);
+  const [guidePlatform, setGuidePlatform] = useState('android');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+      if (isStandalone) {
+        setIsInstalled(true);
+      }
+
+      const handleBeforeInstall = (e) => {
+        e.preventDefault();
+        setDeferredPrompt(e);
+      };
+
+      const handleAppInstalled = () => {
+        setIsInstalled(true);
+        setDeferredPrompt(null);
+      };
+
+      window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+      window.addEventListener('appinstalled', handleAppInstalled);
+
+      return () => {
+        window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+        window.removeEventListener('appinstalled', handleAppInstalled);
+      };
+    }
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      try {
+        deferredPrompt.prompt();
+        const choiceResult = await deferredPrompt.userChoice;
+        if (choiceResult && choiceResult.outcome === 'accepted') {
+          setIsInstalled(true);
+        }
+        setDeferredPrompt(null);
+      } catch (err) {
+        console.error('Install prompt error:', err);
+      }
+      return;
+    }
+
+    if (typeof window !== 'undefined') {
+      const ua = window.navigator.userAgent.toLowerCase();
+      if (/iphone|ipad|ipod/.test(ua)) {
+        setGuidePlatform('ios');
+      } else if (/android/.test(ua)) {
+        setGuidePlatform('android');
+      } else {
+        setGuidePlatform('desktop');
+      }
+      setShowInstallGuide(true);
+    }
+  };
 
   // Debounced teacher list fetching
   useEffect(() => {
@@ -140,7 +202,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden px-4"
+    <div className="min-h-screen flex items-center justify-center relative overflow-x-hidden px-4 py-8 w-full max-w-full"
       style={{ background: 'linear-gradient(135deg, #0a1628 0%, #06429c 50%, #011c4d 100%)' }}>
 
       {/* Background decoration */}
@@ -159,19 +221,19 @@ export default function LoginPage() {
         className="w-full max-w-md relative z-10"
       >
         {/* Logo & Title */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-white shadow-2xl shadow-blue-900/40 mb-5 p-2 overflow-hidden">
+        <div className="text-center mb-6 sm:mb-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl bg-white shadow-2xl shadow-blue-900/40 mb-3 sm:mb-5 p-2 overflow-hidden">
             <img src="/logo.png" alt="Logo" className="w-full h-full object-contain" />
           </div>
-          <h1 className="text-3xl font-black text-white tracking-tight">Kurumsal Raporlama Sistemi</h1>
-          <p className="text-blue-200/70 text-sm mt-2">Öğrenci Takip & Raporlama Portal Girişi</p>
+          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">Kurumsal Raporlama Sistemi</h1>
+          <p className="text-blue-200/70 text-xs sm:text-sm mt-1 sm:mt-2">Öğrenci Takip & Raporlama Portal Girişi</p>
         </div>
 
         {/* Card */}
-        <div className="bg-white/8 backdrop-blur-2xl border border-white/12 rounded-3xl p-8 shadow-[0_32px_80px_rgba(0,0,0,0.4)]">
-          <div className="mb-6">
-            <h2 className="text-lg font-bold text-white">Giriş Yap</h2>
-            <p className="text-blue-200/60 text-xs mt-1">Sisteme erişmek için bilgilerinizi girin.</p>
+        <div className="bg-white/8 backdrop-blur-2xl border border-white/12 rounded-2xl sm:rounded-3xl p-5 sm:p-8 shadow-[0_32px_80px_rgba(0,0,0,0.4)]">
+          <div className="mb-5 sm:mb-6">
+            <h2 className="text-base sm:text-lg font-bold text-white">Giriş Yap</h2>
+            <p className="text-blue-200/60 text-xs mt-0.5 sm:mt-1">Sisteme erişmek için bilgilerinizi girin.</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -268,12 +330,167 @@ export default function LoginPage() {
               id="login-submit"
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-[#1b63d6] to-[#06429c] text-white font-extrabold text-sm hover:from-[#2170e8] hover:to-[#0a51b8] transition-all duration-300 shadow-lg hover:shadow-blue-600/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2"
+              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-[#1b63d6] to-[#06429c] text-white font-extrabold text-sm hover:from-[#2170e8] hover:to-[#0a51b8] transition-all duration-300 shadow-lg hover:shadow-blue-600/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2 cursor-pointer"
             >
               {loading ? <Loader2 size={18} className="animate-spin" /> : 'Giriş Yap'}
             </button>
+
+            {/* Install App Button */}
+            <button
+              id="pwa-install-btn"
+              type="button"
+              onClick={handleInstallClick}
+              className="w-full py-3 rounded-2xl bg-white/10 hover:bg-white/15 active:scale-98 text-white font-bold text-sm border border-white/20 hover:border-cyan-300/40 transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm group"
+            >
+              {isInstalled ? (
+                <>
+                  <CheckCircle2 size={17} className="text-emerald-400 shrink-0" />
+                  <span>Uygulama Yüklendi</span>
+                </>
+              ) : (
+                <>
+                  <Download size={17} className="text-cyan-300 group-hover:translate-y-0.5 transition-transform shrink-0" />
+                  <span>Yükle (Uygulama)</span>
+                </>
+              )}
+            </button>
           </form>
         </div>
+
+        {/* PWA Install Guide Modal */}
+        <AnimatePresence>
+          {showInstallGuide && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowInstallGuide(false)}
+                className="fixed inset-0 bg-black/70 backdrop-blur-xs"
+              />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                className="relative w-full max-w-sm bg-[#0c1e3f] border border-blue-400/30 rounded-3xl p-5 text-white shadow-2xl z-10 space-y-4"
+              >
+                <div className="flex items-center justify-between border-b border-white/10 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-cyan-300">
+                      <Download size={18} />
+                    </div>
+                    <div>
+                      <h3 className="font-extrabold text-sm text-white">Uygulamayı Cihaza Yükle</h3>
+                      <p className="text-[11px] text-blue-200/70">Ana ekrandan tek tıkla erişin</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowInstallGuide(false)}
+                    className="p-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white/70 hover:text-white transition-all cursor-pointer"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+
+                {/* Platform selector tabs */}
+                <div className="grid grid-cols-3 gap-1 p-1 bg-white/5 rounded-xl border border-white/10 text-xs font-bold text-center">
+                  <button
+                    type="button"
+                    onClick={() => setGuidePlatform('android')}
+                    className={`py-1.5 rounded-lg transition-all cursor-pointer ${
+                      guidePlatform === 'android'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-white/60 hover:text-white'
+                    }`}
+                  >
+                    Android
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setGuidePlatform('ios')}
+                    className={`py-1.5 rounded-lg transition-all cursor-pointer ${
+                      guidePlatform === 'ios'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-white/60 hover:text-white'
+                    }`}
+                  >
+                    iPhone
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setGuidePlatform('desktop')}
+                    className={`py-1.5 rounded-lg transition-all cursor-pointer ${
+                      guidePlatform === 'desktop'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-white/60 hover:text-white'
+                    }`}
+                  >
+                    PC / Mac
+                  </button>
+                </div>
+
+                {/* Guide Content */}
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5 space-y-2.5 text-xs leading-relaxed text-blue-100">
+                  {guidePlatform === 'ios' && (
+                    <>
+                      <div className="flex items-start gap-2.5">
+                        <span className="w-5 h-5 rounded-full bg-blue-500/30 text-cyan-300 font-black flex items-center justify-center shrink-0 text-[10px]">1</span>
+                        <p>Safari'nin altındaki <strong>Paylaş (📤)</strong> butonuna dokunun.</p>
+                      </div>
+                      <div className="flex items-start gap-2.5">
+                        <span className="w-5 h-5 rounded-full bg-blue-500/30 text-cyan-300 font-black flex items-center justify-center shrink-0 text-[10px]">2</span>
+                        <p>Aşağı kaydırıp <strong>"Ana Ekrana Ekle" (➕)</strong> seçeneğini seçin.</p>
+                      </div>
+                      <div className="flex items-start gap-2.5">
+                        <span className="w-5 h-5 rounded-full bg-blue-500/30 text-cyan-300 font-black flex items-center justify-center shrink-0 text-[10px]">3</span>
+                        <p>Sağ üstteki <strong>"Ekle"</strong> butonuna basarak kurulumu tamamlayın.</p>
+                      </div>
+                    </>
+                  )}
+
+                  {guidePlatform === 'android' && (
+                    <>
+                      <div className="flex items-start gap-2.5">
+                        <span className="w-5 h-5 rounded-full bg-blue-500/30 text-cyan-300 font-black flex items-center justify-center shrink-0 text-[10px]">1</span>
+                        <p>Chrome'un sağ üstündeki <strong>üç nokta (⋮)</strong> simgesine dokunun.</p>
+                      </div>
+                      <div className="flex items-start gap-2.5">
+                        <span className="w-5 h-5 rounded-full bg-blue-500/30 text-cyan-300 font-black flex items-center justify-center shrink-0 text-[10px]">2</span>
+                        <p><strong>"Uygulamayı Yükle"</strong> veya <strong>"Ana Ekrana Ekle"</strong> seçin.</p>
+                      </div>
+                      <div className="flex items-start gap-2.5">
+                        <span className="w-5 h-5 rounded-full bg-blue-500/30 text-cyan-300 font-black flex items-center justify-center shrink-0 text-[10px]">3</span>
+                        <p>Açılan pencerede <strong>"Yükle"</strong> butonuna basın.</p>
+                      </div>
+                    </>
+                  )}
+
+                  {guidePlatform === 'desktop' && (
+                    <>
+                      <div className="flex items-start gap-2.5">
+                        <span className="w-5 h-5 rounded-full bg-blue-500/30 text-cyan-300 font-black flex items-center justify-center shrink-0 text-[10px]">1</span>
+                        <p>Adres çubuğunun sağındaki <strong>Yükle (⬇)</strong> simgesine tıklayın.</p>
+                      </div>
+                      <div className="flex items-start gap-2.5">
+                        <span className="w-5 h-5 rounded-full bg-blue-500/30 text-cyan-300 font-black flex items-center justify-center shrink-0 text-[10px]">2</span>
+                        <p>Veya tarayıcı menüsünden <strong>"Uygulamayı Yükle..."</strong> seçin.</p>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowInstallGuide(false)}
+                  className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs transition-all shadow-md cursor-pointer"
+                >
+                  Tamam
+                </button>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
 
         <p className="text-center text-blue-200/40 text-xs mt-6">
           Hesabınız yoksa kurum yöneticinizle iletişime geçin.

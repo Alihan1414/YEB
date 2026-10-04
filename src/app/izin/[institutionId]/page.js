@@ -7,7 +7,7 @@ import { Loader2, Calendar, Clock, Phone, User, FileText, CheckCircle, AlertTria
 
 export default function StudentLeaveForm() {
   const params = useParams();
-  const institutionId = params?.institutionId || 'yamanevler';
+  const institutionId = params?.institutionId || 'bolu-kilicaslan';
 
   const [studentName, setStudentName] = useState('');
   const [parentPhone, setParentPhone] = useState('');
@@ -17,6 +17,18 @@ export default function StudentLeaveForm() {
   const [endTime, setEndTime]         = useState('');
   const [reason, setReason]           = useState('');
 
+  const [students, setStudents]       = useState([]);
+
+  // Kurum adını türet
+  const instName = (() => {
+    const clean = (institutionId || '').toLowerCase();
+    if (clean.includes('kilicaslan') || clean.includes('kilicarslan')) return 'Bolu Kılıçarslan';
+    if (clean.includes('erenler') || clean.includes('cinardere')) return 'Çınardere Erenler';
+    if (clean.includes('pendik')) return 'Pendik Talebe Yurdu';
+    if (clean.includes('yamanevler')) return 'Yamanevler Enderun Bilişim';
+    return institutionId;
+  })();
+
   const [loading, setLoading]         = useState(false);
   const [submitted, setSubmitted]     = useState(false);
   const [error, setError]             = useState('');
@@ -24,22 +36,50 @@ export default function StudentLeaveForm() {
   const [settings, setSettings] = useState({ enabled: true, assignedTeacherId: '' });
   const [loadingSettings, setLoadingSettings] = useState(true);
 
+  // Kurum ayarlarını ve kayıtlı öğrenci listesini yükle
   useEffect(() => {
-    const fetchSettings = async () => {
+    const loadData = async () => {
       try {
-        const res = await fetch(`/api/admin/leave-settings?institutionId=${encodeURIComponent(institutionId)}`);
-        const data = await res.json();
-        if (data.success && data.settings) {
-          setSettings(data.settings);
+        const [settingsRes, studentsRes] = await Promise.all([
+          fetch(`/api/admin/leave-settings?institutionId=${encodeURIComponent(institutionId)}`),
+          fetch(`/api/students?institutionId=${encodeURIComponent(institutionId)}`)
+        ]);
+
+        const settingsData = await settingsRes.json();
+        if (settingsData.success && settingsData.settings) {
+          setSettings(settingsData.settings);
+        }
+
+        const studentsData = await studentsRes.json();
+        if (studentsData.success && studentsData.students) {
+          setStudents(studentsData.students);
         }
       } catch (err) {
-        console.error('Failed to load settings:', err);
+        console.error('Failed to load data:', err);
       } finally {
         setLoadingSettings(false);
       }
     };
-    fetchSettings();
+
+    loadData();
   }, [institutionId]);
+
+  // Öğrenci seçildiğinde veli telefonunu otomatik doldur
+  const handleStudentNameChange = (val) => {
+    setStudentName(val);
+    const matched = students.find(s => `${s.name} ${s.surname}`.trim().toLowerCase() === val.trim().toLowerCase());
+    if (matched && matched.parent_phone && !parentPhone) {
+      setParentPhone(matched.parent_phone);
+    }
+  };
+
+  // Başlangıç tarihi seçildiğinde bitiş tarihi boşsa otomatik doldur
+  const handleStartDateChange = (val) => {
+    setStartDate(val);
+    if (!endDate) {
+      setEndDate(val);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -90,11 +130,18 @@ export default function StudentLeaveForm() {
           <div className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-white/10 backdrop-blur-xl border border-white/20 shadow-xl mb-3 text-emerald-400">
             <Calendar size={22} />
           </div>
+          {instName && (
+            <div className="block mb-2">
+              <span className="inline-block px-3.5 py-1 rounded-full bg-blue-500/20 border border-blue-400/30 text-blue-200 text-xs font-black tracking-wide">
+                {instName}
+              </span>
+            </div>
+          )}
           <h1 className="text-xl sm:text-3xl font-black text-white tracking-tight uppercase leading-tight">
             Öğrenci İzin Talep Formu
           </h1>
           <p className="text-blue-200/70 text-xs sm:text-sm mt-1.5">
-            İzin talebinizi oluşturup değerlendirilmek üzere gönderin.
+            İzin talebinizi oluşturup değerlendirilmek üzere kuruma gönderin.
           </p>
         </div>
 
@@ -107,26 +154,22 @@ export default function StudentLeaveForm() {
               <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                 className="flex flex-col items-center justify-center py-10">
                 <Loader2 size={28} className="text-emerald-400 animate-spin mb-3" />
-                <p className="text-blue-200 text-xs font-semibold">Ayarlar yükleniyor...</p>
-              </motion.div>
-
-            ) : !settings.enabled ? (
-              /* Disabled state */
-              <motion.div key="disabled" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0 }} className="text-center py-8 space-y-4">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-400 animate-pulse mb-2">
-                  <AlertTriangle size={36} />
-                </div>
-                <h2 className="text-xl font-black text-white">İzin Talepleri Kapatılmıştır</h2>
-                <p className="text-blue-200/70 text-sm max-w-sm mx-auto leading-relaxed">
-                  Kurumumuz şu anda yeni izin taleplerini kabul etmemektedir. Lütfen doğrudan kurum yetkilileri ile iletişime geçiniz.
-                </p>
+                <p className="text-blue-200 text-xs font-semibold">Yükleniyor...</p>
               </motion.div>
 
             ) : !submitted ? (
               /* Form */
               <motion.form key="form" onSubmit={handleSubmit} className="space-y-4"
                 exit={{ opacity: 0, scale: 0.95 }} transition={{ duration: 0.3 }}>
+
+                {/* Datalist for registered students */}
+                <datalist id="studentsDatalist">
+                  {students.map(s => (
+                    <option key={s.id} value={`${s.name} ${s.surname}`.trim()}>
+                      {s.class ? `Sınıf: ${s.class}` : ''}
+                    </option>
+                  ))}
+                </datalist>
 
                 {/* Öğrenci Adı */}
                 <div>
@@ -135,11 +178,21 @@ export default function StudentLeaveForm() {
                   </label>
                   <div className="relative">
                     <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-blue-300/50" />
-                    <input type="text" required value={studentName}
-                      onChange={e => setStudentName(e.target.value)}
-                      placeholder="Adı ve Soyadı"
-                      className={`${inputCls} pl-9 pr-3 py-3 text-sm`} />
+                    <input
+                      type="text"
+                      list="studentsDatalist"
+                      required
+                      value={studentName}
+                      onChange={e => handleStudentNameChange(e.target.value)}
+                      placeholder="Öğrencinin Adı ve Soyadı"
+                      className={`${inputCls} pl-9 pr-3 py-3 text-sm`}
+                    />
                   </div>
+                  {students.length > 0 && (
+                    <p className="text-[10px] text-blue-300/50 mt-1 pl-1">
+                      💡 İsmi yazmaya başladığınızda kayıtlı öğrenciler listelenir.
+                    </p>
+                  )}
                 </div>
 
                 {/* Veli Telefon */}
@@ -165,7 +218,7 @@ export default function StudentLeaveForm() {
                     <div className="relative">
                       <Calendar size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-blue-300/50" />
                       <input type="date" required value={startDate}
-                        onChange={e => setStartDate(e.target.value)}
+                        onChange={e => handleStartDateChange(e.target.value)}
                         className={`${inputCls} pl-8 pr-1 py-2.5 text-xs`} />
                     </div>
                   </div>
@@ -245,7 +298,7 @@ export default function StudentLeaveForm() {
                 </div>
                 <h2 className="text-xl font-black text-white">İzin Talebiniz Alındı!</h2>
                 <p className="text-blue-200/70 text-sm max-w-sm mx-auto leading-relaxed">
-                  Talebiniz sistemdeki görevli öğretmenlerimize başarıyla iletilmiştir. Onay veya red durumunda velinize WhatsApp üzerinden bilgi gönderilecektir.
+                  Talebiniz sistemdeki görevli öğretmenlerimize başarıyla iletilmiştir. Onay veya ret durumunda velinize WhatsApp üzerinden bilgi gönderilecektir.
                 </p>
                 <button
                   onClick={() => { setStudentName(''); setParentPhone(''); setStartDate(''); setStartTime(''); setEndDate(''); setEndTime(''); setReason(''); setSubmitted(false); }}
@@ -258,7 +311,7 @@ export default function StudentLeaveForm() {
         </div>
 
         <p className="text-center text-blue-200/40 text-xs mt-5">
-          Talebe Takip Ve Raporlama Sistemi © 2026
+          Talebe Takip ve Raporlama Sistemi © 2026
         </p>
       </motion.div>
     </div>

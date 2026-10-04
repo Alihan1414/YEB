@@ -598,7 +598,8 @@
       "parent_email": "",
       "parent_phone": "066282425",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.049Z"
+      "created_at": "2026-08-10T10:09:04.049Z",
+      "checkout_time": null
     },
     {
       "id": "student-kilicaslan-1786356544049-25",
@@ -687,16 +688,6 @@
       "class": "11",
       "parent_email": "",
       "parent_phone": "05534335585",
-      "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.049Z"
-    },
-    {
-      "id": "student-kilicaslan-1786356544049-34",
-      "name": "Kemal",
-      "surname": "Nurbayev",
-      "class": "11",
-      "parent_email": "",
-      "parent_phone": "05520717293",
       "institution_id": "bolu-kilicaslan",
       "created_at": "2026-08-10T10:09:04.049Z"
     },
@@ -1241,16 +1232,6 @@
       "created_at": "2026-08-10T10:09:04.051Z"
     },
     {
-      "id": "student-kilicaslan-1786356544051-89",
-      "name": "Sayed Mohammad",
-      "surname": "Naqsh Bandi",
-      "class": "11",
-      "parent_email": "",
-      "parent_phone": "0787586117",
-      "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.051Z"
-    },
-    {
       "id": "student-kilicaslan-1786356544051-90",
       "name": "Faraz",
       "surname": "Jafari Kangarlouei",
@@ -1268,7 +1249,8 @@
       "parent_email": "",
       "parent_phone": "05427689577",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.051Z"
+      "created_at": "2026-08-10T10:09:04.051Z",
+      "checkout_time": null
     },
     {
       "id": "student-kilicaslan-1786356544051-92",
@@ -1281,7 +1263,188 @@
       "created_at": "2026-08-10T10:09:04.051Z"
     }
   ],
-  "reports": [],
+  "reports": [
+    {
+      "id": "report-1791064494045-906",
+      "student_id": "student-kilicaslan-1786356544050-53",
+      "studentId": "student-kilicaslan-1786356544050-53",
+      "student_name": "Mehmet Emin Çelik",
+      "studentName": "Mehmet Emin Çelik",
+      "class": "11",
+      "parent_phone": "05057755525",
+      "parentPhone": "05057755525",
+      "content": "Yok.",
+      "category": "Dahili Ders",
+      "isPositive": true,
+      "notified": false,
+      "institution_id": "bolu-kilicaslan",
+      "institutionId": "bolu-kilicaslan",
+      "created_at": "2026-10-03T21:54:54.045Z",
+      "created_by": "Alihan Özmen"
+    },
+    {
+      "id": "report-1791064492975-415",
+      "student_id": "student-kilicaslan-1786356544049-28",
+      "studentId": "student-kilicaslan-1786356544049-28",
+      "student_name": "Taner Çelik",
+      "studentName": "Taner Çelik",
+      "class": "11",
+      "parent_phone": "05327915524",
+      "parentPhone": "05327915524",
+      "content": "Yok.",
+      "category": "Dahili Ders",
+      "isPositive": true,
+      "notified": false,
+      "institution_id": "bolu-kilicaslan",
+      "institutionId": "bolu-kilicaslan",
+      "created_at": "2026-10-03T21:54:52.975Z",
+      "created_by": "Alihan Özmen"
+    },
+    {
+      "id": "report-1791064492686-105",
+      "student_id": "student-kilicaslan-1786356544050-67",
+      "studentId": "student-kilicaslan-1786356544050-67",
+      "student_name": "Eyüp Ensar Belen",
+      "studentName": "Eyüp Ensar Belen",
+      "class": "11",
+      "parent_phone": "05422762495",
+      "parentPhone": "05422762495",
+      "content": "Yok.",
+      "category": "Dahili Ders",
+      "isPositive": true,
+      "notified": false,
+      "institution_id": "bolu-kilicaslan",
+      "institutionId": "bolu-kilicaslan",
+      "created_at": "2026-10-03T21:54:52.686Z",
+      "created_by": "Alihan Özmen"
+    },
+    {
+      "id": "report-1791064491442-203",
+      "student_id": "student-kilicaslan-1786356544050-46",
+      "studentId": "student-kilicaslan-1786356544050-46",
+      "student_name": "Muhammet Ali Baskın",
+      "studentName": "Muhammet Ali Baskın",
+      "class": "11",
+      "parent_phone": "05368667512",
+      "parentPhone": "05368667512",
+      "content": "Yok.",
+      "category": "Dahili Ders",
+      "isPositive": true,
+      "notified": false,
+      "institution_id": "bolu-kilicaslan",
+      "institutionId": "bolu-kilicaslan",
+      "created_at": "2026-10-03T21:54:51.442Z",
+      "created_by": "Alihan Özmen"
+    },
+    {
+      "id": "report-1791064433767-77",
+      "student_id": "student-kilicaslan-1786356544050-59",
+      "studentId": "student-kilicaslan-1786356544050-59",
+      "student_name": "Muhammad Abubakar",
+      "studentName": "Muhammad Abubakar",
+      "class": "11",
+      "parent_phone": "03327786821",
+      "parentPhone": "03327786821",
+      "content": "Derste.",
+      "category": "Yoklama",
+      "isPositive": true,
+      "notified": false,
+      "institution_id": "bolu-kilicaslan",
+      "institutionId": "bolu-kilicaslan",
+      "created_at": "2026-10-03T21:53:53.767Z",
+      "created_by": "Alihan Özmen"
+    },
+    {
+      "id": "report-1791064433479-395",
+      "student_id": "student-kilicaslan-1786356544051-73",
+      "studentId": "student-kilicaslan-1786356544051-73",
+      "student_name": "Khadar Ismail Abokor",
+      "studentName": "Khadar Ismail Abokor",
+      "class": "11",
+      "parent_phone": "0634774504",
+      "parentPhone": "0634774504",
+      "content": "Derste.",
+      "category": "Yoklama",
+      "isPositive": true,
+      "notified": false,
+      "institution_id": "bolu-kilicaslan",
+      "institutionId": "bolu-kilicaslan",
+      "created_at": "2026-10-03T21:53:53.479Z",
+      "created_by": "Alihan Özmen"
+    },
+    {
+      "id": "report-1791064432381-65",
+      "student_id": "student-kilicaslan-1786356544049-24",
+      "studentId": "student-kilicaslan-1786356544049-24",
+      "student_name": "Abba Ali Abdelkadre",
+      "studentName": "Abba Ali Abdelkadre",
+      "class": "11",
+      "parent_phone": "066282425",
+      "parentPhone": "066282425",
+      "content": "Derste.",
+      "category": "Yoklama",
+      "isPositive": true,
+      "notified": false,
+      "institution_id": "bolu-kilicaslan",
+      "institutionId": "bolu-kilicaslan",
+      "created_at": "2026-10-03T21:53:52.381Z",
+      "created_by": "Alihan Özmen"
+    },
+    {
+      "id": "report-1791064431714-482",
+      "student_id": "student-kilicaslan-1786356544051-92",
+      "studentId": "student-kilicaslan-1786356544051-92",
+      "student_name": "Ömer Abbas",
+      "studentName": "Ömer Abbas",
+      "class": "11",
+      "parent_phone": "05417689577",
+      "parentPhone": "05417689577",
+      "content": "Derste.",
+      "category": "Yoklama",
+      "isPositive": true,
+      "notified": false,
+      "institution_id": "bolu-kilicaslan",
+      "institutionId": "bolu-kilicaslan",
+      "created_at": "2026-10-03T21:53:51.714Z",
+      "created_by": "Alihan Özmen"
+    },
+    {
+      "id": "report-1791064431203-421",
+      "student_id": "student-kilicaslan-1786356544051-91",
+      "studentId": "student-kilicaslan-1786356544051-91",
+      "student_name": "İsmail Abbas",
+      "studentName": "İsmail Abbas",
+      "class": "11",
+      "parent_phone": "05427689577",
+      "parentPhone": "05427689577",
+      "content": "Derste.",
+      "category": "Yoklama",
+      "isPositive": true,
+      "notified": false,
+      "institution_id": "bolu-kilicaslan",
+      "institutionId": "bolu-kilicaslan",
+      "created_at": "2026-10-03T21:53:51.203Z",
+      "created_by": "Alihan Özmen"
+    },
+    {
+      "id": "report-1791062432109-954",
+      "student_id": "student-kilicaslan-1786356544051-91",
+      "studentId": "student-kilicaslan-1786356544051-91",
+      "student_name": "İsmail Abbas",
+      "studentName": "İsmail Abbas",
+      "class": "11",
+      "parent_phone": "05427689577",
+      "parentPhone": "05427689577",
+      "content": "Ismail namaza gelmedi.",
+      "category": "Yoklama",
+      "isPositive": false,
+      "notified": false,
+      "institution_id": "bolu-kilicaslan",
+      "institutionId": "bolu-kilicaslan",
+      "created_at": "2026-10-03T21:20:32.109Z",
+      "created_by": "Bolu Kılıçarslan Yöneticisi"
+    }
+  ],
   "users": [
     {
       "id": "tUFn1c6FlqPT9zEsDZMUHCDFzC82",
@@ -1293,17 +1456,17 @@
       "institutionName": "Yamanevler Enderun Bilişim",
       "logoUrl": "/yamanevler-logo.png",
       "primaryColor": "#06429c",
-      "disabled": false,
+      "disabled": true,
       "created_at": "2026-07-01T00:00:00.000Z"
     },
     {
       "id": "1PkNaCnMiIY03dk4jiMsvMuexby2",
-      "name": "Bolu Kılıçaslan Yöneticisi",
+      "name": "Bolu Kılıçarslan Yöneticisi",
       "email": "kilicaslan@2026",
       "password": "bolukilicaslan",
       "role": "admin",
       "institutionId": "bolu-kilicaslan",
-      "institutionName": "Bolu Kılıçaslan",
+      "institutionName": "Bolu Kılıçarslan",
       "logoUrl": "/kilicaslan-logo.png",
       "primaryColor": "#009b9e",
       "disabled": false,
@@ -1332,7 +1495,7 @@
       "institutionName": "Pendik Talebe Yurdu",
       "logoUrl": "/pendik-logo.png",
       "primaryColor": "#b8962e",
-      "disabled": false,
+      "disabled": true,
       "created_at": "2026-08-07T21:13:20.710Z"
     },
     {
@@ -1451,6 +1614,17 @@
       "primaryColor": "#0f172a",
       "disabled": false,
       "created_at": "2026-08-10T13:26:25.937Z"
+    },
+    {
+      "id": "teacher-1791063095880",
+      "name": "Alihan Özmen",
+      "email": "özmen@01.com",
+      "password": "kılıçarslan",
+      "role": "teacher",
+      "institutionId": "bolu-kilicaslan",
+      "institutionName": "Bolu Kılıçarslan",
+      "disabled": false,
+      "created_at": "2026-10-03T21:31:36.486Z"
     }
   ],
   "leaveSettings": {
@@ -1463,6 +1637,10 @@
       "assignedTeacherId": ""
     },
     "pendik-talebe-yurdu": {
+      "enabled": true,
+      "assignedTeacherId": ""
+    },
+    "bolu-kilicaslan": {
       "enabled": true,
       "assignedTeacherId": ""
     }
@@ -1480,12 +1658,12 @@
         "tv": true,
         "weekly": true
       },
-      "disabled": false,
+      "disabled": true,
       "created_at": "2026-07-01T00:00:00.000Z"
     },
     {
       "id": "bolu-kilicaslan",
-      "name": "Bolu Kılıçaslan",
+      "name": "Bolu Kılıçarslan",
       "email": "kilicaslan@2026",
       "logoUrl": "/kilicaslan-logo.png",
       "primaryColor": "#009b9e",
@@ -1525,9 +1703,77 @@
         "tv": true,
         "weekly": true
       },
-      "disabled": false,
+      "disabled": true,
       "created_at": "2026-08-07T21:13:20.710Z"
     }
   ],
-  "leaveRequests": []
+  "leaveRequests": [
+    {
+      "id": "leave-1791051665046-925",
+      "studentName": "İsmail Abbas",
+      "parentPhone": "05427689577",
+      "startDate": "2026-08-20",
+      "startTime": "15:00",
+      "endDate": "2026-08-25",
+      "endTime": "20:00",
+      "reason": "HAstane Randevularım Var",
+      "status": "rejected",
+      "institutionId": "bolu-kilicaslan",
+      "created_at": "2026-10-03T18:21:05.046Z",
+      "respondedBy": "Bolu Kılıçarslan Yöneticisi",
+      "respondedAt": "2026-10-03T18:21:23.203Z"
+    }
+  ],
+  "deleted_students": [
+    "student-1791049035009-923",
+    "student-kilicaslan-1786356544051-89",
+    "student-kilicaslan-1786356544049-34"
+  ],
+  "tvAudios": {},
+  "teacher_groups": [
+    {
+      "id": "group-1791064464176-797",
+      "name": "aslanlar",
+      "teacher_email": "özmen@01.com",
+      "teacher_name": "Alihan Özmen",
+      "teacher_id": "teacher-1791063095880",
+      "student_ids": [
+        "student-kilicaslan-1786356544050-46",
+        "student-kilicaslan-1786356544050-67",
+        "student-kilicaslan-1786356544049-28",
+        "student-kilicaslan-1786356544050-53"
+      ],
+      "student_names": [
+        "Muhammet Ali Baskın",
+        "Eyüp Ensar Belen",
+        "Taner Çelik",
+        "Mehmet Emin Çelik"
+      ],
+      "institution_id": "bolu-kilicaslan",
+      "created_at": "2026-10-03T21:54:24.176Z"
+    },
+    {
+      "id": "group-1791063173749-948",
+      "name": "KaraKARTAL",
+      "teacher_email": "özmen@01.com",
+      "teacher_name": "Alihan Özmen",
+      "teacher_id": "teacher-1791063095880",
+      "student_ids": [
+        "student-kilicaslan-1786356544051-91",
+        "student-kilicaslan-1786356544051-92",
+        "student-kilicaslan-1786356544049-24",
+        "student-kilicaslan-1786356544051-73",
+        "student-kilicaslan-1786356544050-59"
+      ],
+      "student_names": [
+        "İsmail Abbas",
+        "Ömer Abbas",
+        "Abba Ali Abdelkadre",
+        "Khadar Ismail Abokor",
+        "Muhammad Abubakar"
+      ],
+      "institution_id": "bolu-kilicaslan",
+      "created_at": "2026-10-03T21:32:53.749Z"
+    }
+  ]
 }

@@ -7,7 +7,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Calendar, Check, X, Loader2, Search, Clock, FileText, User, Trophy, Tv,
   Phone, ToggleLeft, ToggleRight, Settings,
-  ShieldCheck, AlertCircle, CheckCircle2, XCircle, Copy, ExternalLink, Link2
+  ShieldCheck, AlertCircle, CheckCircle2, XCircle, Copy, ExternalLink, Link2,
+  Trash2, MessageCircle
 } from 'lucide-react';
 import Sidebar, { MobileHeader, MobileBottomNav } from '@/components/Sidebar';
 import Link from 'next/link';
@@ -52,7 +53,7 @@ export default function LeaveManagementPage() {
   // Fetch leave requests
   const fetchRequests = useCallback(async () => {
     setLoadingRequests(true);
-    const instId = institutionId || 'yamanevler';
+    const instId = institutionId || 'bolu-kilicaslan';
     try {
       const res = await fetch(`/api/leave?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' });
       const data = await res.json();
@@ -72,7 +73,7 @@ export default function LeaveManagementPage() {
   // Fetch leave settings
   const fetchSettings = useCallback(async () => {
     setLoadingSettings(true);
-    const instId = institutionId || 'yamanevler';
+    const instId = institutionId || 'bolu-kilicaslan';
     try {
       const res = await fetch(`/api/admin/leave-settings?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' });
       const data = await res.json();
@@ -88,7 +89,7 @@ export default function LeaveManagementPage() {
 
   // Fetch teachers for settings dropdown
   const fetchTeachers = useCallback(async () => {
-    const instId = institutionId || 'yamanevler';
+    const instId = institutionId || 'bolu-kilicaslan';
     try {
       const res = await fetch(`/api/admin/teachers?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' });
       const data = await res.json();
@@ -135,11 +136,17 @@ export default function LeaveManagementPage() {
           if (cleanPhone.startsWith('0')) cleanPhone = '9' + cleanPhone;
           if (!cleanPhone.startsWith('90') && cleanPhone.length === 10) cleanPhone = '90' + cleanPhone;
 
+          const inst = institutionName || 'Bolu Kılıçarslan';
+          const sender = user?.name || responderName || inst;
+          const dateInfo = reqItem.startDate && reqItem.endDate 
+            ? ` (${reqItem.startDate} - ${reqItem.endDate} tarihleri arası)`
+            : '';
+
           let msg = '';
           if (status === 'approved') {
-            msg = `Sayın Velimiz, ${reqItem.studentName} isimli öğrencimizin izin talebi ONAYLANMIŞTIR. İzin saatlerine riayet ediniz. Hayırlı günler dileriz.`;
+            msg = `Kıymetli Velimiz, hayırlı günler dilerim. 🌿\n\n${inst} bünyesindeki öğrencimiz ${reqItem.studentName} için iletmiş olduğunuz izin talebi${dateInfo} uygun görülerek onaylanmıştır. ✅\n\nÖğrencimizin izin dönüşünde belirlenen saat ve programa riayet etmesini rica eder, ailenizle birlikte huzurlu ve hayırlı vakitler dileriz.\n\nSelam ve hürmetlerimizle,\n${sender}`;
           } else {
-            msg = `Sayın Velimiz, ${reqItem.studentName} isimli öğrencimizin izin talebi REDDEDİLMİŞTİR. İzin saatlerine riayet ediniz. Hayırlı günler dileriz.`;
+            msg = `Kıymetli Velimiz, hayırlı günler dilerim. 🌿\n\n${inst} bünyesindeki öğrencimiz ${reqItem.studentName} için oluşturulan izin talebi${dateInfo}, kurumumuzun güncel ders/etüt programı ve takvimi sebebiyle şu an için uygun görülememiştir.\n\nKonu hakkında detaylı bilgi almak veya durumu istişare etmek isterseniz bize dilediğiniz zaman ulaşabilirsiniz. Anlayışınız ve desteğiniz için teşekkür ederiz.\n\nSelam ve hürmetlerimizle,\n${sender}`;
           }
 
           const wpUrl = `https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(msg)}`;
@@ -156,11 +163,27 @@ export default function LeaveManagementPage() {
     }
   };
 
+  // Handle Delete leave request
+  const handleDeleteLeave = async (id, studentName) => {
+    if (!confirm(`${studentName || 'Bu'} öğrencisine ait izin talebini silmek istediğinize emin misiniz?`)) return;
+    setRequests(prev => prev.filter(r => r.id !== id));
+    showToast('İzin talebi başarıyla silindi.');
+    try {
+      const res = await fetch(`/api/leave/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error || 'Silme başarısız');
+    } catch (err) {
+      console.error(err);
+      showToast('Silme hatası: ' + err.message, 'error');
+      fetchRequests();
+    }
+  };
+
   // Handle Save settings
   const handleSaveSettings = async (e) => {
     e.preventDefault();
     setSavingSettings(true);
-    const instId = institutionId || 'yamanevler';
+    const instId = institutionId || 'bolu-kilicaslan';
     try {
       const res = await fetch('/api/admin/leave-settings', {
         method: 'POST',
@@ -202,7 +225,7 @@ export default function LeaveManagementPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#eef5fc] text-slate-800 flex flex-col md:flex-row font-sans">
+    <div className="min-h-screen md:h-screen md:overflow-hidden bg-[#eef5fc] text-slate-800 flex flex-col md:flex-row font-sans w-full max-w-full">
       
       <Sidebar />
       <MobileHeader title="İzin Yönetimi" />
@@ -214,26 +237,26 @@ export default function LeaveManagementPage() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className={`fixed top-6 right-6 z-[9999] px-5 py-3 rounded-xl shadow-2xl text-sm font-semibold flex items-center gap-3 border ${
+            className={`fixed top-6 right-6 z-[9999] px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl shadow-2xl text-xs sm:text-sm font-semibold flex items-center gap-2.5 sm:gap-3 border max-w-[90vw] ${
               toast.type === 'error'
                 ? 'bg-red-50 border-red-200 text-red-700'
                 : 'bg-emerald-50 border-emerald-200 text-emerald-700'
             }`}
           >
             {toast.type === 'error' ? <X size={16} /> : <Check size={16} />}
-            {toast.msg}
+            <span className="truncate">{toast.msg}</span>
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Main Content Area */}
-      <main className="flex-1 pb-24 md:pb-10 overflow-y-auto">
+      <main className="flex-1 md:h-screen pb-28 md:pb-10 overflow-y-auto overflow-x-hidden min-w-0">
         
         {/* Header banner */}
-        <div className="bg-white border-b border-slate-100 px-4 md:px-10 py-6">
+        <div className="bg-white border-b border-slate-100 px-3.5 sm:px-6 md:px-10 py-4 sm:py-6">
           <div className="max-w-6xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+              <h1 className="text-lg sm:text-xl md:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
                 <Calendar className="text-blue-600" size={24} />
                 İzin Talepleri Yönetimi
               </h1>
@@ -243,27 +266,27 @@ export default function LeaveManagementPage() {
             </div>
             
             {/* Öğrenci Başvuru Linki Kartı */}
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-2xl px-3.5 sm:px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-3">
               <Link2 size={16} className="text-blue-500 shrink-0 hidden sm:block" />
               <div className="flex-1 min-w-0">
                 <p className="text-[10px] font-bold text-blue-400 uppercase tracking-wider mb-0.5">Öğrenci İzin Başvuru Linki</p>
                 <p className="text-blue-800 font-bold text-xs font-mono truncate">
-                  {typeof window !== 'undefined' ? `${window.location.origin}/izin/${institutionId || 'yamanevler'}` : `/izin/${institutionId || 'yamanevler'}`}
+                  {typeof window !== 'undefined' ? `${window.location.origin}/izin/${institutionId || 'bolu-kilicaslan'}` : `/izin/${institutionId || 'bolu-kilicaslan'}`}
                 </p>
               </div>
-              <div className="flex gap-2 shrink-0">
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={async () => {
                     const link = typeof window !== 'undefined'
-                      ? `${window.location.origin}/izin/${institutionId || 'yamanevler'}`
-                      : `/izin/${institutionId || 'yamanevler'}`;
+                      ? `${window.location.origin}/izin/${institutionId || 'bolu-kilicaslan'}`
+                      : `/izin/${institutionId || 'bolu-kilicaslan'}`;
                     try {
                       await navigator.clipboard.writeText(link);
                       setLinkCopied(true);
                       setTimeout(() => setLinkCopied(false), 2000);
                     } catch { showToast('Kopyalanamadı.', 'error'); }
                   }}
-                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-bold text-xs transition-all shadow-sm ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-xl font-bold text-xs transition-all shadow-xs cursor-pointer ${
                     linkCopied ? 'bg-emerald-500 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'
                   }`}
                 >
@@ -271,10 +294,10 @@ export default function LeaveManagementPage() {
                   {linkCopied ? 'Kopyalandı!' : 'Kopyala'}
                 </button>
                 <a
-                  href={`/izin/${institutionId || 'yamanevler'}`}
+                  href={`/izin/${institutionId || 'bolu-kilicaslan'}`}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs transition-all shadow-sm"
+                  className="flex items-center gap-1.5 px-3 py-1.5 sm:py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs transition-all shadow-xs"
                 >
                   <ExternalLink size={13} /> Önizle
                 </a>
@@ -284,7 +307,7 @@ export default function LeaveManagementPage() {
         </div>
 
         {/* Workspace content grid */}
-        <div className="max-w-6xl mx-auto px-4 md:px-10 mt-6">
+        <div className="max-w-6xl mx-auto px-3.5 sm:px-6 md:px-10 mt-4 sm:mt-6">
           <PushNotificationManager />
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -357,10 +380,19 @@ export default function LeaveManagementPage() {
                         layout
                         initial={{ opacity: 0, scale: 0.98 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 hover:shadow-md transition-all"
+                        className="relative bg-white rounded-3xl border border-slate-100 p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 hover:shadow-md transition-all"
                       >
+                        {/* Sil Butonu (Sağ Üst) */}
+                        <button
+                          onClick={() => handleDeleteLeave(req.id, req.studentName)}
+                          title="İzin Talebini Sil"
+                          className="absolute top-4 right-4 p-1.5 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+
                         {/* Info details */}
-                        <div className="space-y-3 flex-1">
+                        <div className="space-y-3 flex-1 pr-6 md:pr-0">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 shrink-0">
                               <User size={18} />
@@ -386,11 +418,40 @@ export default function LeaveManagementPage() {
                                 <span className="font-bold text-slate-800">Bitiş:</span> {new Date(req.endDate).toLocaleDateString('tr-TR')} {req.endTime && `· ${req.endTime}`}
                               </div>
                             </div>
-                            <div className="flex items-center gap-2 md:col-span-2 border-t border-slate-200/50 pt-2 mt-1">
-                              <Phone size={14} className="text-slate-400" />
-                              <div>
-                                <span className="font-bold text-slate-800">Veli Tel:</span> {req.parentPhone}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 md:col-span-2 border-t border-slate-200/50 pt-2 mt-1">
+                              <div className="flex items-center gap-2">
+                                <Phone size={14} className="text-slate-400" />
+                                <div>
+                                  <span className="font-bold text-slate-800">Veli Tel:</span> {req.parentPhone}
+                                </div>
                               </div>
+                              {req.parentPhone && (
+                                <div className="flex items-center gap-1.5 self-start sm:self-auto">
+                                  <a
+                                    href={`tel:${req.parentPhone}`}
+                                    title="Veliyi Ara"
+                                    className="p-1 px-2.5 text-[11px] font-bold text-slate-700 bg-slate-200/70 hover:bg-slate-300 rounded-lg flex items-center gap-1 transition-colors"
+                                  >
+                                    <Phone size={12} /> Ara
+                                  </a>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      let cleanPhone = req.parentPhone.replace(/[^0-9]/g, '');
+                                      if (cleanPhone.startsWith('0')) cleanPhone = '9' + cleanPhone;
+                                      if (!cleanPhone.startsWith('90') && cleanPhone.length === 10) cleanPhone = '90' + cleanPhone;
+                                      const inst = institutionName || 'Bolu Kılıçarslan';
+                                      const sender = user?.name || 'Öğretmeni';
+                                      const msg = `Kıymetli Velimiz, hayırlı günler dilerim. 🌿\n\n${inst} bünyesindeki öğrencimiz ${req.studentName}'in izin talebi hususunda bilgi vermek ve görüşmek üzere size ulaşıyorum.\n\nMüsait olduğunuzda mesajla dönüş yapabilir veya bizi arayabilirsiniz.\n\nSelam ve hürmetlerimizle,\n${sender}`;
+                                      window.open(`https://api.whatsapp.com/send?phone=${cleanPhone}&text=${encodeURIComponent(msg)}`, '_blank');
+                                    }}
+                                    title="WhatsApp Mesajı Gönder"
+                                    className="p-1 px-2.5 text-[11px] font-bold text-emerald-700 bg-emerald-100 hover:bg-emerald-200 rounded-lg flex items-center gap-1 transition-colors"
+                                  >
+                                    <MessageCircle size={12} /> WhatsApp
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           </div>
 
@@ -493,7 +554,7 @@ export default function LeaveManagementPage() {
                         ))}
                       </select>
                       <p className="text-[9px] text-slate-400 font-medium mt-1.5 leading-normal">
-                        Form açık olduğunda velilere izinlerin onaylanacağı yetkili olarak gösterilir.
+                        İzin başvuru formunda velilere izinleri onaylayacak yetkili kişi olarak gösterilir.
                       </p>
                     </div>
 

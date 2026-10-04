@@ -16,14 +16,28 @@ import {
 import Sidebar, { MobileHeader } from '@/components/Sidebar';
 
 const CATEGORY_COLORS = {
-  Akademik: '#8b5cf6', Yemek: '#f59e0b',
-  Program:  '#06b6d4', Sağlık: '#ef4444',
-  Namaz: '#10b981',   Dahili: '#a855f7',
+  Akademik: '#8b5cf6',
+  Yoklama: '#f59e0b',
+  Program:  '#06b6d4',
+  Sağlık: '#ef4444',
+  'Girdi Çıktı': '#10b981',
+  'Dahili Ders': '#a855f7',
+  // Eski veri uyumluluğu
+  Yemek: '#f59e0b',
+  Namaz: '#10b981',
+  Dahili: '#a855f7',
 };
 const CATEGORY_ICONS = {
-  Akademik: GraduationCap, Yemek: Utensils,
-  Program:  ClipboardList,  Sağlık: Heart,
-  Namaz: Sunrise,           Dahili: FileText,
+  Akademik: GraduationCap,
+  Yoklama: Utensils,
+  Program:  ClipboardList,
+  Sağlık: Heart,
+  'Girdi Çıktı': Sunrise,
+  'Dahili Ders': FileText,
+  // Eski veri uyumluluğu
+  Yemek: Utensils,
+  Namaz: Sunrise,
+  Dahili: FileText,
 };
 
 export default function SummaryPage() {
@@ -42,7 +56,7 @@ export default function SummaryPage() {
   }, [user, authLoading, router]);
 
   const fetchStudents = async () => {
-    const instId = institutionId || 'yamanevler';
+    const instId = institutionId || 'bolu-kilicaslan';
     try {
       const res = await fetch(`/api/students?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' });
       const apiData = await res.json();
@@ -55,7 +69,7 @@ export default function SummaryPage() {
 
   const fetchReports = async () => {
     setLoading(true);
-    const instId = institutionId || 'yamanevler';
+    const instId = institutionId || 'bolu-kilicaslan';
     try {
       const res = await fetch(`/api/students/reports?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' });
       const apiData = await res.json();
@@ -72,7 +86,7 @@ export default function SummaryPage() {
       Promise.resolve().then(() => {
         fetchStudents();
       });
-      const instId = institutionId || 'yamanevler';
+      const instId = institutionId || 'bolu-kilicaslan';
       fetch(`/api/admin/leave-settings?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' })
         .then(r => r.json())
         .then(d => { if (d.success && d.settings) setLeaveEnabled(!!d.settings.enabled); })
@@ -136,14 +150,14 @@ export default function SummaryPage() {
   );
 
   return (
-    <div className="min-h-screen bg-[#eef5fc] text-slate-800 flex flex-col md:flex-row font-sans">
+    <div className="min-h-screen md:h-screen md:overflow-hidden bg-[#eef5fc] text-slate-800 flex flex-col md:flex-row font-sans w-full max-w-full">
       <Sidebar />
       <MobileHeader title="Özet" />
 
 
 
       {/* Main Content */}
-      <main className="flex-1 pb-10 overflow-y-auto">
+      <main className="flex-1 md:h-screen pb-28 md:pb-10 overflow-y-auto overflow-x-hidden min-w-0">
         <div className="bg-gradient-to-r from-[#eef5fc] via-[#e2eeff] to-[#d6e7ff] pt-8 pb-6 px-6 md:px-10 border-b border-blue-100/60">
           <div className="max-w-6xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-4">

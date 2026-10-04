@@ -11,8 +11,9 @@ import {
   Mic, MicOff, Search, Plus, Check, X, FileText,
   User, Clock, Sparkles, ChevronRight, TrendingUp,
   GraduationCap, Utensils, AlertCircle, Heart, Sunrise,
-  ClipboardList, BarChart2, LogOut, Shield, Upload,
-  Loader2, Trash2, MessageCircle, Trophy, Target, Tv, BookOpen, Calendar, Settings
+  ClipboardList, BarChart2, LogOut, LogIn, Shield, Upload,
+  Loader2, Trash2, MessageCircle, Trophy, Target, Tv, BookOpen, Calendar, Settings,
+  Copy, RefreshCw, CheckSquare, UserCheck
 } from 'lucide-react';
 import { useAuth } from '@/lib/AuthContext';
 import Sidebar, { MobileHeader, MobileBottomNav } from '@/components/Sidebar';
@@ -21,20 +22,43 @@ import { collection, addDoc, getDocs, query, orderBy, where, serverTimestamp } f
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const CATEGORY_COLORS = {
-  Akademik: '#8b5cf6', Yemek: '#f59e0b',
-  Program:  '#06b6d4', Sağlık: '#ef4444',
-  Namaz: '#10b981',   Dahili: '#a855f7',
+  Akademik: '#8b5cf6',
+  Yoklama: '#f59e0b',
+  Program: '#06b6d4',
+  Sağlık: '#ef4444',
+  'Girdi Çıktı': '#10b981',
+  'Dahili Ders': '#a855f7',
+  // Eski veri uyumluluğu
+  Yemek: '#f59e0b',
+  Namaz: '#10b981',
+  Dahili: '#a855f7',
 };
 const CATEGORY_ICONS = {
-  Akademik: GraduationCap, Yemek: Utensils,
-  Program:  ClipboardList,  Sağlık: Heart,
-  Namaz: Sunrise,           Dahili: BookOpen,
+  Akademik: GraduationCap,
+  Yoklama: Utensils,
+  Program: ClipboardList,
+  Sağlık: Heart,
+  'Girdi Çıktı': Clock,
+  'Dahili Ders': BookOpen,
+  // Eski veri uyumluluğu
+  Yemek: Utensils,
+  Namaz: Sunrise,
+  Dahili: BookOpen,
 };
-const CATEGORIES = ['Akademik', 'Yemek', 'Program', 'Sağlık', 'Namaz', 'Dahili'];
+const CATEGORIES = ['Akademik', 'Yoklama', 'Program', 'Sağlık', 'Girdi Çıktı', 'Dahili Ders'];
 
 // Puan sistemi: olumlu rapor → kategori puanı, olumsuz rapor → -1
 const CATEGORY_SCORES = {
-  Akademik: 3, Namaz: 2, Program: 2, Sağlık: 1, Yemek: 1, Dahili: 1,
+  Akademik: 3,
+  'Girdi Çıktı': 2,
+  Program: 2,
+  Sağlık: 1,
+  Yoklama: 1,
+  'Dahili Ders': 1,
+  // Eski veri uyumluluğu
+  Namaz: 2,
+  Yemek: 1,
+  Dahili: 1,
 };
 
 // ─── Utility ─────────────────────────────────────────────────────────────────
@@ -48,6 +72,34 @@ function formatPhoneForWa(phone) {
     cleaned = '90' + cleaned;
   }
   return cleaned;
+}
+
+function formatSingleReportWaMessage({ institutionName, studentName, category, content, teacherName }) {
+  const inst = institutionName || 'Bolu Kılıçarslan';
+  const categoryIcons = {
+    'Girdi Çıktı': '🚪',
+    'Namaz': '🤲',
+    'Akademik': '📚',
+    'Program': '📋',
+    'Sağlık': '🩺',
+    'Yoklama': '📋',
+    'Yemek': '🍽️',
+    'Dahili Ders': '✨',
+    'Dahili': '✨'
+  };
+  const icon = categoryIcons[category] || '📌';
+
+  return `Kıymetli Velimiz, hayırlı günler dilerim. 🌿
+
+${inst} olarak öğrencimiz ${studentName} hakkında bugünkü öğretmen değerlendirme notumuzu sizinle paylaşmak istedik:
+
+${icon} ${category ? category + ' Takibi' : 'Günlük Not'}:
+"${content}"
+
+Öğrencimizin gayretini, ders ve kurum programına intizamını takdirle takip ediyoruz. Evdeki ilginiz, desteğiniz ve dualarınız için teşekkür ederiz.
+
+Selam ve hürmetlerimizle,
+${teacherName || inst}`;
 }
 
 function formatTeacherName(nameOrEmail) {
@@ -65,10 +117,13 @@ function formatTeacherName(nameOrEmail) {
 
 function tsToString(ts) {
   if (!ts) return '';
-  if (typeof ts === 'string') return new Date(ts).toLocaleString('tr-TR');
-  if (ts?.toDate) return ts.toDate().toLocaleString('tr-TR');
-  if (ts?.seconds) return new Date(ts.seconds * 1000).toLocaleString('tr-TR');
-  return '';
+  try {
+    const d = ts?.toDate ? ts.toDate() : ts?.seconds ? new Date(ts.seconds * 1000) : new Date(ts);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + d.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+  } catch (e) {
+    return '';
+  }
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -82,9 +137,34 @@ export default function StudentsPage() {
   const [searchQuery, setSearchQuery]         = useState('');
   const [selectedClass, setSelectedClass]     = useState('All');
   const [dataLoading, setDataLoading]         = useState(true);
-  const [activeView, setActiveView]           = useState('ai'); // 'ai' | 'students'
+  const [activeView, setActiveView]           = useState('students'); // 'students' | 'ai'
 
-  // Voice & AI
+  // URL ?view= sync for seamless navigation between pages
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const v = params.get('view');
+      if (v === 'ai') {
+        setActiveView('ai');
+      } else if (v === 'students') {
+        setActiveView('students');
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    const handlePopState = () => {
+      const params = new URLSearchParams(window.location.search);
+      const v = params.get('view');
+      if (v === 'ai') {
+        setActiveView('ai');
+      } else if (v === 'students') {
+        setActiveView('students');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
   const [isListening, setIsListening]  = useState(false);
   const [voiceText, setVoiceText]      = useState('');
   const [isAnalyzing, setIsAnalyzing]  = useState(false);
@@ -110,9 +190,14 @@ export default function StudentsPage() {
   const [csvLoading, setCsvLoading] = useState(false);
   const fileInputRef              = useRef(null);
 
+  // Teacher Groups
+  const [teacherGroups, setTeacherGroups] = useState([]);
+
   // Toast
   const [toast, setToast] = useState(null);
   const recognitionRef    = useRef(null);
+  const lastSpokenRef     = useRef('');
+  const lastAnalyzedRef   = useRef('');
 
   const [editingPhone, setEditingPhone] = useState('');
 
@@ -122,6 +207,12 @@ export default function StudentsPage() {
 
   // İzin modülü aktif mi?
   const [leaveEnabled, setLeaveEnabled] = useState(false);
+
+  // Veliye Durum Bildirme Raporu (Haftalık / Aylık AI Raporu)
+  const [parentReportPeriod, setParentReportPeriod] = useState('haftalik'); // 'haftalik' | 'aylik' | 'genel'
+  const [isGeneratingParentReport, setIsGeneratingParentReport] = useState(false);
+  const [generatedParentReport, setGeneratedParentReport] = useState('');
+  const [showParentReportBox, setShowParentReportBox] = useState(false);
 
   // Sync view from URL if navigating from other pages (e.g. /?view=ai or /?view=students)
   useEffect(() => {
@@ -148,7 +239,7 @@ export default function StudentsPage() {
   // ─── Data ──────────────────────────────────────────────────────────────────
   const fetchStudents = async () => {
     setDataLoading(true);
-    const instId = institutionId || 'yamanevler';
+    const instId = institutionId || 'bolu-kilicaslan';
     try {
       const res = await fetch(`/api/students?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' });
       const apiData = await res.json();
@@ -163,11 +254,24 @@ export default function StudentsPage() {
     }
   };
 
+  const fetchTeacherGroups = async () => {
+    const instId = institutionId || 'bolu-kilicaslan';
+    try {
+      const res = await fetch(`/api/teacher-groups?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' });
+      const apiData = await res.json();
+      if (apiData.success && Array.isArray(apiData.groups)) {
+        setTeacherGroups(apiData.groups);
+      }
+    } catch (e) {
+      console.warn('fetchTeacherGroups error:', e);
+    }
+  };
+
   const [selectedBulkStudents, setSelectedBulkStudents] = useState([]);
   const [isBulkSaving, setIsBulkSaving]                 = useState(false);
 
   const fetchReports = async (studentId) => {
-    const instId = institutionId || 'yamanevler';
+    const instId = institutionId || 'bolu-kilicaslan';
     try {
       const res = await fetch(`/api/students/reports?studentId=${studentId}&institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' });
       const apiData = await res.json();
@@ -181,19 +285,52 @@ export default function StudentsPage() {
   // ─── Weekly Stats ───────────────────────────────────────────────────────────
   const fetchWeeklyReports = async () => {
     setWeeklyLoading(true);
-    const instId = institutionId || 'yamanevler';
+    const instId = institutionId || 'bolu-kilicaslan';
     try {
       const res = await fetch(`/api/students/reports?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' });
       const apiData = await res.json();
       if (apiData.success && apiData.reports) {
+        const allReps = apiData.reports;
         // Son 7 günün raporlarını filtrele
         const weekAgo = new Date();
         weekAgo.setDate(weekAgo.getDate() - 7);
-        const recent = apiData.reports.filter(r => {
+        const recent = allReps.filter(r => {
           const d = r.created_at ? new Date(r.created_at) : null;
           return d && d >= weekAgo;
         });
         setWeeklyReports(recent);
+
+        // Map report stats to student list
+        setStudents(prev => {
+          if (!prev || prev.length === 0) return prev;
+          const reportsBySid = {};
+          allReps.forEach(r => {
+            const sid = (r.student_id || r.studentId || '').trim();
+            if (sid) {
+              if (!reportsBySid[sid]) reportsBySid[sid] = [];
+              reportsBySid[sid].push(r);
+            }
+          });
+
+          return prev.map(st => {
+            const stReps = reportsBySid[st.id] || [];
+            if (stReps.length === 0) return st;
+            stReps.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+            const c = (stReps[0].content || '').toLowerCase();
+            let stStatus = 'Orta';
+            if (c.includes('gelmedi') || c.includes('kavga') || c.includes('hasta') || c.includes('dikkat') || c.includes('kutU') || c.includes('uyari') || c.includes('uyudu') || c.includes('kaynatti') || c.includes('inmedi')) {
+              stStatus = 'Dikkat';
+            } else if (c.includes('katildi') || c.includes('iyi') || c.includes('basarili') || c.includes('aktif') || c.includes('tebrik') || c.includes('tam')) {
+              stStatus = 'İyi';
+            }
+            return {
+              ...st,
+              report_count: Math.max(st.report_count || 0, stReps.length),
+              last_report_date: stReps[0].created_at || st.last_report_date,
+              status: stStatus,
+            };
+          });
+        });
       }
     } catch (e) { console.error('fetchWeeklyReports error:', e); }
     finally { setWeeklyLoading(false); }
@@ -203,10 +340,11 @@ export default function StudentsPage() {
     if (user) {
       Promise.resolve().then(() => {
         fetchStudents();
+        fetchTeacherGroups();
         fetchWeeklyReports();
       });
       // İzin modülü ayarını çek
-      const instId = institutionId || 'yamanevler';
+      const instId = institutionId || 'bolu-kilicaslan';
       fetch(`/api/admin/leave-settings?institutionId=${encodeURIComponent(instId)}`, { cache: 'no-store' })
         .then(r => r.json())
         .then(d => { if (d.success && d.settings) setLeaveEnabled(!!d.settings.enabled); })
@@ -219,6 +357,8 @@ export default function StudentsPage() {
       Promise.resolve().then(() => {
         fetchReports(selectedStudent.id);
         setEditingPhone(selectedStudent.parent_phone || '');
+        setGeneratedParentReport('');
+        setShowParentReportBox(false);
       });
     }
   }, [selectedStudent]);
@@ -246,6 +386,8 @@ export default function StudentsPage() {
       rec.continuous = false;
       rec.interimResults = true;
       rec.maxAlternatives = 1;
+      lastSpokenRef.current = '';
+      lastAnalyzedRef.current = '';
 
       rec.onstart = () => {
         setIsListening(true);
@@ -266,8 +408,10 @@ export default function StudentsPage() {
         const textSoFar = (finalTranscript || interimTranscript).trim();
         if (textSoFar) {
           setVoiceText(textSoFar);
+          lastSpokenRef.current = textSoFar;
         }
         if (finalTranscript.trim()) {
+          lastAnalyzedRef.current = finalTranscript.trim();
           analyzeWithAI(finalTranscript.trim());
         }
       };
@@ -278,7 +422,7 @@ export default function StudentsPage() {
         if (event.error === 'not-allowed') {
           showToast('Mikrofon erişimi engellendi. Lütfen tarayıcı ayarlarından mikrofon izni verin.', 'error');
         } else if (event.error === 'no-speech') {
-          // No speech detected, ignore silently or notify user gently
+          // No speech detected
         } else if (event.error === 'network') {
           showToast('Ses tanıma için internet bağlantısı gerekiyor.', 'error');
         }
@@ -286,6 +430,11 @@ export default function StudentsPage() {
 
       rec.onend = () => {
         setIsListening(false);
+        const pending = (lastSpokenRef.current || '').trim();
+        if (pending && pending !== lastAnalyzedRef.current) {
+          lastAnalyzedRef.current = pending;
+          analyzeWithAI(pending);
+        }
       };
 
       recognitionRef.current = rec;
@@ -323,8 +472,9 @@ export default function StudentsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           text, 
-          institutionId: institutionId || 'yamanevler',
-          students: payloadStudents
+          institutionId: institutionId || 'bolu-kilicaslan',
+          students: payloadStudents,
+          teacherGroups: teacherGroups
         }),
       });
       const data = await res.json();
@@ -338,15 +488,55 @@ export default function StudentsPage() {
           rawMatches.push({ id: data.data.matchedStudentId, name: data.data.matchedStudentName });
         }
 
+        // If a group was identified, guarantee all group members from teacherGroups are included
+        if (data.data.matchedGroupName) {
+          const normTargetGrp = data.data.matchedGroupName.toLowerCase().replace(/[^a-z0-9]/g, '');
+          const grp = teacherGroups.find(g => {
+            const normG = (g.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            return normG === normTargetGrp || normG.includes(normTargetGrp) || normTargetGrp.includes(normG);
+          });
+          if (grp && Array.isArray(grp.student_ids)) {
+            grp.student_ids.forEach(sId => {
+              const st = students.find(s => s.id === sId);
+              if (st && !matchedList.some(m => m.id === st.id)) {
+                matchedList.push(st);
+              }
+            });
+          }
+        }
+
+        // If a class was identified, guarantee all students in that class are included
+        if (data.data.matchedClassName) {
+          const normTargetCls = String(data.data.matchedClassName).toLowerCase().replace(/[^a-z0-9]/g, '');
+          students.forEach(st => {
+            if (st.class) {
+              const normC = String(st.class).toLowerCase().replace(/[^a-z0-9]/g, '');
+              if (normC === normTargetCls || normC.includes(normTargetCls)) {
+                if (!matchedList.some(m => m.id === st.id)) {
+                  matchedList.push(st);
+                }
+              }
+            }
+          });
+        }
+
         rawMatches.forEach(rm => {
           const normId = String(rm.id || '').trim().toLowerCase();
-          const normName = String(rm.name || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+          const rawRmName = String(rm.name || '').trim().toLowerCase();
+          const normName = rawRmName.replace(/[^a-z0-9]/g, '');
+
           const st = students.find(s => normId && String(s.id).trim().toLowerCase() === normId)
                   || students.find(s => normId && String(s.id).trim().toLowerCase().includes(normId))
                   || students.find(s => {
                        const full = `${s.name || ''} ${s.surname || ''}`.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
                        return normName && (full === normName || full.includes(normName) || normName.includes(full));
+                     })
+                  || students.find(s => {
+                       const fn = String(s.name || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+                       const sn = String(s.surname || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+                       return (fn && fn.length >= 3 && normName.includes(fn)) || (sn && sn.length >= 4 && normName.includes(sn));
                      });
+
           if (st && !matchedList.some(m => m.id === st.id)) {
             matchedList.push(st);
           }
@@ -354,12 +544,16 @@ export default function StudentsPage() {
 
         setSelectedBulkStudents(matchedList);
 
-        if (matchedList.length === 1) {
-          showToast(`${matchedList[0].name} ${matchedList[0].surname} tespit edildi!`);
+        if (data.data.matchedGroupName) {
+          showToast(`🎯 "${data.data.matchedGroupName}" grubu tespit edildi (${matchedList.length} öğrenci)!`);
+        } else if (data.data.matchedClassName) {
+          showToast(`🎯 "${data.data.matchedClassName}" sınıfı tespit edildi (${matchedList.length} öğrenci)!`);
+        } else if (matchedList.length === 1) {
+          showToast(`✅ ${matchedList[0].name} ${matchedList[0].surname} tespit edildi!`);
         } else if (matchedList.length > 1) {
-          showToast(`${matchedList.length} öğrenci tespit edildi (Toplu Rapor)!`);
+          showToast(`✅ ${matchedList.length} öğrenci tespit edildi (Toplu Rapor)!`);
         } else {
-          showToast('Eşleşen öğrenci adı metinde bulunamadı.', 'error');
+          showToast('Eşleşen öğrenci veya grup metinde bulunamadı.', 'error');
         }
       }
       else showToast('Yapay zekâ analizi başarısız.', 'error');
@@ -386,7 +580,7 @@ export default function StudentsPage() {
           category: directCategory,
           isPositive: directIsPositive,
           notifyParent: !!notifyParent,
-          institutionId: institutionId || 'yamanevler',
+          institutionId: institutionId || 'bolu-kilicaslan',
           createdBy: userName || user?.displayName || user?.name || user?.email || 'Öğretmen',
         }),
       });
@@ -394,7 +588,13 @@ export default function StudentsPage() {
       if (!data.success) throw new Error(data.error || 'Rapor eklenemedi');
 
       if (notifyParent && selectedStudent.parent_phone) {
-        const msg = `${institutionName || 'Yamanevler Enderun Bilişim'}'den merhaba. Öğrencimiz ${selectedStudent.name} ${selectedStudent.surname} için günlük rapor:\n\nKategori: ${directCategory}\nRapor: ${directText}`;
+        const msg = formatSingleReportWaMessage({
+          institutionName,
+          studentName: `${selectedStudent.name} ${selectedStudent.surname}`,
+          category: directCategory,
+          content: directText,
+          teacherName: userName || user?.displayName || user?.name || ''
+        });
         const waUrl = `https://wa.me/${formatPhoneForWa(selectedStudent.parent_phone)}?text=${encodeURIComponent(msg)}`;
         window.open(waUrl, '_blank');
 
@@ -433,7 +633,7 @@ export default function StudentsPage() {
 
     setIsBulkSaving(true);
     const targetStudents = [...selectedBulkStudents];
-    const instId = institutionId || 'yamanevler';
+    const instId = institutionId || 'bolu-kilicaslan';
     const author = userName || user?.displayName || user?.name || user?.email || 'Öğretmen';
     let savedCount = 0;
 
@@ -486,69 +686,83 @@ export default function StudentsPage() {
 
   // ─── Add Single Student ────────────────────────────────────────────────────
   const handleAddStudent = async (e) => {
-    e.preventDefault();
-    if (!newName || !newSurname || !newClass) return;
+    if (e) e.preventDefault();
+    if (!newName.trim() || !newSurname.trim() || !newClass.trim()) {
+      showToast('Lütfen Ad, Soyad ve Sınıf alanlarını doldurun.', 'error');
+      return;
+    }
 
-    const currentInstId = institutionId || 'yamanevler';
+    const currentInstId = institutionId || 'bolu-kilicaslan';
+    const tempId = `student-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const addedStudent = {
+      id: tempId,
+      name: newName.trim(),
+      surname: newSurname.trim(),
+      class: newClass.trim(),
+      parent_phone: newParentPhone ? newParentPhone.trim() : '',
+      institution_id: currentInstId,
+      status: 'Rapor Yok',
+      last_report_date: null
+    };
+
+    // 1. Anında UI'a ekle (Hemen görünür)
+    setStudents(prev => [addedStudent, ...prev]);
+    showToast(`${addedStudent.name} ${addedStudent.surname} eklendi!`);
+
+    const savedName = newName.trim();
+    const savedSurname = newSurname.trim();
+    const savedClass = newClass.trim();
+    const savedPhone = newParentPhone.trim();
+
+    setNewName('');
+    setNewSurname('');
+    setNewParentPhone('');
+    // Sınıfı temizlemiyoruz: Aynı sınıfa arka arkaya seri öğrenci eklemek çok kolay olsun
 
     try {
       const res = await fetch('/api/students', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: newName,
-          surname: newSurname,
-          studentClass: newClass,
-          parentPhone: newParentPhone || '',
+          name: savedName,
+          surname: savedSurname,
+          studentClass: savedClass,
+          parentPhone: savedPhone,
           institutionId: currentInstId,
         }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Ekleme başarısız');
 
-      const addedStudent = data.student || {
-        id: data.id || `student-${Date.now()}`,
-        name: newName.trim(),
-        surname: newSurname.trim(),
-        class: newClass.trim(),
-        parent_phone: newParentPhone ? newParentPhone.trim() : '',
-        institution_id: currentInstId,
-        status: 'Rapor Yok',
-        last_report_date: null
-      };
-
-      // Instantly update UI state so student never disappears
-      setStudents(prev => {
-        const exists = prev.some(s => s.id === addedStudent.id);
-        if (exists) return prev.map(s => s.id === addedStudent.id ? addedStudent : s);
-        return [addedStudent, ...prev];
-      });
-
-      setNewName(''); setNewSurname(''); setNewClass(''); setNewParentPhone('');
-      setShowAddStudent(false);
-      showToast('Öğrenci başarıyla eklendi!');
-      // Re-sync from server to confirm persistence
-      await fetchStudents();
+      if (data.student && data.student.id) {
+        // Gerçek ID ile güncelle
+        setStudents(prev => prev.map(s => s.id === tempId ? { ...data.student } : s));
+      }
     } catch (e) {
       console.error('handleAddStudent error:', e);
       showToast('Hata: ' + e.message, 'error');
+      setStudents(prev => prev.filter(s => s.id !== tempId));
     }
   };
 
   // ─── Delete Student ────────────────────────────────────────────────────────
   const handleDeleteStudent = async (e, id, studentName) => {
-    e.stopPropagation();
-    if (!confirm(`${studentName} adlı öğrenciyi silmek istediğinize emin misiniz?`)) return;
+    if (e && e.stopPropagation) e.stopPropagation();
+    if (!confirm(`${studentName || 'Bu'} adlı öğrenciyi ve tüm raporlarını kalıcı olarak silmek istediğinize emin misiniz?`)) return;
+
+    // Anında UI'dan kaldır (0 ms gecikme)
+    if (selectedStudent?.id === id) setSelectedStudent(null);
+    setStudents(prev => prev.filter(s => s.id !== id));
+    showToast(`${studentName || 'Öğrenci'} başarıyla silindi.`);
+
     try {
       const res = await fetch(`/api/students?id=${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Silme başarısız');
-      showToast('Öğrenci silindi');
-      if (selectedStudent?.id === id) setSelectedStudent(null);
-      setStudents(prev => prev.filter(s => s.id !== id));
-      await fetchStudents();
     } catch (err) {
-      showToast('Hata: ' + err.message, 'error');
+      console.error('Silme hatası:', err);
+      showToast('Silme hatası: ' + err.message, 'error');
+      await fetchStudents();
     }
   };
 
@@ -561,7 +775,7 @@ export default function StudentsPage() {
       const res = await fetch(`/api/students/reports?id=${encodeURIComponent(reportId)}`, { method: 'DELETE' });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Silme başarısız');
-      showToast('Rapor başarıyla silindi');
+      showToast('Rapor başarıyla silindi.');
       if (studentId) await fetchReports(studentId);
       await fetchStudents();
       await fetchWeeklyReports();
@@ -578,7 +792,13 @@ export default function StudentsPage() {
       return;
     }
     try {
-      const msg = `${institutionName || 'Kurum'}'den merhaba. Öğrencimiz ${selectedStudent.name} ${selectedStudent.surname} için günlük rapor:\n\nKategori: ${report.category}\nRapor: ${report.content}`;
+      const msg = formatSingleReportWaMessage({
+        institutionName,
+        studentName: `${selectedStudent.name} ${selectedStudent.surname}`,
+        category: report.category,
+        content: report.content,
+        teacherName: userName || user?.displayName || user?.name || ''
+      });
       const waUrl = `https://wa.me/${formatPhoneForWa(report.parent_phone)}?text=${encodeURIComponent(msg)}`;
       window.open(waUrl, '_blank');
       
@@ -591,7 +811,7 @@ export default function StudentsPage() {
           class_name: selectedStudent.class,
           content: `[WhatsApp İletildi] ${report.content}`,
           category: report.category,
-          institutionId: institutionId || 'yamanevler',
+          institutionId: institutionId || 'bolu-kilicaslan',
         }),
       });
       
@@ -632,6 +852,161 @@ export default function StudentsPage() {
     }
   };
 
+  // ─── Girdi Çıktı Takibi (Check-in / Check-out) ──────────────────────────────
+  const handleToggleCheckout = async (studentToToggle) => {
+    const target = studentToToggle || selectedStudent;
+    if (!target) return;
+
+    const isCurrentlyOut = !!target.checkout_time;
+
+    if (!isCurrentlyOut) {
+      // 1. ÇIKIŞ YAPILDI
+      const now = new Date();
+      const nowIso = now.toISOString();
+      const timeStr = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+      const dateStr = now.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' });
+
+      setSelectedStudent(prev => prev && prev.id === target.id ? { ...prev, checkout_time: nowIso } : prev);
+      setStudents(prev => prev.map(s => s.id === target.id ? { ...s, checkout_time: nowIso } : s));
+
+      try {
+        await fetch('/api/students', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: target.id, checkout_time: nowIso }),
+        });
+        showToast(`${target.name} ${target.surname} için Çıkış saati kaydedildi: ${timeStr} (${dateStr})`, 'success');
+      } catch (err) {
+        console.error('Checkout error:', err);
+        showToast('Çıkış kaydı sırasında hata oluştu.', 'error');
+      }
+    } else {
+      // 2. GİRİŞ YAPILDI (Geri Dönüş)
+      const checkoutDate = new Date(target.checkout_time);
+      const returnDate = new Date();
+
+      // Gece 00:00'ı geçmiş mi kontrolü:
+      const midnightAfterCheckout = new Date(checkoutDate);
+      midnightAfterCheckout.setHours(24, 0, 0, 0); // Bir sonraki günün 00:00'ı
+      const isPastMidnight = returnDate >= midnightAfterCheckout;
+
+      setSelectedStudent(prev => prev && prev.id === target.id ? { ...prev, checkout_time: null } : prev);
+      setStudents(prev => prev.map(s => s.id === target.id ? { ...s, checkout_time: null } : s));
+
+      try {
+        await fetch('/api/students', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: target.id, checkout_time: '' }),
+        });
+
+        if (isPastMidnight) {
+          // Saat 00:00'ı geçmiş -> Program kategorisinde -1 geç geldi raporu gir
+          const checkoutStr = `${checkoutDate.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })} (${checkoutDate.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' })})`;
+          const returnStr = `${returnDate.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })} (${returnDate.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' })})`;
+
+          const repRes = await fetch('/api/students/reports', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              studentId: target.id,
+              studentName: `${target.name} ${target.surname}`,
+              className: target.class || '',
+              parentPhone: target.parent_phone || '',
+              content: `Kuruma geç geldi (Çıkış: ${checkoutStr} - Giriş: ${returnStr})`,
+              category: 'Girdi Çıktı',
+              isPositive: false, // -1 ceza puanı
+              institutionId: institutionId || 'bolu-kilicaslan',
+              createdBy: userName || 'Sistem'
+            }),
+          });
+          const repData = await repRes.json();
+          if (repData.success) {
+            await fetchReports(target.id);
+            await fetchWeeklyReports();
+          }
+          showToast(`Saat 00:00'ı geçtiği için ${target.name} adına Girdi Çıktı kategorisine -1 ceza puanı (Geç Geldi) işlendi!`, 'warning');
+        } else {
+          const returnTimeStr = returnDate.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+          showToast(`${target.name} ${target.surname} giriş yaptı (${returnTimeStr}).`, 'success');
+        }
+      } catch (err) {
+        console.error('Checkin error:', err);
+        showToast('Giriş kaydı sırasında hata oluştu.', 'error');
+      }
+    }
+  };
+
+  // ─── Veli Durum Bildirme Raporu Oluştur (Haftalık / Aylık AI) ──────────────
+  const handleGenerateParentReport = async (overridePeriod) => {
+    if (!selectedStudent) return;
+    const periodToUse = overridePeriod || parentReportPeriod;
+    setIsGeneratingParentReport(true);
+    setShowParentReportBox(true);
+
+    try {
+      // Seçilen döneme göre öğrencinin raporlarını filtrele
+      const now = new Date();
+      const filteredForPeriod = (reports || []).filter(r => {
+        if (!r.created_at) return true;
+        const rDate = new Date(r.created_at);
+        if (periodToUse === 'haftalik') {
+          const weekAgo = new Date();
+          weekAgo.setDate(now.getDate() - 7);
+          return rDate >= weekAgo;
+        } else if (periodToUse === 'aylik') {
+          const monthAgo = new Date();
+          monthAgo.setDate(now.getDate() - 30);
+          return rDate >= monthAgo;
+        }
+        return true;
+      });
+
+      const res = await fetch('/api/ai/parent-progress-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          studentName: `${selectedStudent.name} ${selectedStudent.surname}`,
+          className: selectedStudent.class || '',
+          institutionName: institutionName || 'Bolu Kılıçarslan',
+          period: periodToUse,
+          reports: filteredForPeriod,
+          teacherName: userName || user?.displayName || user?.name || ''
+        })
+      });
+
+      const data = await res.json();
+      if (data.success && data.message) {
+        setGeneratedParentReport(data.message);
+        showToast('Veli durum raporu hazırlandı ✨');
+      } else {
+        throw new Error(data.error || 'Rapor oluşturulamadı.');
+      }
+    } catch (err) {
+      console.error('Parent report generation error:', err);
+      showToast('Hata: ' + err.message, 'error');
+    } finally {
+      setIsGeneratingParentReport(false);
+    }
+  };
+
+  const handleSendParentReportWhatsApp = () => {
+    if (!selectedStudent?.parent_phone) {
+      showToast('Lütfen önce veli telefon numarasını girin veya düzenleyin.', 'error');
+      return;
+    }
+    if (!generatedParentReport) return;
+    const waUrl = `https://wa.me/${formatPhoneForWa(selectedStudent.parent_phone)}?text=${encodeURIComponent(generatedParentReport)}`;
+    window.open(waUrl, '_blank');
+    showToast('WhatsApp açılıyor...');
+  };
+
+  const handleCopyParentReport = () => {
+    if (!generatedParentReport) return;
+    navigator.clipboard.writeText(generatedParentReport);
+    showToast('Veli durum raporu panoya kopyalandı! 📋');
+  };
+
   // ─── CSV / Excel Toplu İçe Aktarma ──────────────────────────────────────────
   const handleCSVImport = async (e) => {
     const file = e.target.files?.[0];
@@ -664,7 +1039,7 @@ export default function StudentsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           students: studentsToImport,
-          institutionId: institutionId || 'yamanevler'
+          institutionId: institutionId || 'bolu-kilicaslan'
         })
       });
 
@@ -719,17 +1094,19 @@ export default function StudentsPage() {
   const sidebarColor = primaryColor || '#06429c';
 
   return (
-    <div className="min-h-screen bg-[#eef5fc] text-slate-800 flex flex-col md:flex-row font-sans selection:bg-blue-500 selection:text-white">
+    <div className="min-h-screen md:h-screen md:overflow-hidden bg-[#eef5fc] text-slate-800 flex flex-col md:flex-row font-sans selection:bg-blue-500 selection:text-white w-full max-w-full">
       {/* ── Desktop Left Sidebar (Visible on md+) ── */}
-      <Sidebar activeView={activeView} onSelectView={(v) => { setActiveView(v); setSelectedStudent(null); }} />
+      <Sidebar activeView={activeView} onSelectView={(v) => { setActiveView(v); setSelectedStudent(null); if (typeof window !== 'undefined') window.history.replaceState(null, '', `/?view=${v}`); }} />
 
       {/* ── Mobile Top Header (Visible on Mobile only) ── */}
       <MobileHeader
         title="Talebe Takip"
+        activeView={activeView}
+        onSelectView={(v) => { setActiveView(v); setSelectedStudent(null); if (typeof window !== 'undefined') window.history.replaceState(null, '', `/?view=${v}`); }}
         rightAction={
           <button
             onClick={() => setShowAddStudent(!showAddStudent)}
-            className="p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors"
+            className="p-1.5 sm:p-2 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-100 transition-colors cursor-pointer"
             title="Öğrenci Ekle"
           >
             <Plus size={18} />
@@ -744,37 +1121,37 @@ export default function StudentsPage() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className={`fixed top-6 right-6 z-[9999] px-5 py-3 rounded-xl shadow-2xl text-sm font-semibold flex items-center gap-3 border ${
+            className={`fixed top-6 right-6 z-[9999] px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl shadow-2xl text-xs sm:text-sm font-semibold flex items-center gap-2.5 sm:gap-3 border max-w-[90vw] ${
               toast.type === 'error'
                 ? 'bg-red-50 border-red-200 text-red-700'
                 : 'bg-emerald-50 border-emerald-200 text-emerald-700'
             }`}
           >
             {toast.type === 'error' ? <X size={16} /> : <Check size={16} />}
-            {toast.msg}
+            <span className="truncate">{toast.msg}</span>
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* ── Main Workspace Area ── */}
-      <main className="flex-1 pb-24 md:pb-10 overflow-y-auto">
+      <main className="flex-1 md:h-screen pb-28 md:pb-10 overflow-y-auto overflow-x-hidden min-w-0">
         
         {/* Top Header & Context Switch */}
-        <div className="bg-white border-b border-slate-100 px-4 md:px-10 py-6">
-          <div className="max-w-6xl mx-auto flex flex-col gap-4">
+        <div className="bg-white border-b border-slate-100 px-3.5 sm:px-6 md:px-10 py-4 sm:py-6">
+          <div className="max-w-6xl mx-auto flex flex-col gap-3 sm:gap-4">
             
             {activeView === 'students' ? (
               <>
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
                   <div>
-                    <h1 className="text-xl md:text-2xl font-black text-slate-900 tracking-tight">Öğrenciler Listesi</h1>
+                    <h1 className="text-lg sm:text-xl md:text-2xl font-black text-slate-900 tracking-tight">Öğrenciler Listesi</h1>
                     <p className="text-slate-500 text-xs mt-0.5">Toplam {filteredStudents.length} öğrenci listeleniyor.</p>
                   </div>
 
                   <div className="flex items-center gap-2 flex-wrap">
                     <button
                       onClick={() => setShowAddStudent(!showAddStudent)}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#06429c] text-white hover:bg-blue-700 font-bold text-xs shadow-md transition-all"
+                      className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#06429c] text-white hover:bg-blue-700 font-bold text-xs shadow-md transition-all cursor-pointer"
                     >
                       <Plus size={14} /> Öğrenci Ekle
                     </button>
@@ -856,21 +1233,71 @@ export default function StudentsPage() {
                 {showAddStudent && (
                   <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
                     <div className="bg-white border border-blue-200 p-6 rounded-3xl shadow-lg">
-                      <h2 className="text-sm font-bold text-slate-800 mb-4 flex items-center gap-2">
-                        <User size={16} className="text-blue-600" /> Yeni Öğrenci Kaydı
-                      </h2>
-                      <form onSubmit={handleAddStudent} className="grid grid-cols-1 md:grid-cols-5 gap-3">
-                        {[
-                          [newName, setNewName, 'Ad'],
-                          [newSurname, setNewSurname, 'Soyad'],
-                          [newClass, setNewClass, 'Sınıf (Örn: 10-A)'],
-                          [newParentPhone, setNewParentPhone, 'Veli Telefonu (05xx...)'],
-                        ].map(([val, setter, ph]) => (
-                          <input key={ph} type="text" placeholder={ph} value={val} onChange={e => setter(e.target.value)} required={ph !== 'Veli Telefonu (05xx...)'}
-                            className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-600 text-xs font-medium"
-                          />
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                            <User size={16} />
+                          </div>
+                          <div>
+                            <h2 className="text-sm font-bold text-slate-800">Hızlı Öğrenci Kaydı</h2>
+                            <p className="text-[11px] text-slate-400">Öğrenci bilgilerini girip Kaydet&apos;e basın, anında listeye eklenir.</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowAddStudent(false)}
+                          className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition-colors"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+
+                      <datalist id="availableClasses">
+                        {classesList.filter(c => c !== 'All').map(cls => (
+                          <option key={cls} value={cls} />
                         ))}
-                        <button type="submit" className="bg-[#06429c] text-white font-bold rounded-xl py-2.5 hover:bg-blue-700 transition-all text-xs shadow-md">Kaydet</button>
+                      </datalist>
+
+                      <form onSubmit={handleAddStudent} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
+                        <input
+                          type="text"
+                          placeholder="Öğrenci Adı *"
+                          value={newName}
+                          onChange={e => setNewName(e.target.value)}
+                          required
+                          autoFocus
+                          className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-600 text-xs font-medium"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Soyadı *"
+                          value={newSurname}
+                          onChange={e => setNewSurname(e.target.value)}
+                          required
+                          className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-600 text-xs font-medium"
+                        />
+                        <input
+                          type="text"
+                          list="availableClasses"
+                          placeholder="Sınıf (Örn: 10-A) *"
+                          value={newClass}
+                          onChange={e => setNewClass(e.target.value)}
+                          required
+                          className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-600 text-xs font-medium"
+                        />
+                        <input
+                          type="tel"
+                          placeholder="Veli Telefonu (05xx...)"
+                          value={newParentPhone}
+                          onChange={e => setNewParentPhone(e.target.value)}
+                          className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-slate-800 placeholder-slate-400 focus:outline-none focus:border-blue-600 text-xs font-medium"
+                        />
+                        <button
+                          type="submit"
+                          className="bg-[#06429c] text-white font-bold rounded-xl py-2.5 hover:bg-blue-700 transition-all text-xs shadow-md flex items-center justify-center gap-1.5"
+                        >
+                          <Plus size={15} /> Kaydet
+                        </button>
                       </form>
                     </div>
                   </motion.div>
@@ -904,54 +1331,14 @@ export default function StudentsPage() {
                 )}
               </AnimatePresence>
 
-              {/* ── Haftanın Sınıfı + Haftalık İstatistikler ── */}
-              {(topClass || weeklyReports.length > 0) && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Haftanın Sınıfı */}
-                  {topClass && (
-                    <div className="md:col-span-1 bg-gradient-to-br from-amber-400 to-orange-500 rounded-3xl p-5 shadow-md text-white flex items-center gap-4">
-                      <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0">
-                        <Trophy size={24} className="text-white" />
-                      </div>
-                      <div>
-                        <div className="text-[10px] font-black uppercase tracking-widest text-amber-100">🏆 Haftanın Sınıfı</div>
-                        <div className="text-2xl font-black">{topClass[0]}</div>
-                        <div className="text-xs text-amber-100 mt-0.5">{topClass[1]} puan · Bu hafta</div>
-                      </div>
-                    </div>
-                  )}
-                  {/* Namaz İstatistiği */}
-                  <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-3xl p-5 shadow-md text-white flex items-center gap-4">
-                    <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0">
-                      <Sunrise size={24} className="text-white" />
-                    </div>
-                    <div>
-                      <div className="text-[10px] font-black uppercase tracking-widest text-emerald-100">🕌 Namaz Raporları</div>
-                      <div className="text-2xl font-black">{weeklyNamazCount}</div>
-                      <div className="text-xs text-emerald-100 mt-0.5">Bu haftaki kayıt</div>
-                    </div>
-                  </div>
-                  {/* Ders İstatistiği */}
-                  <div className="bg-gradient-to-br from-violet-500 to-purple-700 rounded-3xl p-5 shadow-md text-white flex items-center gap-4">
-                    <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center shrink-0">
-                      <BookOpen size={24} className="text-white" />
-                    </div>
-                    <div>
-                      <div className="text-[10px] font-black uppercase tracking-widest text-violet-200">📚 Akademik Raporlar</div>
-                      <div className="text-2xl font-black">{weeklyAkademikCount}</div>
-                      <div className="text-xs text-violet-200 mt-0.5">Bu haftaki kayıt</div>
-                    </div>
-                  </div>
-                </div>
-              )}
 
               {/* Student Table */}
-              <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-100 space-y-6">
+              <div className="bg-white rounded-2xl sm:rounded-3xl p-3.5 sm:p-6 md:p-8 shadow-sm border border-slate-100 space-y-4 sm:space-y-6 w-full max-w-full overflow-hidden">
 
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
+                <div className="w-full overflow-x-auto -mx-1 sm:mx-0">
+                  <table className="w-full text-left border-collapse min-w-[340px] sm:min-w-[480px]">
                     <thead>
-                      <tr className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-3">
+                      <tr className="text-[10.5px] sm:text-[11px] font-extrabold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-3">
                         <th className="pb-3 pl-2">Öğrenci Adı</th>
                         <th className="pb-3">Sınıf</th>
                         <th className="pb-3 hidden md:table-cell">Son Rapor</th>
@@ -963,51 +1350,70 @@ export default function StudentsPage() {
                       {dataLoading ? (
                         Array.from({ length: 5 }).map((_, idx) => (
                           <tr key={idx} className="animate-pulse">
-                            <td className="py-3.5 pl-2 flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-slate-200" />
-                              <div className="h-4 w-32 bg-slate-200 rounded-md" />
+                            <td className="py-3.5 pl-2 flex items-center gap-2.5">
+                              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-slate-200" />
+                              <div className="h-4 w-28 sm:w-32 bg-slate-200 rounded-md" />
                             </td>
-                            <td className="py-3.5"><div className="h-4 w-12 bg-slate-200 rounded-md" /></td>
+                            <td className="py-3.5"><div className="h-4 w-10 sm:w-12 bg-slate-200 rounded-md" /></td>
                             <td className="py-3.5 hidden md:table-cell"><div className="h-4 w-24 bg-slate-200 rounded-md" /></td>
                             <td className="py-3.5"><div className="h-4 w-16 bg-slate-200 rounded-md" /></td>
-                            <td className="py-3.5 text-right pr-2"><div className="h-7 w-20 bg-slate-200 rounded-xl ml-auto" /></td>
+                            <td className="py-3.5 text-right pr-2"><div className="h-7 w-16 sm:w-20 bg-slate-200 rounded-xl ml-auto" /></td>
                           </tr>
                         ))
                       ) : filteredStudents.map((st) => {
                         const initials = `${st.name ? st.name[0] : ''}${st.surname ? st.surname[0] : ''}`;
-                        const status = st.status || 'Rapor Yok';
+                        const repCount = st.report_count || 0;
+                        const status = st.status || (repCount > 0 ? 'Orta' : 'Rapor Yok');
                         const statusStyle = status === 'İyi'
                           ? 'bg-emerald-100 text-emerald-700'
                           : status === 'Orta'
-                            ? 'bg-amber-100 text-amber-700'
+                            ? 'bg-blue-100 text-blue-700'
                             : status === 'Dikkat'
                               ? 'bg-red-100 text-red-700'
                               : 'bg-slate-100 text-slate-500';
 
                         return (
                           <tr key={st.id} onClick={() => setSelectedStudent(st)} className="hover:bg-blue-50/50 transition-colors cursor-pointer group">
-                            <td className="py-3.5 pl-2">
-                              <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-[#06429c] text-white flex items-center justify-center font-bold text-xs shadow-sm">
+                            <td className="py-3 sm:py-3.5 pl-2">
+                              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-[#06429c] text-white flex items-center justify-center font-bold text-[11px] sm:text-xs shadow-2xs shrink-0">
                                   {initials}
                                 </div>
-                                <span className="font-bold text-slate-800 group-hover:text-blue-700">{st.name} {st.surname}</span>
+                                <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                                  <span className="font-bold text-slate-800 text-xs sm:text-sm group-hover:text-blue-700 truncate">{st.name} {st.surname}</span>
+                                  {st.checkout_time && (
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[8.5px] font-black bg-amber-100 text-amber-800 border border-amber-300 shrink-0">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                                      ÇIKTI ({new Date(st.checkout_time).toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })})
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </td>
-                            <td className="py-3.5 font-semibold text-slate-600">{st.class || '10-A'}</td>
-                            <td className="py-3.5 text-slate-400 hidden md:table-cell">{st.last_report_date ? tsToString(st.last_report_date) : 'Rapor Yok'}</td>
-                            <td className="py-3.5">
-                              <span className={`px-3 py-1 rounded-full text-[10px] font-bold ${statusStyle}`}>
-                                {status}
-                              </span>
+                            <td className="py-3 sm:py-3.5 font-semibold text-slate-600 text-xs">{st.class || '10-A'}</td>
+                            <td className="py-3 sm:py-3.5 text-slate-500 font-medium hidden md:table-cell text-xs">
+                              {st.last_report_date ? tsToString(st.last_report_date) : <span className="text-slate-400">Rapor Yok</span>}
                             </td>
-                            <td className="py-3.5 text-right pr-2 text-slate-400">
+                            <td className="py-3 sm:py-3.5">
+                              {repCount > 0 ? (
+                                <span className={`inline-flex items-center gap-1 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[9px] sm:text-[10px] font-black tracking-wide shrink-0 ${statusStyle}`}>
+                                  <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                                  <span>{repCount} Rapor</span>
+                                  {status !== 'Rapor Yok' && <span className="hidden sm:inline">({status})</span>}
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-semibold bg-slate-100 text-slate-400 shrink-0">
+                                  Rapor Yok
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 sm:py-3.5 text-right pr-2 text-slate-400">
                               <button
                                 onClick={(e) => handleDeleteStudent(e, st.id, `${st.name} ${st.surname}`)}
                                 title="Öğrenciyi Sil"
-                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                                className="p-1.5 sm:p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all cursor-pointer"
                               >
-                                <Trash2 size={16} />
+                                <Trash2 size={15} />
                               </button>
                             </td>
                           </tr>
@@ -1079,7 +1485,7 @@ export default function StudentsPage() {
 
                   <div>
                     <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-1.5">
-                      <span>CANLI TRANSCRIPT (Düzenlenebilir)</span>
+                      <span>CANLI SES METNİ (Düzenlenebilir)</span>
                       {voiceText && (
                         <button
                           type="button"
@@ -1269,21 +1675,23 @@ export default function StudentsPage() {
               </div>
 
               {/* Written Rapor Text Entry Bar */}
-              <div className="bg-white rounded-2xl p-2.5 md:p-3 shadow-sm border border-slate-100 flex items-center gap-3">
-                <div className="pl-3 text-blue-600">
-                  <Sparkles size={18} />
+              <div className="bg-white rounded-2xl p-2.5 sm:p-3 shadow-sm border border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+                <div className="flex items-center gap-2 flex-1">
+                  <div className="pl-1 sm:pl-2 text-blue-600 shrink-0">
+                    <Sparkles size={18} />
+                  </div>
+                  <input
+                    type="text"
+                    value={textInput}
+                    onChange={e => setTextInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && textInput.trim()) analyzeWithAI(textInput); }}
+                    placeholder="Yazılı rapor giriniz... (Örn: Alihan ödevlerini teslim etti)"
+                    className="w-full bg-transparent border-none text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none py-1"
+                  />
                 </div>
-                <input
-                  type="text"
-                  value={textInput}
-                  onChange={e => setTextInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' && textInput.trim()) analyzeWithAI(textInput); }}
-                  placeholder="Yazılı rapor giriniz... (Örn: Alihan ödevlerini teslim etti)"
-                  className="flex-1 bg-transparent border-none text-xs md:text-sm text-slate-800 placeholder-slate-400 focus:outline-none"
-                />
                 <button
                   onClick={() => { if (textInput.trim()) analyzeWithAI(textInput); }}
-                  className="bg-[#06429c] text-white px-5 md:px-6 py-2.5 rounded-xl font-bold text-xs md:text-sm flex items-center gap-2 hover:bg-blue-700 transition-all shadow-md shrink-0 animate-none"
+                  className="bg-[#06429c] text-white px-4 sm:px-6 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 hover:bg-blue-700 transition-all shadow-md shrink-0 cursor-pointer"
                 >
                   <Sparkles size={14} /> Çözümle
                 </button>
@@ -1319,33 +1727,42 @@ export default function StudentsPage() {
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed top-0 right-0 bottom-0 w-full md:w-[500px] bg-white z-[51] shadow-2xl flex flex-col h-full border-l border-slate-100 overflow-hidden"
+              className="fixed top-0 right-0 bottom-0 w-full sm:max-w-md md:w-[500px] bg-white z-[51] shadow-2xl flex flex-col h-full border-l border-slate-100 overflow-hidden"
             >
               {/* Header */}
-              <div className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50/30 border-b border-slate-100 flex items-center justify-between">
-                <div className="flex items-center gap-3.5">
-                  <div className="w-11 h-11 bg-blue-600 rounded-2xl flex items-center justify-center text-white font-extrabold shadow-md">
+              <div className="p-4 sm:p-6 bg-gradient-to-r from-blue-50 to-indigo-50/30 border-b border-slate-100 flex items-center justify-between">
+                <div className="flex items-center gap-2.5 sm:gap-3.5 min-w-0">
+                  <div className="w-9 h-9 sm:w-11 sm:h-11 bg-blue-600 rounded-2xl flex items-center justify-center text-white font-extrabold text-xs sm:text-sm shadow-md shrink-0">
                     {selectedStudent.name ? selectedStudent.name[0] : ''}{selectedStudent.surname ? selectedStudent.surname[0] : ''}
                   </div>
-                  <div>
-                    <h2 className="text-base font-extrabold text-slate-900 leading-tight">
+                  <div className="min-w-0">
+                    <h2 className="text-sm sm:text-base font-extrabold text-slate-900 leading-tight truncate">
                       {selectedStudent.name} {selectedStudent.surname}
                     </h2>
-                    <span className="inline-block mt-0.5 px-2 py-0.5 bg-blue-100 text-blue-800 rounded-md text-[10px] font-black uppercase tracking-wider">
+                    <span className="inline-block mt-0.5 px-2 py-0.5 bg-blue-100 text-blue-800 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider">
                       Sınıf: {selectedStudent.class || '10-A'}
                     </span>
                   </div>
                 </div>
-                <button
-                  onClick={() => { setSelectedStudent(null); }}
-                  className="p-2 hover:bg-slate-200/50 text-slate-400 hover:text-slate-600 rounded-xl transition-colors"
-                >
-                  <X size={18} />
-                </button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    onClick={(e) => handleDeleteStudent(e, selectedStudent.id, `${selectedStudent.name} ${selectedStudent.surname}`)}
+                    title="Öğrenciyi Sil"
+                    className="p-1.5 sm:p-2 hover:bg-red-50 text-slate-400 hover:text-red-600 rounded-xl transition-colors cursor-pointer"
+                  >
+                    <Trash2 size={17} />
+                  </button>
+                  <button
+                    onClick={() => { setSelectedStudent(null); }}
+                    className="p-1.5 sm:p-2 hover:bg-slate-200/50 text-slate-400 hover:text-slate-600 rounded-xl transition-colors cursor-pointer"
+                  >
+                    <X size={17} />
+                  </button>
+                </div>
               </div>
 
               {/* Scrollable Contents */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6 pb-28 md:pb-6">
                 
                 {/* Veli İletişim Bilgisi (Veli Telefonu) */}
                 <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 space-y-3">
@@ -1357,7 +1774,9 @@ export default function StudentsPage() {
                         <span className="font-semibold text-slate-700">{selectedStudent.parent_phone}</span>
                         <button
                           onClick={() => {
-                            const msg = `${institutionName || 'Kurum'}'den merhaba. Öğrencimiz ${selectedStudent.name} ${selectedStudent.surname} hakkında görüşmek üzere.`;
+                            const sender = userName || user?.displayName || user?.name || institutionName || 'Öğretmeni';
+                            const inst = institutionName || 'Bolu Kılıçarslan';
+                            const msg = `Kıymetli Velimiz, hayırlı günler dilerim. 🌿\n\n${inst} bünyesindeki öğrencimiz ${selectedStudent.name} ${selectedStudent.surname}'ın genel durumu, dersleri ve gelişimi hakkında görüşmek üzere size ulaşıyorum.\n\nMüsait olduğunuz bir vakitte mesajla dönüş yapabilir veya bizi arayabilirsiniz. İlginiz ve evdeki kıymetli desteğiniz için teşekkür ederiz.\n\nSelam ve hürmetlerimizle,\n${sender}`;
                             window.open(`https://wa.me/${formatPhoneForWa(selectedStudent.parent_phone)}?text=${encodeURIComponent(msg)}`, '_blank');
                           }}
                           title="WhatsApp'tan Mesaj Gönder"
@@ -1406,17 +1825,207 @@ export default function StudentsPage() {
                   )}
                 </div>
 
-                {/* mini analytics */}
+                {/* ─── Veli Durum Bildirme Raporu (Haftalık / Aylık AI Raporu) ─── */}
+                <div className="bg-gradient-to-br from-indigo-50/90 via-blue-50/60 to-slate-50 border border-blue-200/80 rounded-2xl p-4.5 space-y-3.5 shadow-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs shrink-0">
+                        <Sparkles size={16} />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-black text-slate-900 tracking-tight">Veli Durum Bildirme Raporu</h4>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          {reports.length > 0 ? (
+                            <span className="text-[10px] text-emerald-700 bg-emerald-100/70 border border-emerald-200/80 px-2 py-0.5 rounded-md font-bold">
+                              ✓ {reports.length} kayıtlı rapor analiz edilir
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-amber-700 bg-amber-100/70 border border-amber-200/80 px-2 py-0.5 rounded-md font-semibold">
+                              Kayıtlı rapor yok (Genel durum özeti)
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Dönem Seçimi */}
+                    <div className="flex items-center bg-white p-0.5 rounded-xl border border-slate-200 text-[10px] font-bold shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setParentReportPeriod('haftalik');
+                          if (showParentReportBox) handleGenerateParentReport('haftalik');
+                        }}
+                        className={`px-2.5 py-1 rounded-lg transition-all ${
+                          parentReportPeriod === 'haftalik'
+                            ? 'bg-blue-600 text-white shadow-xs'
+                            : 'text-slate-500 hover:text-slate-800'
+                        }`}
+                      >
+                        Haftalık
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setParentReportPeriod('aylik');
+                          if (showParentReportBox) handleGenerateParentReport('aylik');
+                        }}
+                        className={`px-2.5 py-1 rounded-lg transition-all ${
+                          parentReportPeriod === 'aylik'
+                            ? 'bg-blue-600 text-white shadow-xs'
+                            : 'text-slate-500 hover:text-slate-800'
+                        }`}
+                      >
+                        Aylık
+                      </button>
+                    </div>
+                  </div>
+
+                  {!showParentReportBox ? (
+                    <button
+                      type="button"
+                      onClick={() => handleGenerateParentReport()}
+                      disabled={isGeneratingParentReport}
+                      className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2 disabled:opacity-50"
+                    >
+                      <Sparkles size={14} />
+                      {isGeneratingParentReport ? 'Raporlar Analiz Ediliyor...' : `${parentReportPeriod === 'haftalik' ? 'Haftalık' : 'Aylık'} Veli Raporu Oluştur`}
+                    </button>
+                  ) : (
+                    <div className="space-y-2.5 pt-1">
+                      {isGeneratingParentReport ? (
+                        <div className="py-7 flex flex-col items-center justify-center text-center space-y-2.5 bg-white/80 rounded-xl border border-blue-100">
+                          <Loader2 size={24} className="animate-spin text-blue-600" />
+                          <p className="text-xs font-bold text-slate-800">Öğrencinin son dönemi ve gidişatı analiz ediliyor...</p>
+                          <p className="text-[10px] text-slate-500 max-w-xs">İnsan yazmış gibi doğal, samimi bir veli bilgilendirme mesajı oluşturuluyor.</p>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="relative">
+                            <textarea
+                              value={generatedParentReport}
+                              onChange={e => setGeneratedParentReport(e.target.value)}
+                              rows={8}
+                              placeholder="Veliye gönderilecek mesaj metni..."
+                              className="w-full bg-white border border-blue-200 rounded-xl p-3 text-xs leading-relaxed text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-200 font-medium resize-y"
+                            />
+                          </div>
+
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={handleSendParentReportWhatsApp}
+                              className="flex-1 min-w-[140px] py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5"
+                            >
+                              <MessageCircle size={14} />
+                              WhatsApp ile Gönder
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleCopyParentReport}
+                              className="py-2 px-3 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5"
+                              title="Metni Kopyala"
+                            >
+                              <Copy size={13} />
+                              Kopyala
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleGenerateParentReport()}
+                              className="py-2 px-2.5 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-bold transition-all flex items-center gap-1"
+                              title="Yeniden Oluştur"
+                            >
+                              <RefreshCw size={13} />
+                              <span className="text-[10px]">Yenile</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setShowParentReportBox(false)}
+                              className="py-2 px-2.5 rounded-xl hover:bg-slate-200/60 text-slate-400 hover:text-slate-600 text-xs font-bold transition-all"
+                              title="Kapat"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* mini analytics & Girdi Çıktı */}
                 <div className="space-y-2.5">
-                  <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">KATEGORİ DAĞILIMI</div>
+                  <div className="flex items-center justify-between">
+                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest">KATEGORİ DAĞILIMI</div>
+                    <div className="text-[10px] font-semibold">
+                      {selectedStudent.checkout_time ? (
+                        <span className="text-amber-600 font-bold flex items-center gap-1 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" /> Dışarıda
+                        </span>
+                      ) : (
+                        <span className="text-emerald-600 font-bold flex items-center gap-1 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Kurumda
+                        </span>
+                      )}
+                    </div>
+                  </div>
                   <div className="grid grid-cols-3 gap-2">
                     {CATEGORIES.map(cat => {
-                      const count = reports.filter(r => r.category === cat).length;
+                      if (cat === 'Girdi Çıktı') {
+                        const isOut = !!selectedStudent.checkout_time;
+                        if (isOut) {
+                          const coDate = new Date(selectedStudent.checkout_time);
+                          const timeStr = coDate.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+                          const dateStr = coDate.toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' });
+
+                          return (
+                            <button
+                              key={cat}
+                              type="button"
+                              onClick={() => handleToggleCheckout(selectedStudent)}
+                              className="bg-gradient-to-br from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white border border-amber-600 rounded-xl p-2 text-center shadow-md transition-all transform active:scale-95 flex flex-col items-center justify-between min-h-[74px] group cursor-pointer"
+                              title="Giriş yapmak için tıklayın (00:00'ı geçmişse -1 ceza puanı işlenir)"
+                            >
+                              <div className="text-[9px] font-black tracking-wider uppercase bg-black/20 px-1.5 py-0.5 rounded text-amber-100 flex items-center gap-1">
+                                <LogOut size={10} /> ÇIKTI ({dateStr})
+                              </div>
+                              <div className="text-sm font-black tracking-tight">{timeStr}</div>
+                              <div className="text-[8px] font-bold text-amber-100 group-hover:underline">GİRİŞ İÇİN DOKUN</div>
+                            </button>
+                          );
+                        }
+
+                        // When IN:
+                        return (
+                          <button
+                            key={cat}
+                            type="button"
+                            onClick={() => handleToggleCheckout(selectedStudent)}
+                            className="bg-emerald-50/80 hover:bg-emerald-100 border border-emerald-200/90 rounded-xl p-2 text-center transition-all transform active:scale-95 flex flex-col items-center justify-between min-h-[74px] group cursor-pointer"
+                            title="Çıkış vermek için dokunun"
+                          >
+                            <div className="text-[9px] font-bold text-emerald-800 uppercase flex items-center gap-1">
+                              <Clock size={10} /> GİRDİ ÇIKTI
+                            </div>
+                            <div className="text-xs font-black text-emerald-600 group-hover:text-emerald-700">İçeride</div>
+                            <div className="text-[8px] font-extrabold text-emerald-700 bg-emerald-100/90 px-1.5 py-0.5 rounded group-hover:bg-emerald-200">
+                              ÇIKIŞ VER
+                            </div>
+                          </button>
+                        );
+                      }
+
+                      const count = reports.filter(r => {
+                        if (cat === 'Yoklama') return r.category === 'Yoklama' || r.category === 'Yemek';
+                        if (cat === 'Dahili Ders') return r.category === 'Dahili Ders' || r.category === 'Dahili';
+                        return r.category === cat;
+                      }).length;
                       const color = CATEGORY_COLORS[cat] || '#6b7280';
+
                       return (
-                        <div key={cat} className="bg-slate-50 border border-slate-100 rounded-xl p-2.5 text-center">
+                        <div key={cat} className="bg-slate-50 border border-slate-100 rounded-xl p-2.5 text-center flex flex-col justify-between min-h-[74px]">
                           <div className="text-[9px] font-bold text-slate-400 uppercase">{cat}</div>
-                          <div className="text-base font-extrabold mt-1" style={{ color }}>{count}</div>
+                          <div className="text-base font-extrabold my-auto" style={{ color }}>{count}</div>
                         </div>
                       );
                     })}
@@ -1460,41 +2069,43 @@ export default function StudentsPage() {
                       className="w-full h-20 bg-white border border-slate-200 rounded-xl p-3 text-xs focus:outline-none focus:border-blue-600 placeholder-slate-400"
                       required
                     />
-                    <div className="flex items-center justify-between gap-3">
-                      <select
-                        value={directCategory}
-                        onChange={e => setDirectCategory(e.target.value)}
-                        className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none"
-                      >
-                        {CATEGORIES.map(c => (
-                          <option key={c} value={c}>{c}</option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        onClick={() => setDirectIsPositive(p => !p)}
-                        title={directIsPositive ? 'Olumlu rapor (puan kazandırır)' : 'Olumsuz rapor (-1 puan)'}
-                        className={`flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-bold border transition-all ${
-                          directIsPositive
-                            ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100'
-                            : 'bg-red-50 border-red-300 text-red-600 hover:bg-red-100'
-                        }`}
-                      >
-                        {directIsPositive ? '👍 Olumlu' : '👎 Olumsuz'}
-                      </button>
-                      <div className="flex items-center gap-2">
-                        <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-slate-500">
+                    <div className="flex flex-wrap items-center justify-between gap-2.5 pt-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <select
+                          value={directCategory}
+                          onChange={e => setDirectCategory(e.target.value)}
+                          className="bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-semibold focus:outline-none"
+                        >
+                          {CATEGORIES.map(c => (
+                            <option key={c} value={c}>{c}</option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => setDirectIsPositive(p => !p)}
+                          title={directIsPositive ? 'Olumlu rapor (puan kazandırır)' : 'Olumsuz rapor (-1 puan)'}
+                          className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                            directIsPositive
+                              ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100'
+                              : 'bg-red-50 border-red-300 text-red-600 hover:bg-red-100'
+                          }`}
+                        >
+                          {directIsPositive ? '👍 Olumlu' : '👎 Olumsuz'}
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2.5">
+                        <label className="flex items-center gap-1.5 cursor-pointer text-[11px] sm:text-xs font-semibold text-slate-500 select-none">
                           <input
                             type="checkbox"
                             checked={notifyParent}
                             onChange={e => setNotifyParent(e.target.checked)}
-                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
                           />
                           Veliye Bildir (WP)
                         </label>
                         <button
                           type="submit"
-                          className="bg-blue-600 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-blue-700 shadow-md flex items-center gap-1"
+                          className="bg-blue-600 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold hover:bg-blue-700 shadow-md flex items-center gap-1 cursor-pointer"
                         >
                           <Plus size={14} /> Ekle
                         </button>
@@ -1580,6 +2191,17 @@ export default function StudentsPage() {
                   </div>
                 </div>
 
+                {/* Öğrenciyi Sil Butonu */}
+                <div className="pt-4 pb-2 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={(e) => handleDeleteStudent(e, selectedStudent.id, `${selectedStudent.name} ${selectedStudent.surname}`)}
+                    className="w-full py-2.5 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100 text-red-700 font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-sm"
+                  >
+                    <Trash2 size={15} /> Bu Öğrenciyi ve Tüm Raporlarını Sil
+                  </button>
+                </div>
+
               </div>
             </motion.div>
           </>
@@ -1587,7 +2209,7 @@ export default function StudentsPage() {
       </AnimatePresence>
 
       {/* ── Mobile Bottom Navigation Bar (Visible on Mobile only) ── */}
-      <MobileBottomNav activeView={activeView} onSelectView={(v) => { setActiveView(v); setSelectedStudent(null); }} />
+      <MobileBottomNav activeView={activeView} onSelectView={(v) => { setActiveView(v); setSelectedStudent(null); if (typeof window !== 'undefined') window.history.replaceState(null, '', `/?view=${v}`); }} />
     </div>
   );
 }

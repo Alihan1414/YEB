@@ -29,8 +29,8 @@ export async function GET(req) {
               name:            f.name?.stringValue            || '',
               email:           f.email?.stringValue           || '',
               role:            f.role?.stringValue            || 'teacher',
-              institutionId:   f.institutionId?.stringValue   || 'yamanevler',
-              institutionName: f.institutionName?.stringValue || 'Yamanevler Enderun Bilişim',
+              institutionId:   f.institutionId?.stringValue   || 'bolu-kilicaslan',
+              institutionName: f.institutionName?.stringValue || 'Bolu Kılıçarslan',
               disabled:        f.disabled?.booleanValue       || false,
             };
           });
@@ -51,8 +51,8 @@ export async function GET(req) {
             name: lu.name || '',
             email: lu.email || '',
             role: lu.role || 'teacher',
-            institutionId: lu.institutionId || 'yamanevler',
-            institutionName: lu.institutionName || 'Yamanevler Enderun Bilişim',
+            institutionId: lu.institutionId || 'bolu-kilicaslan',
+            institutionName: lu.institutionName || 'Bolu Kılıçarslan',
             disabled: lu.disabled || false,
           });
         }

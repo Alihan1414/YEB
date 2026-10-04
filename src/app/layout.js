@@ -14,14 +14,22 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+};
+
 export const metadata = {
-  title: "Talebe Takip Ve Raporlama Sistemi",
+  title: "Talebe Takip ve Raporlama Sistemi",
   description: "Yapay zekâ destekli sesli ve yazılı öğrenci raporlama paneli",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Talebe Takip Ve Raporlama Sistemi",
+    title: "Talebe Takip ve Raporlama Sistemi",
   },
 };
 

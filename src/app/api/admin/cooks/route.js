@@ -18,7 +18,7 @@ function slugifyName(name) {
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
-    const institutionId = searchParams.get('institutionId') || 'yamanevler';
+    const institutionId = searchParams.get('institutionId') || 'bolu-kilicaslan';
 
     let cooks = [];
 

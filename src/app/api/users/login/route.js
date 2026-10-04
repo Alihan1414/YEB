@@ -166,7 +166,7 @@ export async function POST(req) {
                 }
 
                 const docUid = doc.name.split('/').pop();
-                const instId = f.institutionId?.stringValue || 'yamanevler';
+                const instId = f.institutionId?.stringValue || 'bolu-kilicaslan';
                 const branding = getInstBranding(instId);
                 const instName = f.institutionName?.stringValue || branding.institutionName || instId;
 
@@ -259,40 +259,16 @@ export async function POST(req) {
           primaryColor: '#0f172a',
           enabledModules: { ai: true, leave: true, tv: true, weekly: true },
         };
-      } else if ((eLower === 'kilicaslan@2026' || eLower === 'kilicaslan@2026.com' || eLower === 'kilicaslan') && password === 'bolukilicaslan') {
+      } else if ((eLower === 'kilicaslan@2026' || eLower === 'kilicaslan@2026.com' || eLower === 'kilicaslan' || eLower === 'kilicarslan@2026' || eLower === 'kilicarslan@2026.com' || eLower === 'kilicarslan') && (password === 'bolukilicaslan' || password === 'bolukilicarslan')) {
         profile = {
           uid: '1PkNaCnMiIY03dk4jiMsvMuexby2',
-          name: 'Bolu Kılıçaslan Yöneticisi',
+          name: 'Bolu Kılıçarslan Yöneticisi',
           email: 'kilicaslan@2026',
           role: 'admin',
           institutionId: 'bolu-kilicaslan',
-          institutionName: 'Bolu Kılıçaslan',
+          institutionName: 'Bolu Kılıçarslan',
           logoUrl: '/kilicaslan-logo.png',
           primaryColor: '#009b9e',
-          enabledModules: { ai: true, leave: true, tv: true, weekly: true },
-        };
-      } else if ((eLower === 'pty@2026' || eLower === 'pty@2026.com' || eLower === 'pty') && password === 'pendikmerkez') {
-        profile = {
-          uid: 'omuP27NOCLVvNJFu72SpliB9p8f1',
-          name: 'Pendik Talebe Yurdu Yöneticisi',
-          email: 'pty@2026',
-          role: 'admin',
-          institutionId: 'pendik-talebe-yurdu',
-          institutionName: 'Pendik Talebe Yurdu',
-          logoUrl: '/pendik-logo.png',
-          primaryColor: '#b8962e',
-          enabledModules: { ai: true, leave: true, tv: true, weekly: true },
-        };
-      } else if ((eLower === 'yeb@2026' || eLower === 'yeb@2026.com' || eLower === 'yeb') && password === 'yeb2026') {
-        profile = {
-          uid: 'tUFn1c6FlqPT9zEsDZMUHCDFzC82',
-          name: 'Yamanevler Enderun Bilişim Yöneticisi',
-          email: 'yeb@2026',
-          role: 'admin',
-          institutionId: 'yamanevler',
-          institutionName: 'Yamanevler Enderun Bilişim',
-          logoUrl: '/yamanevler-logo.png',
-          primaryColor: '#06429c',
           enabledModules: { ai: true, leave: true, tv: true, weekly: true },
         };
       } else if ((eLower === 'alihan@2026' || eLower === 'alihan@2026.com' || eLower === 'alihan') && password === 'alihan1434') {

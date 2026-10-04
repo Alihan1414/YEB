@@ -9,7 +9,7 @@ const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'visi
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
-    const institutionId = searchParams.get('institutionId') || 'yamanevler';
+    const institutionId = searchParams.get('institutionId') || 'bolu-kilicaslan';
 
     const dbData = readDb();
     

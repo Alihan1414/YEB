@@ -37,8 +37,8 @@ export async function GET(req) {
           name: f.name?.stringValue || '',
           email: f.email?.stringValue || '',
           role: f.role?.stringValue || 'teacher',
-          institutionId: f.institutionId?.stringValue || 'yamanevler',
-          institutionName: f.institutionName?.stringValue || 'Yamanevler Enderun Bilişim',
+          institutionId: f.institutionId?.stringValue || 'bolu-kilicaslan',
+          institutionName: f.institutionName?.stringValue || 'Bolu Kılıçarslan',
           disabled: f.disabled?.booleanValue || false
         };
       });
@@ -74,7 +74,7 @@ export async function GET(req) {
           name: f.name?.stringValue || '',
           surname: f.surname?.stringValue || '',
           class: f.class?.stringValue || '',
-          institutionId: f.institution_id?.stringValue || f.institutionId?.stringValue || 'yamanevler'
+          institutionId: f.institution_id?.stringValue || f.institutionId?.stringValue || 'bolu-kilicaslan'
         };
       });
     } catch (err) {
@@ -91,7 +91,7 @@ export async function GET(req) {
           student_id: f.student_id?.stringValue || f.studentId?.stringValue || '',
           category: f.category?.stringValue || 'Diğer',
           created_at: f.created_at?.stringValue || f.created_at?.timestampValue || '',
-          institutionId: f.institutionId?.stringValue || f.institution_id?.stringValue || 'yamanevler'
+          institutionId: f.institutionId?.stringValue || f.institution_id?.stringValue || 'bolu-kilicaslan'
         };
       });
     } catch (err) {
@@ -106,7 +106,7 @@ export async function GET(req) {
         return {
           id: doc.name.split('/').pop(),
           status: f.status?.stringValue || 'pending',
-          institutionId: f.institutionId?.stringValue || f.institution_id?.stringValue || 'yamanevler'
+          institutionId: f.institutionId?.stringValue || f.institution_id?.stringValue || 'bolu-kilicaslan'
         };
       });
     } catch (err) {
@@ -127,8 +127,8 @@ export async function GET(req) {
             name: lu.name || '',
             email: lu.email || '',
             role: lu.role || 'teacher',
-            institutionId: lu.institutionId || 'yamanevler',
-            institutionName: lu.institutionName || 'Yamanevler Enderun Bilişim',
+            institutionId: lu.institutionId || 'bolu-kilicaslan',
+            institutionName: lu.institutionName || 'Bolu Kılıçarslan',
             disabled: lu.disabled || false
           });
         }
@@ -142,7 +142,7 @@ export async function GET(req) {
             name: ls.name || '',
             surname: ls.surname || '',
             class: ls.class || '',
-            institutionId: ls.institution_id || ls.institutionId || 'yamanevler'
+            institutionId: ls.institution_id || ls.institutionId || 'bolu-kilicaslan'
           });
         }
       });
@@ -157,7 +157,7 @@ export async function GET(req) {
             student_id: lr.student_id || '',
             category: lr.category || 'Diğer',
             created_at: lr.created_at || '',
-            institutionId: lr.institutionId || st?.institutionId || 'yamanevler'
+            institutionId: lr.institutionId || st?.institutionId || 'bolu-kilicaslan'
           });
         }
       });
@@ -168,7 +168,7 @@ export async function GET(req) {
           allLeaves.push({
             id: ll.id,
             status: ll.status || 'pending',
-            institutionId: ll.institutionId || 'yamanevler'
+            institutionId: ll.institutionId || 'bolu-kilicaslan'
           });
         }
       });
@@ -274,7 +274,7 @@ export async function GET(req) {
 
     // Add count data for students
     allStudents.forEach(s => {
-      const key = s.institutionId || 'yamanevler';
+      const key = s.institutionId || 'bolu-kilicaslan';
       if (!instGroup[key]) {
         instGroup[key] = {
           id: key,
@@ -291,7 +291,7 @@ export async function GET(req) {
 
     // Add count data for reports
     allReports.forEach(r => {
-      const key = r.institutionId || 'yamanevler';
+      const key = r.institutionId || 'bolu-kilicaslan';
       if (!instGroup[key]) {
         instGroup[key] = {
           id: key,
@@ -309,7 +309,7 @@ export async function GET(req) {
     // Add count data for leaves
     allLeaves.forEach(l => {
       if (l.status !== 'pending') return;
-      const key = l.institutionId || 'yamanevler';
+      const key = l.institutionId || 'bolu-kilicaslan';
       if (!instGroup[key]) {
         instGroup[key] = {
           id: key,

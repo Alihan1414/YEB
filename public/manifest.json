@@ -1,6 +1,6 @@
 {
-  "name": "Talebe Takip Ve Raporlama Sistemi",
-  "short_name": "Talebe Takip Ve Raporlama Sistemi",
+  "name": "Talebe Takip ve Raporlama Sistemi",
+  "short_name": "Talebe Takip ve Raporlama Sistemi",
   "description": "Enderun Bilişim Yapay Zekâ Destekli Öğrenci Raporlama Paneli",
   "start_url": "/",
   "display": "standalone",
