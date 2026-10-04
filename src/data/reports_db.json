@@ -2143,23 +2143,7 @@
       "created_at": "2026-08-07T21:13:20.710Z"
     }
   ],
-  "leaveRequests": [
-    {
-      "id": "leave-1791051665046-925",
-      "studentName": "İsmail Abbas",
-      "parentPhone": "05427689577",
-      "startDate": "2026-08-20",
-      "startTime": "15:00",
-      "endDate": "2026-08-25",
-      "endTime": "20:00",
-      "reason": "HAstane Randevularım Var",
-      "status": "rejected",
-      "institutionId": "bolu-kilicaslan",
-      "created_at": "2026-10-03T18:21:05.046Z",
-      "respondedBy": "Bolu Kılıçarslan Yöneticisi",
-      "respondedAt": "2026-10-03T18:21:23.203Z"
-    }
-  ],
+  "leaveRequests": [],
   "deleted_students": [
     "student-1791049035009-923",
     "student-kilicaslan-1786356544051-89",

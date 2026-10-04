@@ -84,10 +84,14 @@ async function main() {
   // 2. Delete all Firestore teacher_groups
   await deleteFirestoreCollection('teacher_groups');
 
-  // 3. Reset Firestore students stats
+  // 3. Delete all Firestore leaveRequests
+  await deleteFirestoreCollection('leaveRequests');
+  await deleteFirestoreCollection('leave_requests');
+
+  // 4. Reset Firestore students stats
   await resetFirestoreStudents();
 
-  // 4. Update local reports_db.json
+  // 5. Update local reports_db.json
   console.log('\nUpdating local reports_db.json...');
   if (fs.existsSync(DB_PATH)) {
     const raw = fs.readFileSync(DB_PATH, 'utf-8');
@@ -110,6 +114,11 @@ async function main() {
     const origGroupCount = (db.teacher_groups || []).length;
     db.teacher_groups = [];
     console.log(`Cleared all local teacher groups (${origGroupCount} -> 0).`);
+
+    // Clear leaveRequests
+    const origLeaveCount = (db.leaveRequests || []).length;
+    db.leaveRequests = [];
+    console.log(`Cleared all local leave requests (${origLeaveCount} -> 0).`);
 
     // Reset students report_count, status, last_report_date, checkout_time
     let resetStudentsCount = 0;
