@@ -8,7 +8,12 @@
       "parent_email": "",
       "parent_phone": "5368195676",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.220Z"
+      "created_at": "2026-08-10T10:06:48.220Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-cinardere-1786356408230-1",
@@ -18,7 +23,12 @@
       "parent_email": "",
       "parent_phone": "5519993681",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.230Z"
+      "created_at": "2026-08-10T10:06:48.230Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-cinardere-1786356408231-2",
@@ -28,7 +38,12 @@
       "parent_email": "",
       "parent_phone": "5422783464",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.231Z"
+      "created_at": "2026-08-10T10:06:48.231Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-cinardere-1786356408231-3",
@@ -38,7 +53,12 @@
       "parent_email": "",
       "parent_phone": "5433076219",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.231Z"
+      "created_at": "2026-08-10T10:06:48.231Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-cinardere-1786356408231-4",
@@ -48,7 +68,12 @@
       "parent_email": "",
       "parent_phone": "5386153225",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.231Z"
+      "created_at": "2026-08-10T10:06:48.231Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-cinardere-1786356408231-5",
@@ -58,7 +83,12 @@
       "parent_email": "",
       "parent_phone": "5415383917",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.231Z"
+      "created_at": "2026-08-10T10:06:48.231Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-cinardere-1786356408231-6",
@@ -68,7 +98,12 @@
       "parent_email": "",
       "parent_phone": "5077105013",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.231Z"
+      "created_at": "2026-08-10T10:06:48.231Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-cinardere-1786356408231-7",
@@ -78,7 +113,12 @@
       "parent_email": "",
       "parent_phone": "5316875582",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.231Z"
+      "created_at": "2026-08-10T10:06:48.231Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-cinardere-1786356408231-8",
@@ -88,7 +128,12 @@
       "parent_email": "",
       "parent_phone": "5350592650",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.231Z"
+      "created_at": "2026-08-10T10:06:48.231Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-cinardere-1786356408231-9",
@@ -98,7 +143,12 @@
       "parent_email": "",
       "parent_phone": "",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.231Z"
+      "created_at": "2026-08-10T10:06:48.231Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-cinardere-1786356408231-10",
@@ -108,7 +158,12 @@
       "parent_email": "",
       "parent_phone": "",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.231Z"
+      "created_at": "2026-08-10T10:06:48.231Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-cinardere-1786356408231-11",
@@ -118,7 +173,12 @@
       "parent_email": "",
       "parent_phone": "",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.231Z"
+      "created_at": "2026-08-10T10:06:48.231Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-cinardere-1786356408232-12",
@@ -128,7 +188,12 @@
       "parent_email": "",
       "parent_phone": "",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.232Z"
+      "created_at": "2026-08-10T10:06:48.232Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-cinardere-1786356408232-13",
@@ -138,7 +203,12 @@
       "parent_email": "",
       "parent_phone": "",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.232Z"
+      "created_at": "2026-08-10T10:06:48.232Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-cinardere-1786356408232-14",
@@ -148,7 +218,12 @@
       "parent_email": "",
       "parent_phone": "",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.232Z"
+      "created_at": "2026-08-10T10:06:48.232Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-cinardere-1786356408232-15",
@@ -158,7 +233,12 @@
       "parent_email": "",
       "parent_phone": "",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.232Z"
+      "created_at": "2026-08-10T10:06:48.232Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-cinardere-1786356408232-16",
@@ -168,7 +248,12 @@
       "parent_email": "",
       "parent_phone": "",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.232Z"
+      "created_at": "2026-08-10T10:06:48.232Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-cinardere-1786356408232-17",
@@ -178,7 +263,12 @@
       "parent_email": "",
       "parent_phone": "",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.232Z"
+      "created_at": "2026-08-10T10:06:48.232Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-cinardere-1786356408232-18",
@@ -188,7 +278,12 @@
       "parent_email": "",
       "parent_phone": "",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.232Z"
+      "created_at": "2026-08-10T10:06:48.232Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-cinardere-1786356408232-19",
@@ -198,7 +293,12 @@
       "parent_email": "",
       "parent_phone": "",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.232Z"
+      "created_at": "2026-08-10T10:06:48.232Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-cinardere-1786356408232-20",
@@ -208,7 +308,12 @@
       "parent_email": "",
       "parent_phone": "",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.232Z"
+      "created_at": "2026-08-10T10:06:48.232Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-cinardere-1786356408232-21",
@@ -218,7 +323,12 @@
       "parent_email": "",
       "parent_phone": "5369583957",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.232Z"
+      "created_at": "2026-08-10T10:06:48.232Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-cinardere-1786356408232-22",
@@ -228,7 +338,12 @@
       "parent_email": "",
       "parent_phone": "5054405690",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.232Z"
+      "created_at": "2026-08-10T10:06:48.232Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-cinardere-1786356408232-23",
@@ -238,7 +353,12 @@
       "parent_email": "",
       "parent_phone": "5353667681",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.232Z"
+      "created_at": "2026-08-10T10:06:48.232Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-cinardere-1786356408232-24",
@@ -248,7 +368,12 @@
       "parent_email": "",
       "parent_phone": "5449638083",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.232Z"
+      "created_at": "2026-08-10T10:06:48.232Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-cinardere-1786356408232-25",
@@ -258,7 +383,12 @@
       "parent_email": "",
       "parent_phone": "5366881442",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.232Z"
+      "created_at": "2026-08-10T10:06:48.232Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-cinardere-1786356408232-26",
@@ -268,7 +398,12 @@
       "parent_email": "",
       "parent_phone": "5062914824",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.232Z"
+      "created_at": "2026-08-10T10:06:48.232Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-cinardere-1786356408232-27",
@@ -278,7 +413,12 @@
       "parent_email": "",
       "parent_phone": "5469437557",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.232Z"
+      "created_at": "2026-08-10T10:06:48.232Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-cinardere-1786356408232-28",
@@ -288,7 +428,12 @@
       "parent_email": "",
       "parent_phone": "5528127731",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.232Z"
+      "created_at": "2026-08-10T10:06:48.232Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-cinardere-1786356408232-29",
@@ -298,7 +443,12 @@
       "parent_email": "",
       "parent_phone": "5364616385",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.232Z"
+      "created_at": "2026-08-10T10:06:48.232Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-cinardere-1786356408232-30",
@@ -308,7 +458,12 @@
       "parent_email": "",
       "parent_phone": "5322661918",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.232Z"
+      "created_at": "2026-08-10T10:06:48.232Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-cinardere-1786356408233-31",
@@ -318,7 +473,12 @@
       "parent_email": "",
       "parent_phone": "5363090975",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.233Z"
+      "created_at": "2026-08-10T10:06:48.233Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-cinardere-1786356408233-32",
@@ -328,7 +488,12 @@
       "parent_email": "",
       "parent_phone": "5442768923",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.233Z"
+      "created_at": "2026-08-10T10:06:48.233Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-cinardere-1786356408233-33",
@@ -338,7 +503,12 @@
       "parent_email": "",
       "parent_phone": "5542177962",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.233Z"
+      "created_at": "2026-08-10T10:06:48.233Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-cinardere-1786356408233-34",
@@ -348,7 +518,12 @@
       "parent_email": "",
       "parent_phone": "",
       "institution_id": "cinardere-erenler",
-      "created_at": "2026-08-10T10:06:48.233Z"
+      "created_at": "2026-08-10T10:06:48.233Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544039-0",
@@ -358,7 +533,12 @@
       "parent_email": "",
       "parent_phone": "05447895855",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.039Z"
+      "created_at": "2026-08-10T10:09:04.039Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544047-1",
@@ -368,7 +548,12 @@
       "parent_email": "",
       "parent_phone": "05326585080",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.047Z"
+      "created_at": "2026-08-10T10:09:04.047Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544047-2",
@@ -378,7 +563,12 @@
       "parent_email": "",
       "parent_phone": "05324917792",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.047Z"
+      "created_at": "2026-08-10T10:09:04.047Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544047-3",
@@ -388,7 +578,12 @@
       "parent_email": "",
       "parent_phone": "05356414674",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.047Z"
+      "created_at": "2026-08-10T10:09:04.047Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544047-4",
@@ -398,7 +593,12 @@
       "parent_email": "",
       "parent_phone": "05468991331",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.047Z"
+      "created_at": "2026-08-10T10:09:04.047Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544047-5",
@@ -408,7 +608,12 @@
       "parent_email": "",
       "parent_phone": "05357997716",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.047Z"
+      "created_at": "2026-08-10T10:09:04.047Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544047-6",
@@ -418,7 +623,12 @@
       "parent_email": "",
       "parent_phone": "05306811802",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.047Z"
+      "created_at": "2026-08-10T10:09:04.047Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544047-7",
@@ -428,7 +638,12 @@
       "parent_email": "",
       "parent_phone": "05353421098",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.047Z"
+      "created_at": "2026-08-10T10:09:04.047Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544047-8",
@@ -438,7 +653,12 @@
       "parent_email": "",
       "parent_phone": "05572526865",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.047Z"
+      "created_at": "2026-08-10T10:09:04.047Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544048-9",
@@ -448,7 +668,12 @@
       "parent_email": "",
       "parent_phone": "05338163767",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.048Z"
+      "created_at": "2026-08-10T10:09:04.048Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544048-10",
@@ -458,7 +683,12 @@
       "parent_email": "",
       "parent_phone": "05355596697",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.048Z"
+      "created_at": "2026-08-10T10:09:04.048Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544048-11",
@@ -468,7 +698,12 @@
       "parent_email": "",
       "parent_phone": "05336691199",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.048Z"
+      "created_at": "2026-08-10T10:09:04.048Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544048-12",
@@ -478,7 +713,12 @@
       "parent_email": "",
       "parent_phone": "05364513215",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.048Z"
+      "created_at": "2026-08-10T10:09:04.048Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544048-13",
@@ -488,7 +728,12 @@
       "parent_email": "",
       "parent_phone": "05384123584",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.048Z"
+      "created_at": "2026-08-10T10:09:04.048Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544048-14",
@@ -498,7 +743,12 @@
       "parent_email": "",
       "parent_phone": "05559694688",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.048Z"
+      "created_at": "2026-08-10T10:09:04.048Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544048-15",
@@ -508,7 +758,12 @@
       "parent_email": "",
       "parent_phone": "05366579118",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.048Z"
+      "created_at": "2026-08-10T10:09:04.048Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544049-16",
@@ -518,7 +773,12 @@
       "parent_email": "",
       "parent_phone": "05336980092",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.049Z"
+      "created_at": "2026-08-10T10:09:04.049Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544049-17",
@@ -528,7 +788,12 @@
       "parent_email": "",
       "parent_phone": "05377459881",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.049Z"
+      "created_at": "2026-08-10T10:09:04.049Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544049-18",
@@ -538,7 +803,12 @@
       "parent_email": "",
       "parent_phone": "05456764158",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.049Z"
+      "created_at": "2026-08-10T10:09:04.049Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544049-19",
@@ -548,7 +818,12 @@
       "parent_email": "",
       "parent_phone": "05387283085",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.049Z"
+      "created_at": "2026-08-10T10:09:04.049Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544049-20",
@@ -558,7 +833,12 @@
       "parent_email": "",
       "parent_phone": "05079962120",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.049Z"
+      "created_at": "2026-08-10T10:09:04.049Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544049-21",
@@ -568,7 +848,12 @@
       "parent_email": "",
       "parent_phone": "05325828147",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.049Z"
+      "created_at": "2026-08-10T10:09:04.049Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544049-22",
@@ -578,7 +863,12 @@
       "parent_email": "",
       "parent_phone": "05325787919",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.049Z"
+      "created_at": "2026-08-10T10:09:04.049Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544049-23",
@@ -588,7 +878,12 @@
       "parent_email": "",
       "parent_phone": "05314943662",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.049Z"
+      "created_at": "2026-08-10T10:09:04.049Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544049-24",
@@ -599,7 +894,11 @@
       "parent_phone": "066282425",
       "institution_id": "bolu-kilicaslan",
       "created_at": "2026-08-10T10:09:04.049Z",
-      "checkout_time": null
+      "checkout_time": null,
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544049-25",
@@ -609,7 +908,12 @@
       "parent_email": "",
       "parent_phone": "0616098126",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.049Z"
+      "created_at": "2026-08-10T10:09:04.049Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544049-26",
@@ -619,7 +923,12 @@
       "parent_email": "",
       "parent_phone": "05333492990",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.049Z"
+      "created_at": "2026-08-10T10:09:04.049Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544049-27",
@@ -629,7 +938,12 @@
       "parent_email": "",
       "parent_phone": "05393542483",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.049Z"
+      "created_at": "2026-08-10T10:09:04.049Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544049-28",
@@ -639,7 +953,12 @@
       "parent_email": "",
       "parent_phone": "05327915524",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.049Z"
+      "created_at": "2026-08-10T10:09:04.049Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544049-29",
@@ -649,7 +968,12 @@
       "parent_email": "",
       "parent_phone": "05067720078",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.049Z"
+      "created_at": "2026-08-10T10:09:04.049Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544049-30",
@@ -659,7 +983,12 @@
       "parent_email": "",
       "parent_phone": "0234256324",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.049Z"
+      "created_at": "2026-08-10T10:09:04.049Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544049-31",
@@ -669,7 +998,12 @@
       "parent_email": "",
       "parent_phone": "02451233234",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.049Z"
+      "created_at": "2026-08-10T10:09:04.049Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544049-32",
@@ -679,7 +1013,12 @@
       "parent_email": "",
       "parent_phone": "05074608310",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.049Z"
+      "created_at": "2026-08-10T10:09:04.049Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544049-33",
@@ -689,7 +1028,12 @@
       "parent_email": "",
       "parent_phone": "05534335585",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.049Z"
+      "created_at": "2026-08-10T10:09:04.049Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544049-35",
@@ -699,7 +1043,12 @@
       "parent_email": "",
       "parent_phone": "0533343435353",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.049Z"
+      "created_at": "2026-08-10T10:09:04.049Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544049-36",
@@ -709,7 +1058,12 @@
       "parent_email": "",
       "parent_phone": "05335373902648",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.049Z"
+      "created_at": "2026-08-10T10:09:04.049Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544049-37",
@@ -719,7 +1073,12 @@
       "parent_email": "",
       "parent_phone": "091245698751",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.049Z"
+      "created_at": "2026-08-10T10:09:04.049Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544049-38",
@@ -729,7 +1088,12 @@
       "parent_email": "",
       "parent_phone": "081227569739",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.049Z"
+      "created_at": "2026-08-10T10:09:04.049Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544049-39",
@@ -739,7 +1103,12 @@
       "parent_email": "",
       "parent_phone": "082122661718",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.049Z"
+      "created_at": "2026-08-10T10:09:04.049Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544049-40",
@@ -749,7 +1118,12 @@
       "parent_email": "",
       "parent_phone": "0726667562",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.049Z"
+      "created_at": "2026-08-10T10:09:04.049Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544049-41",
@@ -759,7 +1133,12 @@
       "parent_email": "",
       "parent_phone": "05075883202",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.049Z"
+      "created_at": "2026-08-10T10:09:04.049Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544049-42",
@@ -769,7 +1148,12 @@
       "parent_email": "",
       "parent_phone": "05541352114",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.049Z"
+      "created_at": "2026-08-10T10:09:04.049Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544049-43",
@@ -779,7 +1163,12 @@
       "parent_email": "",
       "parent_phone": "05324026101",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.049Z"
+      "created_at": "2026-08-10T10:09:04.049Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544049-44",
@@ -789,7 +1178,12 @@
       "parent_email": "",
       "parent_phone": "05373757245",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.049Z"
+      "created_at": "2026-08-10T10:09:04.049Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544049-45",
@@ -799,7 +1193,12 @@
       "parent_email": "",
       "parent_phone": "05445681913",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.049Z"
+      "created_at": "2026-08-10T10:09:04.049Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544050-46",
@@ -809,7 +1208,12 @@
       "parent_email": "",
       "parent_phone": "05368667512",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.050Z"
+      "created_at": "2026-08-10T10:09:04.050Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544050-47",
@@ -819,7 +1223,12 @@
       "parent_email": "",
       "parent_phone": "05327101591",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.050Z"
+      "created_at": "2026-08-10T10:09:04.050Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544050-48",
@@ -829,7 +1238,12 @@
       "parent_email": "",
       "parent_phone": "05374014048",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.050Z"
+      "created_at": "2026-08-10T10:09:04.050Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544050-49",
@@ -839,7 +1253,12 @@
       "parent_email": "",
       "parent_phone": "05366184390",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.050Z"
+      "created_at": "2026-08-10T10:09:04.050Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544050-50",
@@ -849,7 +1268,12 @@
       "parent_email": "",
       "parent_phone": "05055677134",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.050Z"
+      "created_at": "2026-08-10T10:09:04.050Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544050-51",
@@ -859,7 +1283,12 @@
       "parent_email": "",
       "parent_phone": "05320698073",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.050Z"
+      "created_at": "2026-08-10T10:09:04.050Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544050-52",
@@ -869,7 +1298,12 @@
       "parent_email": "",
       "parent_phone": "05357800642",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.050Z"
+      "created_at": "2026-08-10T10:09:04.050Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544050-53",
@@ -879,7 +1313,12 @@
       "parent_email": "",
       "parent_phone": "05057755525",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.050Z"
+      "created_at": "2026-08-10T10:09:04.050Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544050-54",
@@ -889,7 +1328,12 @@
       "parent_email": "",
       "parent_phone": "05307807942",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.050Z"
+      "created_at": "2026-08-10T10:09:04.050Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544050-55",
@@ -899,7 +1343,12 @@
       "parent_email": "",
       "parent_phone": "05355695684",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.050Z"
+      "created_at": "2026-08-10T10:09:04.050Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544050-56",
@@ -909,7 +1358,12 @@
       "parent_email": "",
       "parent_phone": "05323264262",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.050Z"
+      "created_at": "2026-08-10T10:09:04.050Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544050-57",
@@ -919,7 +1373,12 @@
       "parent_email": "",
       "parent_phone": "05364637555",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.050Z"
+      "created_at": "2026-08-10T10:09:04.050Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544050-58",
@@ -929,7 +1388,12 @@
       "parent_email": "",
       "parent_phone": "05376422111",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.050Z"
+      "created_at": "2026-08-10T10:09:04.050Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544050-59",
@@ -939,7 +1403,12 @@
       "parent_email": "",
       "parent_phone": "03327786821",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.050Z"
+      "created_at": "2026-08-10T10:09:04.050Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544050-60",
@@ -949,7 +1418,12 @@
       "parent_email": "",
       "parent_phone": "0913965247",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.050Z"
+      "created_at": "2026-08-10T10:09:04.050Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544050-61",
@@ -959,7 +1433,12 @@
       "parent_email": "",
       "parent_phone": "0456387541",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.050Z"
+      "created_at": "2026-08-10T10:09:04.050Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544050-62",
@@ -969,7 +1448,12 @@
       "parent_email": "",
       "parent_phone": "0618426219",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.050Z"
+      "created_at": "2026-08-10T10:09:04.050Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544050-63",
@@ -979,7 +1463,12 @@
       "parent_email": "",
       "parent_phone": "066756245",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.050Z"
+      "created_at": "2026-08-10T10:09:04.050Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544050-64",
@@ -989,7 +1478,12 @@
       "parent_email": "",
       "parent_phone": "0453764158",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.050Z"
+      "created_at": "2026-08-10T10:09:04.050Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544050-65",
@@ -999,7 +1493,12 @@
       "parent_email": "",
       "parent_phone": "05368706599",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.050Z"
+      "created_at": "2026-08-10T10:09:04.050Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544050-66",
@@ -1009,7 +1508,12 @@
       "parent_email": "",
       "parent_phone": "05054554992",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.050Z"
+      "created_at": "2026-08-10T10:09:04.050Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544050-67",
@@ -1019,7 +1523,12 @@
       "parent_email": "",
       "parent_phone": "05422762495",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.050Z"
+      "created_at": "2026-08-10T10:09:04.050Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544050-68",
@@ -1029,7 +1538,12 @@
       "parent_email": "",
       "parent_phone": "085711691118",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.050Z"
+      "created_at": "2026-08-10T10:09:04.050Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544050-69",
@@ -1039,7 +1553,12 @@
       "parent_email": "",
       "parent_phone": "0456789321",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.050Z"
+      "created_at": "2026-08-10T10:09:04.050Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544050-70",
@@ -1049,7 +1568,12 @@
       "parent_email": "",
       "parent_phone": "05058117793",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.050Z"
+      "created_at": "2026-08-10T10:09:04.050Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544050-71",
@@ -1059,7 +1583,12 @@
       "parent_email": "",
       "parent_phone": "05461234567",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.050Z"
+      "created_at": "2026-08-10T10:09:04.050Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544051-72",
@@ -1069,7 +1598,12 @@
       "parent_email": "",
       "parent_phone": "0456456321897",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.051Z"
+      "created_at": "2026-08-10T10:09:04.051Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544051-73",
@@ -1079,7 +1613,12 @@
       "parent_email": "",
       "parent_phone": "0634774504",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.051Z"
+      "created_at": "2026-08-10T10:09:04.051Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544051-74",
@@ -1089,7 +1628,12 @@
       "parent_email": "",
       "parent_phone": "005701959",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.051Z"
+      "created_at": "2026-08-10T10:09:04.051Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544051-75",
@@ -1099,7 +1643,12 @@
       "parent_email": "",
       "parent_phone": "05366567751",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.051Z"
+      "created_at": "2026-08-10T10:09:04.051Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544051-76",
@@ -1109,7 +1658,12 @@
       "parent_email": "",
       "parent_phone": "05385643227",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.051Z"
+      "created_at": "2026-08-10T10:09:04.051Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544051-77",
@@ -1119,7 +1673,12 @@
       "parent_email": "",
       "parent_phone": "05325176477",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.051Z"
+      "created_at": "2026-08-10T10:09:04.051Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544051-78",
@@ -1129,7 +1688,12 @@
       "parent_email": "",
       "parent_phone": "05050112973",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.051Z"
+      "created_at": "2026-08-10T10:09:04.051Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544051-79",
@@ -1139,7 +1703,12 @@
       "parent_email": "",
       "parent_phone": "09135698745621",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.051Z"
+      "created_at": "2026-08-10T10:09:04.051Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544051-80",
@@ -1149,7 +1718,12 @@
       "parent_email": "",
       "parent_phone": "00757592410",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.051Z"
+      "created_at": "2026-08-10T10:09:04.051Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544051-81",
@@ -1159,7 +1733,12 @@
       "parent_email": "",
       "parent_phone": "0552027071",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.051Z"
+      "created_at": "2026-08-10T10:09:04.051Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544051-82",
@@ -1169,7 +1748,12 @@
       "parent_email": "",
       "parent_phone": "05423088623",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.051Z"
+      "created_at": "2026-08-10T10:09:04.051Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544051-83",
@@ -1179,7 +1763,12 @@
       "parent_email": "",
       "parent_phone": "081998882903",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.051Z"
+      "created_at": "2026-08-10T10:09:04.051Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544051-84",
@@ -1189,7 +1778,12 @@
       "parent_email": "",
       "parent_phone": "05383432770",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.051Z"
+      "created_at": "2026-08-10T10:09:04.051Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544051-85",
@@ -1199,7 +1793,12 @@
       "parent_email": "",
       "parent_phone": "05070759405",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.051Z"
+      "created_at": "2026-08-10T10:09:04.051Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544051-86",
@@ -1209,7 +1808,12 @@
       "parent_email": "",
       "parent_phone": "05541352114",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.051Z"
+      "created_at": "2026-08-10T10:09:04.051Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544051-87",
@@ -1219,7 +1823,12 @@
       "parent_email": "",
       "parent_phone": "008244503",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.051Z"
+      "created_at": "2026-08-10T10:09:04.051Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544051-88",
@@ -1229,7 +1838,12 @@
       "parent_email": "",
       "parent_phone": "081311265995",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.051Z"
+      "created_at": "2026-08-10T10:09:04.051Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544051-90",
@@ -1239,7 +1853,12 @@
       "parent_email": "",
       "parent_phone": "05074586724",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.051Z"
+      "created_at": "2026-08-10T10:09:04.051Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544051-91",
@@ -1250,7 +1869,11 @@
       "parent_phone": "05427689577",
       "institution_id": "bolu-kilicaslan",
       "created_at": "2026-08-10T10:09:04.051Z",
-      "checkout_time": null
+      "checkout_time": null,
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "score": 0
     },
     {
       "id": "student-kilicaslan-1786356544051-92",
@@ -1260,191 +1883,15 @@
       "parent_email": "",
       "parent_phone": "05417689577",
       "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-08-10T10:09:04.051Z"
+      "created_at": "2026-08-10T10:09:04.051Z",
+      "report_count": 0,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "checkout_time": null,
+      "score": 0
     }
   ],
-  "reports": [
-    {
-      "id": "report-1791064494045-906",
-      "student_id": "student-kilicaslan-1786356544050-53",
-      "studentId": "student-kilicaslan-1786356544050-53",
-      "student_name": "Mehmet Emin Çelik",
-      "studentName": "Mehmet Emin Çelik",
-      "class": "11",
-      "parent_phone": "05057755525",
-      "parentPhone": "05057755525",
-      "content": "Yok.",
-      "category": "Dahili Ders",
-      "isPositive": true,
-      "notified": false,
-      "institution_id": "bolu-kilicaslan",
-      "institutionId": "bolu-kilicaslan",
-      "created_at": "2026-10-03T21:54:54.045Z",
-      "created_by": "Alihan Özmen"
-    },
-    {
-      "id": "report-1791064492975-415",
-      "student_id": "student-kilicaslan-1786356544049-28",
-      "studentId": "student-kilicaslan-1786356544049-28",
-      "student_name": "Taner Çelik",
-      "studentName": "Taner Çelik",
-      "class": "11",
-      "parent_phone": "05327915524",
-      "parentPhone": "05327915524",
-      "content": "Yok.",
-      "category": "Dahili Ders",
-      "isPositive": true,
-      "notified": false,
-      "institution_id": "bolu-kilicaslan",
-      "institutionId": "bolu-kilicaslan",
-      "created_at": "2026-10-03T21:54:52.975Z",
-      "created_by": "Alihan Özmen"
-    },
-    {
-      "id": "report-1791064492686-105",
-      "student_id": "student-kilicaslan-1786356544050-67",
-      "studentId": "student-kilicaslan-1786356544050-67",
-      "student_name": "Eyüp Ensar Belen",
-      "studentName": "Eyüp Ensar Belen",
-      "class": "11",
-      "parent_phone": "05422762495",
-      "parentPhone": "05422762495",
-      "content": "Yok.",
-      "category": "Dahili Ders",
-      "isPositive": true,
-      "notified": false,
-      "institution_id": "bolu-kilicaslan",
-      "institutionId": "bolu-kilicaslan",
-      "created_at": "2026-10-03T21:54:52.686Z",
-      "created_by": "Alihan Özmen"
-    },
-    {
-      "id": "report-1791064491442-203",
-      "student_id": "student-kilicaslan-1786356544050-46",
-      "studentId": "student-kilicaslan-1786356544050-46",
-      "student_name": "Muhammet Ali Baskın",
-      "studentName": "Muhammet Ali Baskın",
-      "class": "11",
-      "parent_phone": "05368667512",
-      "parentPhone": "05368667512",
-      "content": "Yok.",
-      "category": "Dahili Ders",
-      "isPositive": true,
-      "notified": false,
-      "institution_id": "bolu-kilicaslan",
-      "institutionId": "bolu-kilicaslan",
-      "created_at": "2026-10-03T21:54:51.442Z",
-      "created_by": "Alihan Özmen"
-    },
-    {
-      "id": "report-1791064433767-77",
-      "student_id": "student-kilicaslan-1786356544050-59",
-      "studentId": "student-kilicaslan-1786356544050-59",
-      "student_name": "Muhammad Abubakar",
-      "studentName": "Muhammad Abubakar",
-      "class": "11",
-      "parent_phone": "03327786821",
-      "parentPhone": "03327786821",
-      "content": "Derste.",
-      "category": "Yoklama",
-      "isPositive": true,
-      "notified": false,
-      "institution_id": "bolu-kilicaslan",
-      "institutionId": "bolu-kilicaslan",
-      "created_at": "2026-10-03T21:53:53.767Z",
-      "created_by": "Alihan Özmen"
-    },
-    {
-      "id": "report-1791064433479-395",
-      "student_id": "student-kilicaslan-1786356544051-73",
-      "studentId": "student-kilicaslan-1786356544051-73",
-      "student_name": "Khadar Ismail Abokor",
-      "studentName": "Khadar Ismail Abokor",
-      "class": "11",
-      "parent_phone": "0634774504",
-      "parentPhone": "0634774504",
-      "content": "Derste.",
-      "category": "Yoklama",
-      "isPositive": true,
-      "notified": false,
-      "institution_id": "bolu-kilicaslan",
-      "institutionId": "bolu-kilicaslan",
-      "created_at": "2026-10-03T21:53:53.479Z",
-      "created_by": "Alihan Özmen"
-    },
-    {
-      "id": "report-1791064432381-65",
-      "student_id": "student-kilicaslan-1786356544049-24",
-      "studentId": "student-kilicaslan-1786356544049-24",
-      "student_name": "Abba Ali Abdelkadre",
-      "studentName": "Abba Ali Abdelkadre",
-      "class": "11",
-      "parent_phone": "066282425",
-      "parentPhone": "066282425",
-      "content": "Derste.",
-      "category": "Yoklama",
-      "isPositive": true,
-      "notified": false,
-      "institution_id": "bolu-kilicaslan",
-      "institutionId": "bolu-kilicaslan",
-      "created_at": "2026-10-03T21:53:52.381Z",
-      "created_by": "Alihan Özmen"
-    },
-    {
-      "id": "report-1791064431714-482",
-      "student_id": "student-kilicaslan-1786356544051-92",
-      "studentId": "student-kilicaslan-1786356544051-92",
-      "student_name": "Ömer Abbas",
-      "studentName": "Ömer Abbas",
-      "class": "11",
-      "parent_phone": "05417689577",
-      "parentPhone": "05417689577",
-      "content": "Derste.",
-      "category": "Yoklama",
-      "isPositive": true,
-      "notified": false,
-      "institution_id": "bolu-kilicaslan",
-      "institutionId": "bolu-kilicaslan",
-      "created_at": "2026-10-03T21:53:51.714Z",
-      "created_by": "Alihan Özmen"
-    },
-    {
-      "id": "report-1791064431203-421",
-      "student_id": "student-kilicaslan-1786356544051-91",
-      "studentId": "student-kilicaslan-1786356544051-91",
-      "student_name": "İsmail Abbas",
-      "studentName": "İsmail Abbas",
-      "class": "11",
-      "parent_phone": "05427689577",
-      "parentPhone": "05427689577",
-      "content": "Derste.",
-      "category": "Yoklama",
-      "isPositive": true,
-      "notified": false,
-      "institution_id": "bolu-kilicaslan",
-      "institutionId": "bolu-kilicaslan",
-      "created_at": "2026-10-03T21:53:51.203Z",
-      "created_by": "Alihan Özmen"
-    },
-    {
-      "id": "report-1791062432109-954",
-      "student_id": "student-kilicaslan-1786356544051-91",
-      "studentId": "student-kilicaslan-1786356544051-91",
-      "student_name": "İsmail Abbas",
-      "studentName": "İsmail Abbas",
-      "class": "11",
-      "parent_phone": "05427689577",
-      "parentPhone": "05427689577",
-      "content": "Ismail namaza gelmedi.",
-      "category": "Yoklama",
-      "isPositive": false,
-      "notified": false,
-      "institution_id": "bolu-kilicaslan",
-      "institutionId": "bolu-kilicaslan",
-      "created_at": "2026-10-03T21:20:32.109Z",
-      "created_by": "Bolu Kılıçarslan Yöneticisi"
-    }
-  ],
+  "reports": [],
   "users": [
     {
       "id": "tUFn1c6FlqPT9zEsDZMUHCDFzC82",
@@ -1614,17 +2061,6 @@
       "primaryColor": "#0f172a",
       "disabled": false,
       "created_at": "2026-08-10T13:26:25.937Z"
-    },
-    {
-      "id": "teacher-1791063095880",
-      "name": "Alihan Özmen",
-      "email": "özmen@01.com",
-      "password": "kılıçarslan",
-      "role": "teacher",
-      "institutionId": "bolu-kilicaslan",
-      "institutionName": "Bolu Kılıçarslan",
-      "disabled": false,
-      "created_at": "2026-10-03T21:31:36.486Z"
     }
   ],
   "leaveSettings": {
@@ -1730,50 +2166,5 @@
     "student-kilicaslan-1786356544049-34"
   ],
   "tvAudios": {},
-  "teacher_groups": [
-    {
-      "id": "group-1791064464176-797",
-      "name": "aslanlar",
-      "teacher_email": "özmen@01.com",
-      "teacher_name": "Alihan Özmen",
-      "teacher_id": "teacher-1791063095880",
-      "student_ids": [
-        "student-kilicaslan-1786356544050-46",
-        "student-kilicaslan-1786356544050-67",
-        "student-kilicaslan-1786356544049-28",
-        "student-kilicaslan-1786356544050-53"
-      ],
-      "student_names": [
-        "Muhammet Ali Baskın",
-        "Eyüp Ensar Belen",
-        "Taner Çelik",
-        "Mehmet Emin Çelik"
-      ],
-      "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-10-03T21:54:24.176Z"
-    },
-    {
-      "id": "group-1791063173749-948",
-      "name": "KaraKARTAL",
-      "teacher_email": "özmen@01.com",
-      "teacher_name": "Alihan Özmen",
-      "teacher_id": "teacher-1791063095880",
-      "student_ids": [
-        "student-kilicaslan-1786356544051-91",
-        "student-kilicaslan-1786356544051-92",
-        "student-kilicaslan-1786356544049-24",
-        "student-kilicaslan-1786356544051-73",
-        "student-kilicaslan-1786356544050-59"
-      ],
-      "student_names": [
-        "İsmail Abbas",
-        "Ömer Abbas",
-        "Abba Ali Abdelkadre",
-        "Khadar Ismail Abokor",
-        "Muhammad Abubakar"
-      ],
-      "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-10-03T21:32:53.749Z"
-    }
-  ]
+  "teacher_groups": []
 }

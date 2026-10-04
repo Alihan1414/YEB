@@ -563,29 +563,42 @@ export function MobileBottomNav({ activeView, onSelectView }) {
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200/80 flex items-center justify-between py-1 px-1 z-40 shadow-lg safe-bottom-nav w-full max-w-full select-none">
+      {/* 1. Sesli AI */}
       {pathname === '/' && onSelectView ? (
-        <>
-          <button
-            type="button"
-            onClick={() => onSelectView('ai')}
-            className={`flex-1 min-w-0 flex flex-col items-center justify-center py-1 px-0.5 gap-0.5 transition-colors cursor-pointer ${
-              isAiActive ? 'text-blue-600 font-bold' : 'text-slate-400 hover:text-slate-600'
-            }`}
-          >
-            <Sparkles size={17} />
-            <span className="text-[9.5px] sm:text-[10px] leading-tight truncate max-w-full">Sesli AI</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onSelectView('students')}
-            className={`flex-1 min-w-0 flex flex-col items-center justify-center py-1 px-0.5 gap-0.5 transition-colors cursor-pointer ${
-              isHomeActive ? 'text-blue-600 font-bold' : 'text-slate-400 hover:text-slate-600'
-            }`}
-          >
-            <User size={17} />
-            <span className="text-[9.5px] sm:text-[10px] leading-tight truncate max-w-full">Öğrenciler</span>
-          </button>
-        </>
+        <button
+          type="button"
+          onClick={() => onSelectView('ai')}
+          className={`flex-1 min-w-0 flex flex-col items-center justify-center py-1 px-0.5 gap-0.5 transition-colors cursor-pointer ${
+            isAiActive ? 'text-blue-600 font-bold' : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          <Sparkles size={17} />
+          <span className="text-[9.5px] sm:text-[10px] leading-tight truncate max-w-full">Sesli AI</span>
+        </button>
+      ) : (
+        <Link
+          href="/?view=ai"
+          className={`flex-1 min-w-0 flex flex-col items-center justify-center py-1 px-0.5 gap-0.5 transition-colors ${
+            pathname === '/' && isAiActive ? 'text-blue-600 font-bold' : 'text-slate-400 hover:text-blue-600'
+          }`}
+        >
+          <Sparkles size={17} />
+          <span className="text-[9.5px] sm:text-[10px] leading-tight truncate max-w-full">Sesli AI</span>
+        </Link>
+      )}
+
+      {/* 2. Öğrenciler */}
+      {pathname === '/' && onSelectView ? (
+        <button
+          type="button"
+          onClick={() => onSelectView('students')}
+          className={`flex-1 min-w-0 flex flex-col items-center justify-center py-1 px-0.5 gap-0.5 transition-colors cursor-pointer ${
+            isHomeActive ? 'text-blue-600 font-bold' : 'text-slate-400 hover:text-slate-600'
+          }`}
+        >
+          <User size={17} />
+          <span className="text-[9.5px] sm:text-[10px] leading-tight truncate max-w-full">Öğrenciler</span>
+        </button>
       ) : (
         <Link
           href="/?view=students"
