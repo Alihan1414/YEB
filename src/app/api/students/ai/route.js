@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { readDb } from '@/lib/db';
+import { normalizeInstitutionId, isInstitutionMatch } from '@/lib/institution';
 
 export const dynamic = 'force-dynamic';
 
@@ -304,7 +305,7 @@ export async function POST(req) {
       return NextResponse.json({ success: false, error: 'Metin girişi zorunludur.' }, { status: 400 });
     }
 
-    const normInstId = (institutionId || 'bolu-kilicaslan').trim().toLowerCase();
+    const normInstId = normalizeInstitutionId(institutionId);
 
     // ─── 1. Öğrenci Listesini Topla (Client + Local DB + Firestore) ───────────────
     const studentMap = new Map();
@@ -324,8 +325,8 @@ export async function POST(req) {
     try {
       const dbData = readDb();
       (dbData.students || []).forEach(s => {
-        const sInst = (s.institution_id || 'bolu-kilicaslan').trim().toLowerCase();
-        if (sInst === normInstId) {
+        const sInst = normalizeInstitutionId(s.institution_id || s.institutionId || 'bolu-kilicaslan');
+        if (normInstId === 'platform' || isInstitutionMatch(sInst, normInstId)) {
           const fullName = `${s.name || ''} ${s.surname || ''}`.trim();
           studentMap.set(s.id, {
             id: s.id,
@@ -340,25 +341,32 @@ export async function POST(req) {
       const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'vision-b1ad5';
       const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCH7bTzvqJqSzJiV0Ou6JudPovkrrWrwdw';
       if (projectId && apiKey) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 1200);
+
         const res = await fetch(
           `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/students?key=${apiKey}&pageSize=1000`,
-          { cache: 'no-store' }
+          { cache: 'no-store', signal: controller.signal }
         );
-        const data = await res.json();
-        if (data.documents) {
-          data.documents.forEach(doc => {
-            const fields = doc.fields || {};
-            const docInst = (fields.institution_id?.stringValue || 'bolu-kilicaslan').trim().toLowerCase();
-            if (docInst === normInstId) {
-              const id = doc.name.split('/').pop();
-              const fullName = `${fields.name?.stringValue || ''} ${fields.surname?.stringValue || ''}`.trim();
-              studentMap.set(id, {
-                id,
-                fullName,
-                class: fields.class?.stringValue || ''
-              });
-            }
-          });
+        clearTimeout(timeout);
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.documents) {
+            data.documents.forEach(doc => {
+              const fields = doc.fields || {};
+              const docInst = normalizeInstitutionId(fields.institution_id?.stringValue || fields.institutionId?.stringValue || 'bolu-kilicaslan');
+              if (normInstId === 'platform' || isInstitutionMatch(docInst, normInstId)) {
+                const id = doc.name.split('/').pop();
+                const fullName = `${fields.name?.stringValue || ''} ${fields.surname?.stringValue || ''}`.trim();
+                studentMap.set(id, {
+                  id,
+                  fullName,
+                  class: fields.class?.stringValue || ''
+                });
+              }
+            });
+          }
         }
       }
     } catch (e) {}
@@ -385,8 +393,8 @@ export async function POST(req) {
       const dbData = readDb();
       if (dbData.teacher_groups) {
         dbData.teacher_groups.forEach(g => {
-          const gInst = (g.institution_id || g.institutionId || 'bolu-kilicaslan').trim().toLowerCase();
-          if (gInst === normInstId && !groupsMap.has(g.id)) {
+          const gInst = normalizeInstitutionId(g.institution_id || g.institutionId || 'bolu-kilicaslan');
+          if ((normInstId === 'platform' || isInstitutionMatch(gInst, normInstId)) && !groupsMap.has(g.id)) {
             groupsMap.set(g.id, g);
           }
         });
@@ -397,28 +405,35 @@ export async function POST(req) {
       const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'vision-b1ad5';
       const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCH7bTzvqJqSzJiV0Ou6JudPovkrrWrwdw';
       if (projectId && apiKey) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 1200);
+
         const res = await fetch(
           `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/teacher_groups?key=${apiKey}&pageSize=200`,
-          { cache: 'no-store' }
+          { cache: 'no-store', signal: controller.signal }
         );
-        const data = await res.json();
-        if (data.documents) {
-          data.documents.forEach(doc => {
-            const fields = doc.fields || {};
-            const docInst = (fields.institution_id?.stringValue || 'bolu-kilicaslan').trim().toLowerCase();
-            if (docInst === normInstId) {
-              const id = doc.name.split('/').pop();
-              const sIds = (fields.student_ids?.arrayValue?.values || []).map(v => v.stringValue).filter(Boolean);
-              if (!groupsMap.has(id)) {
-                groupsMap.set(id, {
-                  id,
-                  name: fields.name?.stringValue || '',
-                  teacher_name: fields.teacher_name?.stringValue || '',
-                  student_ids: sIds,
-                });
+        clearTimeout(timeout);
+
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.documents) {
+            data.documents.forEach(doc => {
+              const fields = doc.fields || {};
+              const docInst = normalizeInstitutionId(fields.institution_id?.stringValue || fields.institutionId?.stringValue || 'bolu-kilicaslan');
+              if (normInstId === 'platform' || isInstitutionMatch(docInst, normInstId)) {
+                const id = doc.name.split('/').pop();
+                const sIds = (fields.student_ids?.arrayValue?.values || []).map(v => v.stringValue).filter(Boolean);
+                if (!groupsMap.has(id)) {
+                  groupsMap.set(id, {
+                    id,
+                    name: fields.name?.stringValue || '',
+                    teacher_name: fields.teacher_name?.stringValue || '',
+                    student_ids: sIds,
+                  });
+                }
               }
-            }
-          });
+            });
+          }
         }
       }
     } catch (e) {}

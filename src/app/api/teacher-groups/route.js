@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { readDb, writeDb } from '@/lib/db';
+import { normalizeInstitutionId, isInstitutionMatch } from '@/lib/institution';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,25 +19,28 @@ export async function GET(req) {
   const { projectId, apiKey } = getFirestoreConfig();
   const { searchParams } = new URL(req.url);
   const rawInstId  = searchParams.get('institutionId') || '';
-  const normInstId = rawInstId.trim().toLowerCase();
+  const normInstId = rawInstId ? normalizeInstitutionId(rawInstId) : '';
 
   const groupsMap = new Map();
 
-  // 1. Fetch from Firestore
+  // 1. Fetch from Firestore (with 1.2s timeout to prevent hanging)
   if (projectId && apiKey) {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 1200);
       const res = await fetch(
         fsUrl(projectId, apiKey, 'teacher_groups', '&pageSize=300'),
-        { cache: 'no-store' }
+        { cache: 'no-store', signal: controller.signal }
       );
+      clearTimeout(timeoutId);
       if (res.ok) {
         const data = await res.json();
         (data.documents || []).forEach(doc => {
           const fields = doc.fields || {};
           const id = doc.name.split('/').pop();
-          const rInst = (fields.institution_id?.stringValue || fields.institutionId?.stringValue || 'bolu-kilicaslan').trim().toLowerCase();
+          const rInst = fields.institution_id?.stringValue || fields.institutionId?.stringValue || 'bolu-kilicaslan';
           
-          if (!normInstId || rInst === normInstId) {
+          if (!normInstId || isInstitutionMatch(rInst, normInstId)) {
             const studentIds = (fields.student_ids?.arrayValue?.values || []).map(v => v.stringValue).filter(Boolean);
             const studentNames = (fields.student_names?.arrayValue?.values || []).map(v => v.stringValue).filter(Boolean);
             
@@ -48,14 +52,14 @@ export async function GET(req) {
               teacher_id: fields.teacher_id?.stringValue || '',
               student_ids: studentIds,
               student_names: studentNames,
-              institution_id: rInst,
+              institution_id: normalizeInstitutionId(rInst),
               created_at: fields.created_at?.timestampValue || fields.created_at?.stringValue || null,
             });
           }
         });
       }
     } catch (err) {
-      console.warn('Firestore GET teacher_groups warn:', err.message);
+      // Ignore Firestore timeout or quota error, fallback to local DB
     }
   }
 
@@ -63,10 +67,13 @@ export async function GET(req) {
   try {
     const dbData = readDb();
     (dbData.teacher_groups || []).forEach(g => {
-      const rInst = (g.institution_id || g.institutionId || 'bolu-kilicaslan').trim().toLowerCase();
-      if (!normInstId || rInst === normInstId) {
+      const rInst = g.institution_id || g.institutionId || 'bolu-kilicaslan';
+      if (!normInstId || isInstitutionMatch(rInst, normInstId)) {
         if (!groupsMap.has(g.id)) {
-          groupsMap.set(g.id, g);
+          groupsMap.set(g.id, {
+            ...g,
+            institution_id: normalizeInstitutionId(rInst)
+          });
         }
       }
     });
@@ -100,7 +107,7 @@ export async function POST(req) {
 
     const groupId = `group-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const nowIso = new Date().toISOString();
-    const cleanInstId = institutionId.trim().toLowerCase();
+    const cleanInstId = normalizeInstitutionId(institutionId);
 
     const newGroup = {
       id: groupId,

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { readDb, writeDb } from '@/lib/db';
+import { normalizeInstitutionId, isInstitutionMatch } from '@/lib/institution';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,22 +20,23 @@ function slugifyName(name) {
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
-    const institutionId = searchParams.get('institutionId') || 'bolu-kilicaslan';
+    const rawInstId = searchParams.get('institutionId') || 'bolu-kilicaslan';
+    const institutionId = normalizeInstitutionId(rawInstId);
 
     let teachers = [];
 
-    // 1. Fetch from local DB
+    // 1. Fetch from local DB (Instant)
     try {
       const dbData = readDb();
       const localUsers = dbData.users || [];
       localUsers.forEach(lu => {
-        if (lu.institutionId === institutionId && lu.role === 'teacher') {
+        if (isInstitutionMatch(lu.institutionId, institutionId) && lu.role === 'teacher') {
           teachers.push({
             id: lu.id || lu.email,
             name: lu.name,
             email: lu.email,
             role: 'teacher',
-            institutionId: lu.institutionId,
+            institutionId: normalizeInstitutionId(lu.institutionId),
             institutionName: lu.institutionName,
             disabled: lu.disabled || false
           });
@@ -44,22 +46,27 @@ export async function GET(req) {
       console.warn("Local DB fetch failed in teachers API:", err.message);
     }
 
-    // 2. Fetch from Firestore
+    // 2. Fetch from Firestore with 1.2s timeout
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 1200);
+
     try {
       const res = await fetch(
         `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users?key=${FIREBASE_API_KEY}`,
-        { cache: 'no-store' }
+        { cache: 'no-store', signal: controller.signal }
       );
+      clearTimeout(timeout);
+
       if (res.ok) {
         const data = await res.json();
         const docs = data.documents || [];
         docs.forEach(doc => {
           const f = doc.fields || {};
           const role = f.role?.stringValue || 'teacher';
-          const uInstId = f.institutionId?.stringValue || '';
+          const uInstId = normalizeInstitutionId(f.institutionId?.stringValue || '');
           const email = f.email?.stringValue || '';
           
-          if (uInstId === institutionId && role === 'teacher') {
+          if (isInstitutionMatch(uInstId, institutionId) && role === 'teacher') {
             if (!teachers.some(t => t.email.toLowerCase() === email.toLowerCase())) {
               teachers.push({
                 id: doc.name.split('/').pop(),
@@ -75,7 +82,7 @@ export async function GET(req) {
         });
       }
     } catch (err) {
-      console.warn("Firestore fetch failed in teachers API:", err.message);
+      clearTimeout(timeout);
     }
 
     return NextResponse.json({ success: true, teachers });

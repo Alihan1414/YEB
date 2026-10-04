@@ -283,6 +283,18 @@ export async function POST(req) {
           primaryColor: '#06429c',
           enabledModules: { ai: true, leave: true, tv: true, weekly: true },
         };
+      } else if ((eLower === 'ozmenali121@gmail.com' || eLower === 'ozmenali121' || eLower === 'alihan.ozmen') && (password === 'kılıçarslan' || password === 'kilicaslan' || password === 'ozmen121' || password === '123456')) {
+        profile = {
+          uid: 'teacher-kilicaslan-alihan',
+          name: 'Alihan ÖZMEN',
+          email: 'ozmenali121@gmail.com',
+          role: 'teacher',
+          institutionId: 'bolu-kilicaslan',
+          institutionName: 'Bolu Kılıçarslan',
+          logoUrl: '/kilicaslan-logo.png',
+          primaryColor: '#009b9e',
+          enabledModules: { ai: true, leave: true, tv: true, weekly: true },
+        };
       }
     }
 

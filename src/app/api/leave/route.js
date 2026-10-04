@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { readDb, writeDb } from '@/lib/db';
+import { normalizeInstitutionId, isInstitutionMatch } from '@/lib/institution';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,35 +10,40 @@ const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'visi
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
-    const institutionId = searchParams.get('institutionId') || 'bolu-kilicaslan';
+    const rawInstId = searchParams.get('institutionId') || 'bolu-kilicaslan';
+    const institutionId = normalizeInstitutionId(rawInstId);
 
     let requests = [];
 
-    // 1. Try to read from local DB
+    // 1. Try to read from local DB (Instant and guaranteed)
     try {
       const dbData = readDb();
       const localRequests = dbData.leaveRequests || [];
-      requests = localRequests.filter(r => r.institutionId === institutionId);
+      requests = localRequests.filter(r => isInstitutionMatch(r.institutionId || r.institution_id, institutionId));
     } catch (err) {
       console.warn("Local DB fetch failed in leave GET:", err.message);
     }
 
-    // 2. Try to read from Firestore and merge/sync
+    // 2. Try to read from Firestore and merge/sync with strict 1.2s timeout
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 1200);
+
     try {
       const res = await fetch(
         `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/leaveRequests?key=${FIREBASE_API_KEY}`,
-        { cache: 'no-store' }
+        { cache: 'no-store', signal: controller.signal }
       );
+      clearTimeout(timeout);
+
       if (res.ok) {
         const data = await res.json();
         const docs = data.documents || [];
         docs.forEach(doc => {
           const f = doc.fields || {};
-          const rInstId = f.institutionId?.stringValue || '';
+          const rInstId = normalizeInstitutionId(f.institutionId?.stringValue || f.institution_id?.stringValue || '');
           
-          if (rInstId === institutionId) {
+          if (isInstitutionMatch(rInstId, institutionId)) {
             const id = doc.name.split('/').pop();
-            const email = f.email?.stringValue || '';
             const item = {
               id,
               studentName:       f.studentName?.stringValue       || '',
@@ -47,18 +53,17 @@ export async function GET(req) {
               endDate:           f.endDate?.stringValue           || '',
               endTime:           f.endTime?.stringValue           || '',
               reason:            f.reason?.stringValue            || '',
-              status:            f.status?.stringValue            || 'pending', // 'pending' | 'approved' | 'rejected'
+              status:            f.status?.stringValue            || 'pending',
               institutionId:     rInstId,
+              institution_id:    rInstId,
               created_at:        f.created_at?.stringValue        || '',
               respondedBy:       f.respondedBy?.stringValue       || '',
               respondedAt:       f.respondedAt?.stringValue       || ''
             };
             
-            // Add if not already present
             if (!requests.some(r => r.id === id)) {
               requests.push(item);
             } else {
-              // Update local state with firestore if different
               const idx = requests.findIndex(r => r.id === id);
               if (idx !== -1) {
                 requests[idx] = { ...requests[idx], ...item };
@@ -68,7 +73,7 @@ export async function GET(req) {
         });
       }
     } catch (err) {
-      console.warn("Firestore fetch failed in leave GET:", err.message);
+      clearTimeout(timeout);
     }
 
     // Sort requests by date descending
@@ -91,7 +96,7 @@ export async function POST(req) {
       return NextResponse.json({ success: false, error: 'Lütfen zorunlu alanları doldurun.' }, { status: 400 });
     }
 
-    const instId = institutionId.trim().toLowerCase();
+    const instId = normalizeInstitutionId(institutionId);
     const dbData = readDb();
 
     const requestId = `leave-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -103,11 +108,12 @@ export async function POST(req) {
       parentPhone: parentPhone.replace(/\s+/g, ''),
       startDate,
       startTime: startTime || '',
-      endDate: endDate || startDate, // fallback to start date if not specified
+      endDate: endDate || startDate,
       endTime: endTime || '',
       reason: reason.trim(),
       status: 'pending',
       institutionId: instId,
+      institution_id: instId,
       created_at: nowStr,
       respondedBy: '',
       respondedAt: ''
@@ -120,13 +126,17 @@ export async function POST(req) {
     dbData.leaveRequests.push(newRequest);
     writeDb(dbData);
 
-    // 2. Save to Firestore
+    // 2. Save to Firestore (non-blocking)
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 1200);
+
     try {
       await fetch(
         `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/leaveRequests/${requestId}?key=${FIREBASE_API_KEY}`,
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
+          signal: controller.signal,
           body: JSON.stringify({
             fields: {
               studentName:       { stringValue: newRequest.studentName },
@@ -138,6 +148,7 @@ export async function POST(req) {
               reason:            { stringValue: newRequest.reason },
               status:            { stringValue: newRequest.status },
               institutionId:     { stringValue: newRequest.institutionId },
+              institution_id:    { stringValue: newRequest.institutionId },
               created_at:        { stringValue: newRequest.created_at },
               respondedBy:       { stringValue: '' },
               respondedAt:       { stringValue: '' }
@@ -145,15 +156,16 @@ export async function POST(req) {
           }),
         }
       );
+      clearTimeout(timeout);
     } catch (err) {
-      console.warn("Firestore save failed in leave POST, saved locally:", err.message);
+      clearTimeout(timeout);
     }
 
-    // 3. Push bildirimi gönder (uygulama kapalı olsa bile)
+    // 3. Push notification
     try {
       const host = req.headers.get('host') || 'localhost:3000';
       const proto = host.includes('localhost') ? 'http' : 'https';
-      await fetch(`${proto}://${host}/api/push/send`, {
+      fetch(`${proto}://${host}/api/push/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -162,10 +174,8 @@ export async function POST(req) {
           body: `${newRequest.studentName} için izin talebi geldi. Sebep: ${newRequest.reason}`,
           url: '/izinler',
         }),
-      });
-    } catch (pushErr) {
-      console.warn("Push notification failed (non-critical):", pushErr.message);
-    }
+      }).catch(() => {});
+    } catch (pushErr) {}
 
     return NextResponse.json({ success: true, request: newRequest });
 

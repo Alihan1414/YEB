@@ -1066,7 +1066,7 @@ export default function StudentsPage() {
   }
   if (!user) return null;
 
-  const classesList = ['All', ...Array.from(new Set(students.map(s => s.class))).sort()];
+  const classesList = ['All', ...Array.from(new Set(students.map(s => s.class).filter(c => c && typeof c === 'string' && c.trim()))).sort()];
   const filteredStudents = students.filter(s => {
     const name = `${s.name} ${s.surname}`.toLowerCase();
     return (
@@ -1192,7 +1192,7 @@ export default function StudentsPage() {
                       className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs md:text-sm text-slate-700 font-semibold focus:outline-none focus:border-blue-600 transition-all appearance-none cursor-pointer"
                     >
                       <option value="All">Tüm Sınıflar</option>
-                      {classesList.filter(c => c !== 'All').map(cls => (
+                      {classesList.filter(c => c !== 'All' && c && c.trim()).map(cls => (
                         <option key={cls} value={cls}>{cls}</option>
                       ))}
                     </select>

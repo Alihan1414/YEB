@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { readDb } from '@/lib/db';
+import { normalizeInstitutionId, isInstitutionMatch } from '@/lib/institution';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,8 +21,8 @@ const CATEGORY_SCORES = {
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
-    const institutionId = searchParams.get('institutionId') || 'bolu-kilicaslan';
-    const normInstId = institutionId.trim().toLowerCase();
+    const rawInstId = searchParams.get('institutionId') || 'bolu-kilicaslan';
+    const normInstId = normalizeInstitutionId(rawInstId);
 
     let students = [];
     let reports = [];
@@ -30,86 +31,95 @@ export async function GET(req) {
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'vision-b1ad5';
     const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCH7bTzvqJqSzJiV0Ou6JudPovkrrWrwdw';
 
-    // 1. Fetch Students, Reports and Groups from Firestore
+    // 1. Fetch Students, Reports and Groups from Firestore with 1.2s timeout
     if (projectId && apiKey) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 1200);
+
       try {
         const [sRes, rRes, gRes] = await Promise.all([
           fetch(
             `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/students?pageSize=300&key=${apiKey}`,
-            { cache: 'no-store' }
+            { cache: 'no-store', signal: controller.signal }
           ),
           fetch(
             `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/reports?pageSize=1000&key=${apiKey}`,
-            { cache: 'no-store' }
+            { cache: 'no-store', signal: controller.signal }
           ),
           fetch(
             `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/teacher_groups?pageSize=100&key=${apiKey}`,
-            { cache: 'no-store' }
+            { cache: 'no-store', signal: controller.signal }
           ),
         ]);
+        clearTimeout(timeout);
 
-        const [sData, rData, gData] = await Promise.all([sRes.json(), rRes.json(), gRes.json()]);
+        if (sRes.ok && rRes.ok && gRes.ok) {
+          const [sData, rData, gData] = await Promise.all([sRes.json(), rRes.json(), gRes.json()]);
 
-        if (sData.documents) {
-          students = sData.documents
-            .filter(doc => {
-              const f = doc.fields || {};
-              return (f.institution_id?.stringValue || 'bolu-kilicaslan').trim().toLowerCase() === normInstId;
-            })
-            .map(doc => {
-              const fields = doc.fields || {};
-              return {
-                id: doc.name.split('/').pop(),
-                name: fields.name?.stringValue || '',
-                surname: fields.surname?.stringValue || '',
-                class: fields.class?.stringValue || '',
-                checkout_time: fields.checkout_time?.timestampValue || fields.checkout_time?.stringValue || null,
-              };
-            });
-        }
+          if (sData.documents) {
+            students = sData.documents
+              .filter(doc => {
+                const f = doc.fields || {};
+                const rInst = normalizeInstitutionId(f.institution_id?.stringValue || f.institutionId?.stringValue || 'bolu-kilicaslan');
+                return normInstId === 'platform' || isInstitutionMatch(rInst, normInstId);
+              })
+              .map(doc => {
+                const fields = doc.fields || {};
+                return {
+                  id: doc.name.split('/').pop(),
+                  name: fields.name?.stringValue || '',
+                  surname: fields.surname?.stringValue || '',
+                  class: fields.class?.stringValue || '',
+                  checkout_time: fields.checkout_time?.timestampValue || fields.checkout_time?.stringValue || null,
+                };
+              });
+          }
 
-        if (rData.documents) {
-          reports = rData.documents
-            .filter(doc => {
-              const f = doc.fields || {};
-              return (f.institution_id?.stringValue || 'bolu-kilicaslan').trim().toLowerCase() === normInstId;
-            })
-            .map(doc => {
-              const fields = doc.fields || {};
-              return {
-                id: doc.name.split('/').pop(),
-                student_id: fields.student_id?.stringValue || '',
-                student_name: fields.student_name?.stringValue || '',
-                class: fields.class?.stringValue || '',
-                category: fields.category?.stringValue || 'Dahili Ders',
-                isPositive: fields.isPositive?.booleanValue !== false,
-                content: fields.content?.stringValue || '',
-                created_at: fields.created_at?.timestampValue || fields.created_at?.stringValue || null,
-                created_by: fields.created_by?.stringValue || 'Bilinmeyen',
-              };
-            });
-        }
+          if (rData.documents) {
+            reports = rData.documents
+              .filter(doc => {
+                const f = doc.fields || {};
+                const rInst = normalizeInstitutionId(f.institution_id?.stringValue || f.institutionId?.stringValue || 'bolu-kilicaslan');
+                return normInstId === 'platform' || isInstitutionMatch(rInst, normInstId);
+              })
+              .map(doc => {
+                const fields = doc.fields || {};
+                return {
+                  id: doc.name.split('/').pop(),
+                  student_id: fields.student_id?.stringValue || '',
+                  student_name: fields.student_name?.stringValue || '',
+                  class: fields.class?.stringValue || '',
+                  category: fields.category?.stringValue || 'Dahili Ders',
+                  isPositive: fields.isPositive?.booleanValue !== false,
+                  content: fields.content?.stringValue || '',
+                  created_at: fields.created_at?.timestampValue || fields.created_at?.stringValue || null,
+                  created_by: fields.created_by?.stringValue || 'Bilinmeyen',
+                };
+              });
+          }
 
-        if (gData.documents) {
-          teacherGroups = gData.documents
-            .filter(doc => {
-              const f = doc.fields || {};
-              return (f.institution_id?.stringValue || 'bolu-kilicaslan').trim().toLowerCase() === normInstId;
-            })
-            .map(doc => {
-              const fields = doc.fields || {};
-              const sIds = (fields.student_ids?.arrayValue?.values || []).map(v => v.stringValue).filter(Boolean);
-              return {
-                id: doc.name.split('/').pop(),
-                name: fields.name?.stringValue || '',
-                teacher_name: fields.teacher_name?.stringValue || '',
-                teacher_email: fields.teacher_email?.stringValue || '',
-                student_ids: sIds,
-              };
-            });
+          if (gData.documents) {
+            teacherGroups = gData.documents
+              .filter(doc => {
+                const f = doc.fields || {};
+                const rInst = normalizeInstitutionId(f.institution_id?.stringValue || f.institutionId?.stringValue || 'bolu-kilicaslan');
+                return normInstId === 'platform' || isInstitutionMatch(rInst, normInstId);
+              })
+              .map(doc => {
+                const fields = doc.fields || {};
+                const sIds = (fields.student_ids?.arrayValue?.values || []).map(v => v.stringValue).filter(Boolean);
+                return {
+                  id: doc.name.split('/').pop(),
+                  name: fields.name?.stringValue || '',
+                  teacher_name: fields.teacher_name?.stringValue || '',
+                  teacher_email: fields.teacher_email?.stringValue || '',
+                  student_ids: sIds,
+                };
+              });
+          }
         }
       } catch (err) {
-        console.warn('Weekly Summary Firestore fetch failed:', err.message);
+        clearTimeout(timeout);
       }
     }
 
@@ -118,12 +128,12 @@ export async function GET(req) {
       const dbData = readDb();
       if ((!students || students.length === 0) && dbData.students) {
         students = dbData.students
-          .filter(s => (s.institution_id || s.institutionId || 'bolu-kilicaslan').trim().toLowerCase() === normInstId)
+          .filter(s => normInstId === 'platform' || isInstitutionMatch(s.institution_id || s.institutionId || 'bolu-kilicaslan', normInstId))
           .map(s => ({ id: s.id, name: s.name, surname: s.surname, class: s.class, checkout_time: s.checkout_time || null }));
       }
       if ((!reports || reports.length === 0) && dbData.reports) {
         reports = dbData.reports
-          .filter(r => (r.institution_id || r.institutionId || 'bolu-kilicaslan').trim().toLowerCase() === normInstId)
+          .filter(r => normInstId === 'platform' || isInstitutionMatch(r.institution_id || r.institutionId || 'bolu-kilicaslan', normInstId))
           .map(r => ({
             id: r.id,
             student_id: r.student_id || r.studentId,
@@ -138,7 +148,7 @@ export async function GET(req) {
       }
       if ((!teacherGroups || teacherGroups.length === 0) && dbData.teacher_groups) {
         teacherGroups = dbData.teacher_groups
-          .filter(g => (g.institution_id || g.institutionId || 'bolu-kilicaslan').trim().toLowerCase() === normInstId)
+          .filter(g => normInstId === 'platform' || isInstitutionMatch(g.institution_id || g.institutionId || 'bolu-kilicaslan', normInstId))
           .map(g => ({
             id: g.id,
             name: g.name,

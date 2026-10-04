@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
 import { readDb, writeDb } from '@/lib/db';
+import { normalizeInstitutionId } from '@/lib/institution';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,7 +10,7 @@ export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
     const rawInstId = searchParams.get('institutionId') || 'bolu-kilicaslan';
-    const institutionId = rawInstId.trim().toLowerCase();
+    const institutionId = normalizeInstitutionId(rawInstId);
 
     const dbData = readDb();
     const audio = (dbData.tvAudios && dbData.tvAudios[institutionId]) || null;
@@ -27,7 +28,7 @@ export async function POST(req) {
     const file = formData.get('file');
     const title = formData.get('title') || '';
     const rawInstId = formData.get('institutionId') || 'bolu-kilicaslan';
-    const institutionId = rawInstId.trim().toLowerCase();
+    const institutionId = normalizeInstitutionId(rawInstId);
 
     if (!file || typeof file === 'string') {
       return NextResponse.json({ success: false, error: 'Lütfen geçerli bir ses dosyası seçin.' }, { status: 400 });
@@ -86,7 +87,7 @@ export async function DELETE(req) {
   try {
     const { searchParams } = new URL(req.url);
     const rawInstId = searchParams.get('institutionId') || 'bolu-kilicaslan';
-    const institutionId = rawInstId.trim().toLowerCase();
+    const institutionId = normalizeInstitutionId(rawInstId);
 
     const dbData = readDb();
     if (dbData.tvAudios && dbData.tvAudios[institutionId]) {

@@ -95,48 +95,17 @@ export async function GET(req) {
       return NextResponse.json({ success: false, teachers: [] });
     }
 
-    const instId = directInstId ? directInstId.trim().toLowerCase()
-                                : await getInstitutionId(emailOrInst);
+    const rawInst = directInstId ? directInstId : await getInstitutionId(emailOrInst);
+    const instId = normalizeInstitutionId(rawInst);
     let teachers = [];
 
-    // 1. Try fetching from Firestore
-    try {
-      const res = await fetch(
-        `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users?key=${FIREBASE_API_KEY}`,
-        { cache: 'no-store' }
-      );
-      if (res.ok) {
-        const data = await res.json();
-        const docs = data.documents || [];
-        docs.forEach(doc => {
-          const f = doc.fields || {};
-          const role = f.role?.stringValue || 'teacher';
-          const uInstId = (f.institutionId?.stringValue || '').toLowerCase();
-          const email = (f.email?.stringValue || '').toLowerCase();
-          const name = f.name?.stringValue || '';
-          
-          if (uInstId === instId) {
-            if (!teachers.some(t => t.email.toLowerCase() === email)) {
-              teachers.push({
-                name: name,
-                email: email,
-                role: role,
-              });
-            }
-          }
-        });
-      }
-    } catch (err) {
-      console.warn("Firestore error in list-teachers:", err.message);
-    }
-
-    // 2. Fetch from local DB
+    // 1. Fetch from local DB first (instant)
     try {
       const dbData = readDb();
       const localUsers = dbData.users || [];
       localUsers.forEach(lu => {
-        const luInstId = (lu.institutionId || '').toLowerCase();
-        if (luInstId === instId) {
+        const luInstId = normalizeInstitutionId(lu.institutionId || '');
+        if (isInstitutionMatch(luInstId, instId)) {
           if (!teachers.some(t => t.email.toLowerCase() === (lu.email || '').toLowerCase())) {
             teachers.push({
               name: lu.name || '',
@@ -148,6 +117,42 @@ export async function GET(req) {
       });
     } catch (err) {
       console.warn("Local DB error in list-teachers:", err.message);
+    }
+
+    // 2. Supplement from Firestore with 1.2s timeout
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 1200);
+
+    try {
+      const res = await fetch(
+        `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/users?key=${FIREBASE_API_KEY}`,
+        { cache: 'no-store', signal: controller.signal }
+      );
+      clearTimeout(timeout);
+
+      if (res.ok) {
+        const data = await res.json();
+        const docs = data.documents || [];
+        docs.forEach(doc => {
+          const f = doc.fields || {};
+          const role = f.role?.stringValue || 'teacher';
+          const uInstId = normalizeInstitutionId(f.institutionId?.stringValue || '');
+          const email = (f.email?.stringValue || '').toLowerCase();
+          const name = f.name?.stringValue || '';
+          
+          if (isInstitutionMatch(uInstId, instId)) {
+            if (!teachers.some(t => t.email.toLowerCase() === email)) {
+              teachers.push({
+                name: name,
+                email: email,
+                role: role,
+              });
+            }
+          }
+        });
+      }
+    } catch (err) {
+      clearTimeout(timeout);
     }
 
     // 3. Ensure institution admin is present for 'yamanevler'

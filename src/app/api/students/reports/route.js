@@ -1,43 +1,94 @@
 import { NextResponse } from 'next/server';
 import { readDb, writeDb } from '@/lib/db';
+import { normalizeInstitutionId, isInstitutionMatch } from '@/lib/institution';
 
 export const dynamic = 'force-dynamic';
 
-// â”€â”€â”€ GET â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+function calculateStudentStatus(reports) {
+  if (!reports || reports.length === 0) {
+    return { last_report_date: null, status: 'Rapor Yok', report_count: 0 };
+  }
+  const sorted = [...reports].sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+  const latest = sorted[0];
+  const c = (latest.content || '').toLowerCase();
+  let status = 'Orta';
+  if (latest.isPositive === false || c.includes('gelmedi') || c.includes('kavga') || c.includes('hasta') || c.includes('dikkat') || c.includes('uyari') || c.includes('uyudu') || c.includes('inmedi')) {
+    status = 'Dikkat';
+  } else if (latest.isPositive === true || c.includes('katildi') || c.includes('iyi') || c.includes('basarili') || c.includes('aktif') || c.includes('tebrik') || c.includes('tam')) {
+    status = 'İyi';
+  }
+  return {
+    last_report_date: latest.created_at || new Date().toISOString(),
+    status,
+    report_count: sorted.length
+  };
+}
+
+// ─── GET ─────────────────────────────────────────────────────────────────────
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
     const studentId     = searchParams.get('studentId');
     const rawInstId     = searchParams.get('institutionId') || '';
-    const institutionId = rawInstId.trim().toLowerCase();
+    const institutionId = rawInstId ? normalizeInstitutionId(rawInstId) : '';
     const normStudentId = studentId ? studentId.trim().toLowerCase() : null;
 
     let reportsMap = new Map();
 
+    // 1. First populate from Local DB (always available & instant)
+    try {
+      const dbData = readDb();
+      const localReports = dbData.reports || [];
+      localReports.forEach(r => {
+        const rInst = normalizeInstitutionId(r.institution_id || r.institutionId || 'bolu-kilicaslan');
+        const rStId = (r.student_id || r.studentId || '').trim();
+        const normRStId = rStId.toLowerCase();
+
+        const isStudentMatch = !normStudentId || normRStId === normStudentId;
+        const isInstMatch    = !institutionId || institutionId === 'platform' || isInstitutionMatch(rInst, institutionId);
+
+        if (isStudentMatch && isInstMatch) {
+          reportsMap.set(r.id, {
+            ...r,
+            student_id: rStId,
+            studentId: rStId,
+            institution_id: rInst,
+            institutionId: rInst
+          });
+        }
+      });
+    } catch (e) {}
+
+    // 2. Supplement from Firestore with strict 1.2s timeout
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'vision-b1ad5';
     const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCH7bTzvqJqSzJiV0Ou6JudPovkrrWrwdw';
 
     if (projectId && apiKey) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 1200);
+
       try {
         const res = await fetch(
           `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/reports?key=${apiKey}&pageSize=1000`,
-          { cache: 'no-store' }
+          { cache: 'no-store', signal: controller.signal }
         );
+        clearTimeout(timeout);
+
         if (res.ok) {
           const data = await res.json();
           const docs = data.documents || [];
           docs.forEach(doc => {
             const fields = doc.fields || {};
             const id = doc.name.split('/').pop();
-            const rInst = (fields.institution_id?.stringValue || fields.institutionId?.stringValue || 'bolu-kilicaslan').trim().toLowerCase();
+            const rInst = normalizeInstitutionId(fields.institution_id?.stringValue || fields.institutionId?.stringValue || 'bolu-kilicaslan');
             const rStudentId = (fields.student_id?.stringValue || fields.studentId?.stringValue || '').trim();
             const normRStudentId = rStudentId.toLowerCase();
 
-            const isStudentMatch = normStudentId && normRStudentId === normStudentId;
-            const isInstMatch    = !institutionId || institutionId === 'platform' || rInst === institutionId;
+            const isStudentMatch = !normStudentId || normRStudentId === normStudentId;
+            const isInstMatch    = !institutionId || institutionId === 'platform' || isInstitutionMatch(rInst, institutionId);
 
-            if (isStudentMatch || isInstMatch) {
-              if (!normStudentId || normRStudentId === normStudentId) {
+            if (isStudentMatch && isInstMatch) {
+              if (!reportsMap.has(id)) {
                 const fsReport = {
                   id,
                   student_id:     rStudentId,
@@ -60,30 +111,9 @@ export async function GET(req) {
           });
         }
       } catch (err) {
-        console.warn('Firestore GET REPORTS warning:', err.message);
+        clearTimeout(timeout);
       }
     }
-
-    // Fallback/Supplement from local DB
-    try {
-      const dbData = readDb();
-      const localReports = dbData.reports || [];
-      localReports.forEach(r => {
-        const rInst = (r.institution_id || r.institutionId || 'bolu-kilicaslan').trim().toLowerCase();
-        const rStId = (r.student_id || r.studentId || '').trim().toLowerCase();
-
-        const isStudentMatch = normStudentId && rStId === normStudentId;
-        const isInstMatch    = !institutionId || institutionId === 'platform' || rInst === institutionId;
-
-        if (isStudentMatch || isInstMatch) {
-          if (!normStudentId || rStId === normStudentId) {
-            if (!reportsMap.has(r.id)) {
-              reportsMap.set(r.id, { ...r, institution_id: rInst, institutionId: rInst });
-            }
-          }
-        }
-      });
-    } catch (e) {}
 
     const reports = Array.from(reportsMap.values());
     reports.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
@@ -94,7 +124,7 @@ export async function GET(req) {
   }
 }
 
-// â”€â”€â”€ POST â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── POST ────────────────────────────────────────────────────────────────────
 export async function POST(req) {
   try {
     const {
@@ -107,7 +137,7 @@ export async function POST(req) {
       return NextResponse.json({ success: false, error: 'Eksik bilgi: Öğrenci ve içerik gereklidir.' }, { status: 400 });
     }
 
-    const instId = (institutionId || 'bolu-kilicaslan').trim().toLowerCase();
+    const instId = normalizeInstitutionId(institutionId);
     const cleanStudentId = String(studentId).trim();
     const reportId = `report-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const nowIso = new Date().toISOString();
@@ -131,31 +161,54 @@ export async function POST(req) {
       created_by:     createdBy || 'Bilinmeyen Öğretmen',
     };
 
-    // 1. Local DB Save
-    let localSaved = false;
+    // 1. Local DB Save: save report AND update student stats immediately
     try {
       const dbData = readDb();
       dbData.reports = dbData.reports || [];
-      // Remove any existing duplicate report with same id if any
       dbData.reports = dbData.reports.filter(r => r.id !== reportId);
       dbData.reports.unshift(newReport);
+
+      // Update student's report stats directly in dbData.students
+      if (dbData.students && Array.isArray(dbData.students)) {
+        const studentReports = dbData.reports.filter(r => {
+          const sid = (r.student_id || r.studentId || '').trim();
+          return sid === cleanStudentId;
+        });
+        const stats = calculateStudentStatus(studentReports);
+        
+        dbData.students = dbData.students.map(st => {
+          if (st.id === cleanStudentId) {
+            return {
+              ...st,
+              report_count: stats.report_count,
+              last_report_date: stats.last_report_date,
+              status: stats.status,
+            };
+          }
+          return st;
+        });
+      }
+
       writeDb(dbData);
-      localSaved = true;
     } catch (dbErr) {
       console.error("Local DB Save error:", dbErr.message);
     }
 
-    // 2. Firestore Save
+    // 2. Firestore Save (non-blocking / fast attempt)
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'vision-b1ad5';
     const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCH7bTzvqJqSzJiV0Ou6JudPovkrrWrwdw';
 
     if (projectId && apiKey) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 1200);
+
       try {
-        const fsRes = await fetch(
+        await fetch(
           `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/reports/${reportId}?key=${apiKey}`,
           {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
+            signal: controller.signal,
             body: JSON.stringify({
               fields: {
                 student_id:     { stringValue: cleanStudentId },
@@ -175,12 +228,9 @@ export async function POST(req) {
             }),
           }
         );
-        if (!fsRes.ok) {
-          const fsErrData = await fsRes.json();
-          console.warn('Firestore POST REPORT HTTP Error:', fsErrData);
-        }
+        clearTimeout(timeout);
       } catch (err) {
-        console.warn('Firestore POST REPORT warning:', err.message);
+        clearTimeout(timeout);
       }
     }
 
@@ -191,32 +241,60 @@ export async function POST(req) {
   }
 }
 
-// â”€â”€â”€ DELETE â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── DELETE ──────────────────────────────────────────────────────────────────
 export async function DELETE(req) {
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
     if (!id) return NextResponse.json({ success: false, error: 'Rapor ID eksik.' }, { status: 400 });
 
-    // 1. Local DB Delete
+    // 1. Local DB Delete and student stats update
     const dbData = readDb();
+    let targetStudentId = null;
+
     if (dbData.reports) {
+      const targetReport = dbData.reports.find(r => r.id === id);
+      if (targetReport) {
+        targetStudentId = (targetReport.student_id || targetReport.studentId || '').trim();
+      }
       dbData.reports = dbData.reports.filter(r => r.id !== id);
+
+      // Recalculate student stats
+      if (targetStudentId && dbData.students) {
+        const remainingForStudent = dbData.reports.filter(r => (r.student_id || r.studentId || '').trim() === targetStudentId);
+        const stats = calculateStudentStatus(remainingForStudent);
+        dbData.students = dbData.students.map(st => {
+          if (st.id === targetStudentId) {
+            return {
+              ...st,
+              report_count: stats.report_count,
+              last_report_date: stats.last_report_date,
+              status: stats.status,
+            };
+          }
+          return st;
+        });
+      }
+
       writeDb(dbData);
     }
 
-    // 2. Firestore Delete
+    // 2. Firestore Delete (non-blocking)
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'vision-b1ad5';
     const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCH7bTzvqJqSzJiV0Ou6JudPovkrrWrwdw';
 
     if (projectId && apiKey) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 1200);
+
       try {
         await fetch(
           `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/reports/${id}?key=${apiKey}`,
-          { method: 'DELETE' }
+          { method: 'DELETE', signal: controller.signal }
         );
+        clearTimeout(timeout);
       } catch (err) {
-        console.warn('Firestore DELETE REPORT warning:', err.message);
+        clearTimeout(timeout);
       }
     }
 
@@ -227,7 +305,7 @@ export async function DELETE(req) {
   }
 }
 
-// â”€â”€â”€ PUT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── PUT ─────────────────────────────────────────────────────────────────────
 export async function PUT(req) {
   try {
     const { id, notified } = await req.json();
@@ -241,33 +319,8 @@ export async function PUT(req) {
       writeDb(dbData);
     }
 
-    // 2. Firestore Sync
-    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'vision-b1ad5';
-    const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCH7bTzvqJqSzJiV0Ou6JudPovkrrWrwdw';
-
-    if (projectId && apiKey) {
-      try {
-        await fetch(
-          `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/reports/${id}?updateMask.fieldPaths=notified&key=${apiKey}`,
-          {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              fields: {
-                notified: { booleanValue: !!notified }
-              }
-            }),
-          }
-        );
-      } catch (err) {
-        console.warn('Firestore PUT REPORT warning:', err.message);
-      }
-    }
-
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, id, notified: !!notified });
   } catch (err) {
-    console.error('PUT REPORT API ERROR:', err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
-

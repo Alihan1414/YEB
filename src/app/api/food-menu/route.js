@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { readDb, writeDb } from '@/lib/db';
+import { normalizeInstitutionId, isInstitutionMatch } from '@/lib/institution';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +16,7 @@ export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
     const rawInstId = searchParams.get('institutionId') || 'bolu-kilicaslan';
-    const institutionId = rawInstId.trim().toLowerCase();
+    const institutionId = normalizeInstitutionId(rawInstId);
     const date = searchParams.get('date') || getTodayString();
     const week = searchParams.get('week'); // if 'current', return list of recent/week menus
 
@@ -25,24 +26,27 @@ export async function GET(req) {
     try {
       const dbData = readDb();
       const localMenus = dbData.foodMenus || [];
-      menus = localMenus.filter(m => (m.institutionId || m.institution_id || '').toLowerCase() === institutionId);
+      menus = localMenus.filter(m => isInstitutionMatch(m.institutionId || m.institution_id || 'bolu-kilicaslan', institutionId));
     } catch (e) {
       console.warn("Local DB read foodMenus warn:", e.message);
     }
 
-    // 2. Fetch from Firestore
+    // 2. Fetch from Firestore (with 1.2s timeout)
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 1200);
       const res = await fetch(
         `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/foodMenus?key=${FIREBASE_API_KEY}&pageSize=100`,
-        { cache: 'no-store' }
+        { cache: 'no-store', signal: controller.signal }
       );
+      clearTimeout(timeoutId);
       if (res.ok) {
         const data = await res.json();
         const docs = data.documents || [];
         docs.forEach(doc => {
           const f = doc.fields || {};
-          const docInst = (f.institutionId?.stringValue || f.institution_id?.stringValue || '').toLowerCase();
-          if (docInst === institutionId) {
+          const docInst = f.institutionId?.stringValue || f.institution_id?.stringValue || 'bolu-kilicaslan';
+          if (isInstitutionMatch(docInst, institutionId)) {
             const menuId = doc.name.split('/').pop();
             const existingIndex = menus.findIndex(m => m.id === menuId || m.date === f.date?.stringValue);
             const item = {
@@ -101,7 +105,7 @@ export async function POST(req) {
       updated_by = 'Aşçı'
     } = body;
 
-    const instId = institutionId.trim().toLowerCase();
+    const instId = normalizeInstitutionId(institutionId);
     const menuId = `${instId}_${date}`;
     const nowIso = new Date().toISOString();
 

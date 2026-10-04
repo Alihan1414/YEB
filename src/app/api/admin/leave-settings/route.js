@@ -1,20 +1,11 @@
 import { NextResponse } from 'next/server';
 import { readDb, writeDb } from '@/lib/db';
+import { normalizeInstitutionId } from '@/lib/institution';
 
 export const dynamic = 'force-dynamic';
 
 const FIREBASE_API_KEY    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY    || 'AIzaSyCH7bTzvqJqSzJiV0Ou6JudPovkrrWrwdw';
 const FIREBASE_PROJECT_ID = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'vision-b1ad5';
-
-function normalizeInstitutionId(id) {
-  if (!id) return 'bolu-kilicaslan';
-  const clean = id.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-  if (clean.includes('kilicaslan')) return 'bolu-kilicaslan';
-  if (clean.includes('erenler') || clean.includes('cinardere')) return 'cinardere-erenler';
-  if (clean.includes('pendik')) return 'pendik-talebe-yurdu';
-  if (clean.includes('yamanevler') || clean === 'yeb') return 'yamanevler';
-  return id.trim().toLowerCase();
-}
 
 export async function GET(req) {
   try {
@@ -29,12 +20,15 @@ export async function GET(req) {
 
     let settings = { enabled: true, assignedTeacherId: '' };
 
-    // 1. First read directly from Firestore
+    // 1. First read directly from Firestore (with 1.2s timeout)
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 1200);
       const res = await fetch(
         `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/leaveSettings/${institutionId}?key=${FIREBASE_API_KEY}`,
-        { headers, cache: 'no-store' }
+        { headers, cache: 'no-store', signal: controller.signal }
       );
+      clearTimeout(timeoutId);
       if (res.ok) {
         const data = await res.json();
         if (data.fields) {
@@ -77,7 +71,7 @@ export async function POST(req) {
       return NextResponse.json({ success: false, error: 'Kurum ID gereklidir.' }, { status: 400 });
     }
 
-    const instId = institutionId.trim().toLowerCase();
+    const instId = normalizeInstitutionId(institutionId);
     // İzin yönetimi bütün kurumlarda daimi olarak açıktır, kapatılamaz!
     const isEnabled = true;
 
