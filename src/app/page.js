@@ -1390,7 +1390,7 @@ export default function StudentsPage() {
                                 </div>
                               </div>
                             </td>
-                            <td className="py-3 sm:py-3.5 font-semibold text-slate-600 text-xs">{st.class || '10-A'}</td>
+                            <td className="py-3 sm:py-3.5 font-semibold text-slate-600 text-xs">{st.class || '-'}</td>
                             <td className="py-3 sm:py-3.5 text-slate-500 font-medium hidden md:table-cell text-xs">
                               {st.last_report_date ? tsToString(st.last_report_date) : <span className="text-slate-400">Rapor Yok</span>}
                             </td>
@@ -1740,7 +1740,7 @@ export default function StudentsPage() {
                       {selectedStudent.name} {selectedStudent.surname}
                     </h2>
                     <span className="inline-block mt-0.5 px-2 py-0.5 bg-blue-100 text-blue-800 rounded-md text-[9px] sm:text-[10px] font-black uppercase tracking-wider">
-                      Sınıf: {selectedStudent.class || '10-A'}
+                      {selectedStudent.class ? `Sınıf: ${selectedStudent.class}` : 'Sınıf Belirtilmedi'}
                     </span>
                   </div>
                 </div>
