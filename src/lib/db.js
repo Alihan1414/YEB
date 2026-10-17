@@ -1,30 +1,36 @@
 import fs from 'fs';
 import path from 'path';
 
-const dbPath = path.join(process.cwd(), 'src/data/reports_db.json');
+const defaultDbPath = path.join(process.cwd(), 'src/data/reports_db.json');
+const tmpDbPath = '/tmp/reports_db.json';
 
-function ensureDb() {
-  if (process.env.VERCEL) return;
-  try {
-    if (!fs.existsSync(dbPath)) {
-      const initialData = { students: [], reports: [], users: [], institutions: [], leaveRequests: [], teacher_groups: [], foodMenus: [] };
-      fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-      fs.writeFileSync(dbPath, JSON.stringify(initialData, null, 2), 'utf-8');
-    }
-  } catch (e) {
-    // Read-only filesystem
+// In-memory process cache
+let inMemoryDb = null;
+
+function getActiveDbPath() {
+  if (process.env.VERCEL) {
+    return fs.existsSync(tmpDbPath) ? tmpDbPath : defaultDbPath;
   }
+  return defaultDbPath;
 }
 
 export function readDb() {
-  ensureDb();
+  if (inMemoryDb) {
+    return inMemoryDb;
+  }
+
+  const targetPath = getActiveDbPath();
   try {
-    if (!fs.existsSync(dbPath)) {
+    if (!fs.existsSync(targetPath)) {
+      if (targetPath !== defaultDbPath && fs.existsSync(defaultDbPath)) {
+        const raw = fs.readFileSync(defaultDbPath, 'utf-8');
+        inMemoryDb = JSON.parse(raw);
+        return inMemoryDb;
+      }
       return { students: [], reports: [], users: [], institutions: [], leaveRequests: [], teacher_groups: [], foodMenus: [] };
     }
-    const data = fs.readFileSync(dbPath, 'utf-8');
+    const data = fs.readFileSync(targetPath, 'utf-8');
     const parsed = JSON.parse(data);
-    // Ensure all required arrays exist
     if (!parsed.institutions) parsed.institutions = [];
     if (!parsed.leaveRequests) parsed.leaveRequests = [];
     if (!parsed.students) parsed.students = [];
@@ -32,6 +38,7 @@ export function readDb() {
     if (!parsed.users) parsed.users = [];
     if (!parsed.teacher_groups) parsed.teacher_groups = [];
     if (!parsed.foodMenus) parsed.foodMenus = [];
+    inMemoryDb = parsed;
     return parsed;
   } catch (error) {
     console.warn("DB Read Notice (using fallback):", error.message);
@@ -40,13 +47,23 @@ export function readDb() {
 }
 
 export function writeDb(data) {
-  if (process.env.VERCEL) return false;
-  ensureDb();
+  inMemoryDb = data;
+
+  if (process.env.VERCEL) {
+    try {
+      fs.writeFileSync(tmpDbPath, JSON.stringify(data, null, 2), 'utf-8');
+      return true;
+    } catch (e) {
+      console.warn("Vercel /tmp write error:", e.message);
+      return false;
+    }
+  }
+
   try {
-    fs.writeFileSync(dbPath, JSON.stringify(data, null, 2), 'utf-8');
+    fs.writeFileSync(defaultDbPath, JSON.stringify(data, null, 2), 'utf-8');
     return true;
   } catch (error) {
-    console.warn("DB Write Notice (expected in read-only serverless):", error.message);
+    console.warn("Local DB Write Notice:", error.message);
     return false;
   }
 }
