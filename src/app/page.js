@@ -314,7 +314,14 @@ export default function StudentsPage() {
 
           return prev.map(st => {
             const stReps = reportsBySid[st.id] || [];
-            if (stReps.length === 0) return st;
+            if (stReps.length === 0) {
+              return {
+                ...st,
+                report_count: 0,
+                last_report_date: null,
+                status: 'Rapor Yok',
+              };
+            }
             stReps.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
             const c = (stReps[0].content || '').toLowerCase();
             let stStatus = 'Orta';
@@ -325,8 +332,8 @@ export default function StudentsPage() {
             }
             return {
               ...st,
-              report_count: Math.max(st.report_count || 0, stReps.length),
-              last_report_date: stReps[0].created_at || st.last_report_date,
+              report_count: stReps.length,
+              last_report_date: stReps[0].created_at || null,
               status: stStatus,
             };
           });
@@ -770,9 +777,26 @@ export default function StudentsPage() {
   const handleDeleteReport = async (reportId, studentId) => {
     if (!confirm('Bu raporu silmek istediğinize emin misiniz?')) return;
     try {
-      // Optimistically remove from state immediately
+      // Optimistically remove from reports state immediately
       setReports(prev => prev.filter(r => r.id !== reportId));
-      const res = await fetch(`/api/students/reports?id=${encodeURIComponent(reportId)}`, { method: 'DELETE' });
+
+      // Optimistically decrement report count on the student card immediately
+      if (studentId) {
+        setStudents(prev => prev.map(st => {
+          if (st.id === studentId) {
+            const nextCount = Math.max(0, (st.report_count || 1) - 1);
+            return {
+              ...st,
+              report_count: nextCount,
+              status: nextCount === 0 ? 'Rapor Yok' : st.status,
+              last_report_date: nextCount === 0 ? null : st.last_report_date,
+            };
+          }
+          return st;
+        }));
+      }
+
+      const res = await fetch(`/api/students/reports?id=${encodeURIComponent(reportId)}&studentId=${encodeURIComponent(studentId || '')}`, { method: 'DELETE' });
       const data = await res.json();
       if (!data.success) throw new Error(data.error || 'Silme başarısız');
       showToast('Rapor başarıyla silindi.');

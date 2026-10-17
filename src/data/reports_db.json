@@ -565,9 +565,9 @@
       "institutionId": "bolu-kilicaslan",
       "created_at": "2026-10-04T19:26:15.240Z",
       "checkout_time": null,
-      "last_report_date": "2026-10-17T15:23:43.090Z",
-      "status": "İyi",
-      "report_count": 1,
+      "last_report_date": null,
+      "status": "Rapor Yok",
+      "report_count": 0,
       "score": 0
     },
     {
@@ -1727,24 +1727,6 @@
     }
   ],
   "reports": [
-    {
-      "id": "report-1792250623090-306",
-      "student_id": "student-kilicaslan-new-1791141975241-3",
-      "studentId": "student-kilicaslan-new-1791141975241-3",
-      "student_name": "Halid ",
-      "studentName": "Halid ",
-      "class": "Muh. K. Kerim (K. Zauzi)",
-      "parent_phone": "",
-      "parentPhone": "",
-      "content": "Canlı test raporu: Yeni veritabanı testi başarıyla tamamlandı.",
-      "category": "Dahili",
-      "isPositive": true,
-      "notified": false,
-      "institution_id": "bolu-kilicaslan",
-      "institutionId": "bolu-kilicaslan",
-      "created_at": "2026-10-17T15:23:43.090Z",
-      "created_by": "Test Yöneticisi"
-    },
     {
       "id": "report-1792248625922-555",
       "student_id": "student-kilicaslan-1786356544050-53",

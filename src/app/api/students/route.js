@@ -90,21 +90,7 @@ export async function GET(req) {
   const deletedSet = new Set(dbData.deleted_students || []);
 
   const reportsByStudent = {};
-
-  // 1. Populate reportsByStudent from Local DB
-  try {
-    (dbData.reports || []).forEach(r => {
-      const ri = normalizeInstitutionId(r.institution_id || r.institutionId || 'bolu-kilicaslan');
-      const si = (r.student_id || r.studentId || '').trim();
-      if (!normInstId || normInstId === 'platform' || isInstitutionMatch(ri, normInstId)) {
-        if (!reportsByStudent[si]) reportsByStudent[si] = [];
-        reportsByStudent[si].push({
-          content: r.content || '',
-          created_at: r.created_at || null,
-        });
-      }
-    });
-  } catch (e) {}
+  let firestoreReportsSuccess = false;
 
   let students = [];
   try {
@@ -115,6 +101,7 @@ export async function GET(req) {
 
     try {
       const reportDocs = await fetchAllDocs(projectId, apiKey, 'reports');
+      firestoreReportsSuccess = true;
       reportDocs.forEach(doc => {
         const f  = doc.fields || {};
         const ri = normalizeInstitutionId(f.institution_id?.stringValue || f.institutionId?.stringValue || '');
@@ -135,6 +122,23 @@ export async function GET(req) {
     }
   } catch (err) {
     console.warn('GET STUDENTS Firestore warn:', err.message);
+  }
+
+  // Fallback reports from Local DB ONLY if Firestore reports fetch failed
+  if (!firestoreReportsSuccess) {
+    try {
+      (dbData.reports || []).forEach(r => {
+        const ri = normalizeInstitutionId(r.institution_id || r.institutionId || 'bolu-kilicaslan');
+        const si = (r.student_id || r.studentId || '').trim();
+        if (!normInstId || normInstId === 'platform' || isInstitutionMatch(ri, normInstId)) {
+          if (!reportsByStudent[si]) reportsByStudent[si] = [];
+          reportsByStudent[si].push({
+            content: r.content || '',
+            created_at: r.created_at || null,
+          });
+        }
+      });
+    } catch (e) {}
   }
 
   // 2. Fallback / Merge with Local DB if Firestore was empty or missing some
@@ -370,6 +374,8 @@ export async function DELETE(req) {
 
     invalidateCache('students');
     invalidateCache('reports');
+    invalidateCache('weekly_summary');
+    invalidateCache('dashboard');
     return NextResponse.json({ success: true, id });
   } catch (err) {
     console.error('DELETE STUDENT ERROR:', err.message);

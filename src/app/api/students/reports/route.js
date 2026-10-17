@@ -41,32 +41,9 @@ export async function GET(req) {
     }
 
     let reportsMap = new Map();
+    let firestoreSuccess = false;
 
-    // 1. First populate from Local DB (always available & instant)
-    try {
-      const dbData = readDb();
-      const localReports = dbData.reports || [];
-      localReports.forEach(r => {
-        const rInst = normalizeInstitutionId(r.institution_id || r.institutionId || 'bolu-kilicaslan');
-        const rStId = (r.student_id || r.studentId || '').trim();
-        const normRStId = rStId.toLowerCase();
-
-        const isStudentMatch = !normStudentId || normRStId === normStudentId;
-        const isInstMatch    = !institutionId || institutionId === 'platform' || isInstitutionMatch(rInst, institutionId);
-
-        if (isStudentMatch && isInstMatch) {
-          reportsMap.set(r.id, {
-            ...r,
-            student_id: rStId,
-            studentId: rStId,
-            institution_id: rInst,
-            institutionId: rInst
-          });
-        }
-      });
-    } catch (e) {}
-
-    // 2. Supplement from Firestore with safe 8s timeout
+    // 1. Fetch from Firestore first (authoritative cloud database)
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'student-reports-app-22e38';
     const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyDAkvmh3UMgWeKs-Cqjd4_hS6pzb2pXkqU';
 
@@ -82,6 +59,7 @@ export async function GET(req) {
         clearTimeout(timeout);
 
         if (res.ok) {
+          firestoreSuccess = true;
           const data = await res.json();
           const docs = data.documents || [];
           docs.forEach(doc => {
@@ -95,25 +73,23 @@ export async function GET(req) {
             const isInstMatch    = !institutionId || institutionId === 'platform' || isInstitutionMatch(rInst, institutionId);
 
             if (isStudentMatch && isInstMatch) {
-              if (!reportsMap.has(id)) {
-                const fsReport = {
-                  id,
-                  student_id:     rStudentId,
-                  studentId:      rStudentId,
-                  student_name:   fields.student_name?.stringValue || '',
-                  class:          fields.class?.stringValue || '',
-                  parent_phone:   fields.parent_phone?.stringValue || '',
-                  content:        fields.content?.stringValue || '',
-                  category:       fields.category?.stringValue || 'Dahili',
-                  isPositive:     fields.isPositive?.booleanValue !== false,
-                  notified:       fields.notified?.booleanValue || false,
-                  institution_id: rInst,
-                  institutionId:  rInst,
-                  created_at:     fields.created_at?.timestampValue || fields.created_at?.stringValue || new Date().toISOString(),
-                  created_by:     fields.created_by?.stringValue || 'Bilinmeyen Öğretmen',
-                };
-                reportsMap.set(id, fsReport);
-              }
+              const fsReport = {
+                id,
+                student_id:     rStudentId,
+                studentId:      rStudentId,
+                student_name:   fields.student_name?.stringValue || '',
+                class:          fields.class?.stringValue || '',
+                parent_phone:   fields.parent_phone?.stringValue || '',
+                content:        fields.content?.stringValue || '',
+                category:       fields.category?.stringValue || 'Dahili',
+                isPositive:     fields.isPositive?.booleanValue !== false,
+                notified:       fields.notified?.booleanValue || false,
+                institution_id: rInst,
+                institutionId:  rInst,
+                created_at:     fields.created_at?.timestampValue || fields.created_at?.stringValue || new Date().toISOString(),
+                created_by:     fields.created_by?.stringValue || 'Bilinmeyen Öğretmen',
+              };
+              reportsMap.set(id, fsReport);
             }
           });
         }
@@ -121,6 +97,38 @@ export async function GET(req) {
         clearTimeout(timeout);
       }
     }
+
+    // 2. Only fallback to Local DB if Firestore was unreachable, or for very recent writes (<30s)
+    try {
+      const dbData = readDb();
+      const localReports = dbData.reports || [];
+      const now = Date.now();
+
+      localReports.forEach(r => {
+        const rInst = normalizeInstitutionId(r.institution_id || r.institutionId || 'bolu-kilicaslan');
+        const rStId = (r.student_id || r.studentId || '').trim();
+        const normRStId = rStId.toLowerCase();
+
+        const isStudentMatch = !normStudentId || normRStId === normStudentId;
+        const isInstMatch    = !institutionId || institutionId === 'platform' || isInstitutionMatch(rInst, institutionId);
+
+        if (isStudentMatch && isInstMatch) {
+          // If Firestore succeeded, only include local reports created in the last 30 seconds
+          const isRecentWrite = r.created_at && (now - new Date(r.created_at).getTime() < 30000);
+          if (!firestoreSuccess || isRecentWrite) {
+            if (!reportsMap.has(r.id)) {
+              reportsMap.set(r.id, {
+                ...r,
+                student_id: rStId,
+                studentId: rStId,
+                institution_id: rInst,
+                institutionId: rInst
+              });
+            }
+          }
+        }
+      });
+    } catch (e) {}
 
     const reports = Array.from(reportsMap.values());
     reports.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
@@ -247,6 +255,9 @@ export async function POST(req) {
     }
 
     invalidateCache('reports');
+    invalidateCache('students');
+    invalidateCache('weekly_summary');
+    invalidateCache('dashboard');
     return NextResponse.json({ success: true, id: reportId, report: newReport });
   } catch (err) {
     console.error('ADD REPORT API ERROR:', err);
@@ -259,15 +270,16 @@ export async function DELETE(req) {
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');
+    const queryStudentId = searchParams.get('studentId') || '';
     if (!id) return NextResponse.json({ success: false, error: 'Rapor ID eksik.' }, { status: 400 });
 
     // 1. Local DB Delete and student stats update
     const dbData = readDb();
-    let targetStudentId = null;
+    let targetStudentId = queryStudentId ? queryStudentId.trim() : null;
 
     if (dbData.reports) {
       const targetReport = dbData.reports.find(r => r.id === id);
-      if (targetReport) {
+      if (targetReport && !targetStudentId) {
         targetStudentId = (targetReport.student_id || targetReport.studentId || '').trim();
       }
       dbData.reports = dbData.reports.filter(r => r.id !== id);
@@ -312,7 +324,10 @@ export async function DELETE(req) {
     }
 
     invalidateCache('reports');
-    return NextResponse.json({ success: true, id });
+    invalidateCache('students');
+    invalidateCache('weekly_summary');
+    invalidateCache('dashboard');
+    return NextResponse.json({ success: true, id, studentId: targetStudentId });
   } catch (err) {
     console.error('DELETE REPORT API ERROR:', err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
