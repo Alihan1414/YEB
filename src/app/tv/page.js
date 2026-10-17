@@ -46,15 +46,24 @@ const MOTTOS = [
 // ─── TV Ekranı Fon Sesleri Listesi ───
 const TV_AUDIO_TRACKS = [
   {
+    id: 'ney',
+    title: '🌿 Ney & Nefes Ezgisi',
+    sub: 'Nefes (Ney Enstrümantal)',
+    shortTitle: '🌿 Ney',
+    url: '/audio/ney.mp3',
+  },
+  {
     id: 'cinematic',
     title: '🎬 Emotional Documentary',
     sub: 'Sinematik & İlham Veren Melodi',
+    shortTitle: '🎬 Sinematik',
     url: '/audio/cinematic.mp3',
   },
   {
     id: 'salavat',
     title: '🕊️ Salavat Fon Müziği',
     sub: 'Huzur Veren Tasavvufi Ezgi',
+    shortTitle: '🕊️ Salavat',
     url: '/audio/salavat.mp3',
   },
 ];
@@ -256,7 +265,7 @@ function TVContent() {
   // TV Fon Müziği Durumları
   const [isAudioPlaying, setIsAudioPlaying]     = useState(false);
   const [audioVolume, setAudioVolume]           = useState(0.35);
-  const [soundMode, setSoundMode]               = useState('cinematic'); // 'cinematic' | 'salavat' | 'custom'
+  const [soundMode, setSoundMode]               = useState('ney'); // 'ney' | 'cinematic' | 'salavat' | 'custom'
   const [customAudio, setCustomAudio]           = useState(null);
   const [showVolumePopup, setShowVolumePopup]   = useState(false);
   const [showAudioBanner, setShowAudioBanner]   = useState(false);
@@ -406,7 +415,7 @@ function TVContent() {
           });
         } else {
           setCustomAudio(null);
-          setSoundMode(prev => (prev === 'custom' ? 'cinematic' : prev));
+          setSoundMode(prev => (prev === 'custom' ? 'ney' : prev));
         }
       }
       
@@ -786,9 +795,7 @@ function TVContent() {
                 <span className="text-[11px] font-medium hidden md:inline truncate">
                   {soundMode === 'custom' && customAudio
                     ? `🎵 ${customAudio.title}`
-                    : soundMode === 'salavat'
-                    ? '🕊️ Salavat'
-                    : '🎬 Sinematik'}
+                    : TV_AUDIO_TRACKS.find(t => t.id === soundMode)?.shortTitle || '🎵 Fon Sesi'}
                 </span>
               </button>
             </div>
@@ -835,37 +842,23 @@ function TVContent() {
                   <div className="space-y-1.5 pt-1">
                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Fon Müziği Seçimi</div>
                     
-                    {/* 1. Müzik: Emotional Documentary */}
-                    <button
-                      onClick={() => handleSoundModeChange('cinematic')}
-                      className={`w-full text-left px-2.5 py-2 rounded-xl text-xs font-medium flex items-center justify-between transition-colors ${
-                        soundMode === 'cinematic'
-                          ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-400/40 font-bold'
-                          : 'text-slate-300 hover:bg-white/10'
-                      }`}
-                    >
-                      <div className="flex flex-col">
-                        <span>🎬 Emotional Documentary</span>
-                        <span className="text-[10px] text-slate-400 font-normal">Sinematik & İlham Veren Melodi</span>
-                      </div>
-                      {soundMode === 'cinematic' && <span className="text-emerald-400 text-xs">●</span>}
-                    </button>
-
-                    {/* 2. Müzik: Salavat Fon Müziği */}
-                    <button
-                      onClick={() => handleSoundModeChange('salavat')}
-                      className={`w-full text-left px-2.5 py-2 rounded-xl text-xs font-medium flex items-center justify-between transition-colors ${
-                        soundMode === 'salavat'
-                          ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-400/40 font-bold'
-                          : 'text-slate-300 hover:bg-white/10'
-                      }`}
-                    >
-                      <div className="flex flex-col">
-                        <span>🕊️ Salavat Fon Müziği</span>
-                        <span className="text-[10px] text-slate-400 font-normal">Huzur Veren Tasavvufi Ezgi</span>
-                      </div>
-                      {soundMode === 'salavat' && <span className="text-emerald-400 text-xs">●</span>}
-                    </button>
+                    {TV_AUDIO_TRACKS.map(track => (
+                      <button
+                        key={track.id}
+                        onClick={() => handleSoundModeChange(track.id)}
+                        className={`w-full text-left px-2.5 py-2 rounded-xl text-xs font-medium flex items-center justify-between transition-colors ${
+                          soundMode === track.id
+                            ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-400/40 font-bold'
+                            : 'text-slate-300 hover:bg-white/10'
+                        }`}
+                      >
+                        <div className="flex flex-col">
+                          <span>{track.title}</span>
+                          <span className="text-[10px] text-slate-400 font-normal">{track.sub}</span>
+                        </div>
+                        {soundMode === track.id && <span className="text-emerald-400 text-xs">●</span>}
+                      </button>
+                    ))}
 
                     {/* Varsa Yüklenen Özel Ses */}
                     {customAudio && (
