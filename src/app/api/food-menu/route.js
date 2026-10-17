@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { readDb, writeDb } from '@/lib/db';
 import { normalizeInstitutionId, isInstitutionMatch } from '@/lib/institution';
+import { getCached, setCached, invalidateCache } from '@/lib/serverCache';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +20,12 @@ export async function GET(req) {
     const institutionId = normalizeInstitutionId(rawInstId);
     const date = searchParams.get('date') || getTodayString();
     const week = searchParams.get('week'); // if 'current', return list of recent/week menus
+
+    const cacheKey = `menu_${institutionId}_${date}_${week || 'single'}`;
+    const cachedData = getCached(cacheKey);
+    if (cachedData) {
+      return NextResponse.json(cachedData);
+    }
 
     let menus = [];
 
@@ -79,10 +86,14 @@ export async function GET(req) {
     // If specific date requested
     if (date && !week) {
       const todayMenu = menus.find(m => m.date === date) || null;
-      return NextResponse.json({ success: true, menu: todayMenu, allMenus: menus });
+      const resp = { success: true, menu: todayMenu, allMenus: menus };
+      setCached(cacheKey, resp);
+      return NextResponse.json(resp);
     }
 
-    return NextResponse.json({ success: true, menus, currentMenu: menus.find(m => m.date === getTodayString()) || null });
+    const resp = { success: true, menus, currentMenu: menus.find(m => m.date === getTodayString()) || null };
+    setCached(cacheKey, resp);
+    return NextResponse.json(resp);
 
   } catch (error) {
     console.error("GET Food Menu error:", error);
@@ -161,6 +172,7 @@ export async function POST(req) {
       console.warn("Firestore save foodMenu warn:", fsErr.message);
     }
 
+    invalidateCache('menu');
     return NextResponse.json({ success: true, menu: menuData });
 
   } catch (error) {
@@ -190,6 +202,7 @@ export async function DELETE(req) {
       console.warn("Firestore delete foodMenu warn:", e.message);
     }
 
+    invalidateCache('menu');
     return NextResponse.json({ success: true, id });
   } catch (error) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });

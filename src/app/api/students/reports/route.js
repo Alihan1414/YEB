@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { readDb, writeDb } from '@/lib/db';
 import { normalizeInstitutionId, isInstitutionMatch } from '@/lib/institution';
+import { getCached, setCached, invalidateCache } from '@/lib/serverCache';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,6 +33,12 @@ export async function GET(req) {
     const rawInstId     = searchParams.get('institutionId') || '';
     const institutionId = rawInstId ? normalizeInstitutionId(rawInstId) : '';
     const normStudentId = studentId ? studentId.trim().toLowerCase() : null;
+
+    const cacheKey = `reports_${institutionId || 'all'}_${normStudentId || 'all'}`;
+    const cachedData = getCached(cacheKey);
+    if (cachedData) {
+      return NextResponse.json({ success: true, reports: cachedData });
+    }
 
     let reportsMap = new Map();
 
@@ -118,6 +125,7 @@ export async function GET(req) {
     const reports = Array.from(reportsMap.values());
     reports.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 
+    setCached(cacheKey, reports);
     return NextResponse.json({ success: true, reports });
   } catch (err) {
     return NextResponse.json({ success: false, error: err.message, reports: [] }, { status: 500 });
@@ -238,6 +246,7 @@ export async function POST(req) {
       }
     }
 
+    invalidateCache('reports');
     return NextResponse.json({ success: true, id: reportId, report: newReport });
   } catch (err) {
     console.error('ADD REPORT API ERROR:', err);
@@ -302,6 +311,7 @@ export async function DELETE(req) {
       }
     }
 
+    invalidateCache('reports');
     return NextResponse.json({ success: true, id });
   } catch (err) {
     console.error('DELETE REPORT API ERROR:', err);
@@ -347,6 +357,7 @@ export async function PUT(req) {
       } catch (e) {}
     }
 
+    invalidateCache('reports');
     return NextResponse.json({ success: true, id, notified: !!notified });
   } catch (err) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

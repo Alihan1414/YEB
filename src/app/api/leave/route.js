@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { readDb, writeDb } from '@/lib/db';
 import { normalizeInstitutionId, isInstitutionMatch } from '@/lib/institution';
+import { getCached, setCached, invalidateCache } from '@/lib/serverCache';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +13,12 @@ export async function GET(req) {
     const { searchParams } = new URL(req.url);
     const rawInstId = searchParams.get('institutionId') || 'bolu-kilicaslan';
     const institutionId = normalizeInstitutionId(rawInstId);
+
+    const cacheKey = `leave_${institutionId || 'all'}`;
+    const cachedData = getCached(cacheKey);
+    if (cachedData) {
+      return NextResponse.json({ success: true, requests: cachedData });
+    }
 
     let requests = [];
 
@@ -79,6 +86,7 @@ export async function GET(req) {
     // Sort requests by date descending
     requests.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
 
+    setCached(cacheKey, requests);
     return NextResponse.json({ success: true, requests });
   } catch (error) {
     console.error("GET Leave requests error:", error);
@@ -177,6 +185,7 @@ export async function POST(req) {
       }).catch(() => {});
     } catch (pushErr) {}
 
+    invalidateCache('leave');
     return NextResponse.json({ success: true, request: newRequest });
 
   } catch (error) {

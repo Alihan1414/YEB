@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { readDb, writeDb } from '@/lib/db';
+import { invalidateCache } from '@/lib/serverCache';
 
 export const dynamic = 'force-dynamic';
 
@@ -80,6 +81,7 @@ export async function PATCH(req, { params }) {
       console.warn("Local DB update in leave PATCH:", err.message);
     }
 
+    invalidateCache('leave');
     return NextResponse.json({
       success: true,
       request: updatedRequest || { id, status, respondedBy, respondedAt: nowStr }
@@ -122,6 +124,7 @@ export async function DELETE(req, { params }) {
       // Ignore timeout
     }
 
+    invalidateCache('leave');
     return NextResponse.json({ success: true, id });
   } catch (error) {
     console.error("DELETE Leave request error:", error);

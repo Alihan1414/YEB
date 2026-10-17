@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { readDb, writeDb } from '@/lib/db';
 import { normalizeInstitutionId, isInstitutionMatch } from '@/lib/institution';
+import { getCached, setCached, invalidateCache } from '@/lib/serverCache';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +21,12 @@ export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const rawInstId  = searchParams.get('institutionId') || '';
   const normInstId = rawInstId ? normalizeInstitutionId(rawInstId) : '';
+
+  const cacheKey = `groups_${normInstId || 'all'}`;
+  const cachedData = getCached(cacheKey);
+  if (cachedData) {
+    return NextResponse.json({ success: true, groups: cachedData });
+  }
 
   const groupsMap = new Map();
 
@@ -82,6 +89,7 @@ export async function GET(req) {
   const groups = Array.from(groupsMap.values());
   groups.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'tr'));
 
+  setCached(cacheKey, groups);
   return NextResponse.json({ success: true, groups });
 }
 
@@ -159,6 +167,7 @@ export async function POST(req) {
       }
     }
 
+    invalidateCache('groups');
     return NextResponse.json({ success: true, group: newGroup });
   } catch (err) {
     console.error('POST TEACHER GROUP ERROR:', err.message);
@@ -228,6 +237,7 @@ export async function PUT(req) {
       }
     }
 
+    invalidateCache('groups');
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error('PUT TEACHER GROUP ERROR:', err.message);
@@ -262,6 +272,7 @@ export async function DELETE(req) {
       } catch (e) {}
     }
 
+    invalidateCache('groups');
     return NextResponse.json({ success: true, id });
   } catch (err) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });

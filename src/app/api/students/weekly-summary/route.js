@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { readDb } from '@/lib/db';
 import { normalizeInstitutionId, isInstitutionMatch } from '@/lib/institution';
+import { getCached, setCached } from '@/lib/serverCache';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +24,12 @@ export async function GET(req) {
     const { searchParams } = new URL(req.url);
     const rawInstId = searchParams.get('institutionId') || 'bolu-kilicaslan';
     const normInstId = normalizeInstitutionId(rawInstId);
+
+    const cacheKey = `weekly_summary_${normInstId}`;
+    const cachedData = getCached(cacheKey, 60000);
+    if (cachedData) {
+      return NextResponse.json(cachedData);
+    }
 
     let students = [];
     let reports = [];
@@ -400,7 +407,7 @@ export async function GET(req) {
     // Checkouts overview
     const checkedOutStudents = students.filter(s => s.checkout_time);
 
-    return NextResponse.json({
+    const summaryResult = {
       success: true,
       totalStudentsCount: students.length,
       checkedOutCount: checkedOutStudents.length,
@@ -419,7 +426,10 @@ export async function GET(req) {
       teacherPerformance,
       // Backward compatibility fields
       weeklyNamazCount: weeklyYoklamaCount,
-    });
+    };
+
+    setCached(cacheKey, summaryResult);
+    return NextResponse.json(summaryResult);
 
   } catch (error) {
     console.error('Weekly Summary API Error:', error);

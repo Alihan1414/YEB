@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { readDb, writeDb } from '@/lib/db';
 import { normalizeInstitutionId, isInstitutionMatch } from '@/lib/institution';
+import { getCached, setCached, invalidateCache } from '@/lib/serverCache';
 
 export const dynamic = 'force-dynamic';
 
@@ -78,6 +79,12 @@ export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const rawInstId  = searchParams.get('institutionId') || '';
   const normInstId = rawInstId ? normalizeInstitutionId(rawInstId) : '';
+
+  const cacheKey = `students_${normInstId || 'all'}`;
+  const cachedData = getCached(cacheKey);
+  if (cachedData) {
+    return NextResponse.json({ success: true, students: cachedData });
+  }
 
   const dbData = readDb();
   const deletedSet = new Set(dbData.deleted_students || []);
@@ -165,6 +172,7 @@ export async function GET(req) {
   });
 
   students.sort((a, b) => (a.surname || '').localeCompare(b.surname || '', 'tr'));
+  setCached(cacheKey, students);
   return NextResponse.json({ success: true, students });
 }
 
@@ -296,6 +304,7 @@ export async function POST(req) {
       console.warn('Firestore write warn (local DB already saved):', fsErr.message);
     }
 
+    invalidateCache('students');
     return NextResponse.json({ success: true, id: stId, student: newStudent });
   } catch (err) {
     console.error('POST STUDENT ERROR:', err.message);
@@ -359,6 +368,8 @@ export async function DELETE(req) {
       console.warn('Report cleanup error (non-fatal):', e.message);
     }
 
+    invalidateCache('students');
+    invalidateCache('reports');
     return NextResponse.json({ success: true, id });
   } catch (err) {
     console.error('DELETE STUDENT ERROR:', err.message);
@@ -423,6 +434,7 @@ export async function PUT(req) {
       }
     }
 
+    invalidateCache('students');
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error('PUT STUDENT ERROR:', err.message);
