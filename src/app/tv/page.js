@@ -43,497 +43,21 @@ const MOTTOS = [
   { title: "İlim öğrenmek beşikten mezara kadardır.", sub: "Öğrenmeye ve gayrete asla ara verme." }
 ];
 
-// ─── Huzur Veren Akustik Fon Sesi Motoru (Tasavvufi Ney & Şadırvan Su Şırıltısı) ───
-class PeacefulHuzurEngine {
-  constructor() {
-    this.ctx = null;
-    this.masterGain = null;
-    this.isPlaying = false;
-    this.mode = 'ilahi'; // 'ilahi' | 'ney' | 'water'
-    this.volume = 0.30;
-    this.activeNodes = [];
-    this.melodyTimer = null;
-    this.dropletTimer = null;
-    this.reverbIn = null;
-  }
-
-  init() {
-    if (!this.ctx && typeof window !== 'undefined') {
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (!AudioCtx) return;
-      this.ctx = new AudioCtx();
-      this.masterGain = this.ctx.createGain();
-      this.masterGain.gain.setValueAtTime(this.volume, this.ctx.currentTime);
-      this.masterGain.connect(this.ctx.destination);
-    }
-  }
-
-  setMode(newMode) {
-    this.mode = newMode;
-    if (this.isPlaying) {
-      this.stop();
-      setTimeout(() => this.start(newMode), 350);
-    }
-  }
-
-  start(modeOverride) {
-    this.init();
-    if (!this.ctx) return;
-    if (this.ctx.state === 'suspended') {
-      this.ctx.resume();
-    }
-    if (this.isPlaying) return;
-    this.isPlaying = true;
-    if (modeOverride) this.mode = modeOverride;
-
-    const now = this.ctx.currentTime;
-    this.masterGain.gain.cancelScheduledValues(now);
-    this.masterGain.gain.setValueAtTime(0.0001, now);
-    this.masterGain.gain.exponentialRampToValueAtTime(this.volume, now + 2.0);
-
-    // Kubbe Akustiği / Reverb Alanı Kurulumu
-    this.setupReverb();
-
-    if (this.mode === 'ilahi') {
-      // 🕊️ İLAHİ MODU: Tale'al Bedru & Salat-ı Ümmiye Koro Formantları + Ney & Zikir Demi
-      this.startSufiDem(0.025);
-      this.startWaterStream(false, 0.008);
-      this.startIlahiChoir();
-      this.startNeyAccompaniment();
-    } else if (this.mode === 'ney') {
-      // 🌿 NEY MODU: Akustik Ney Taksimi & Şadırvan Suyu
-      this.startSufiDem(0.03);
-      this.startWaterStream(false, 0.015);
-      this.startNeyMelody();
-    } else {
-      // 💧 DOĞA MODU: Dingin Akarsu & Kuş Sesleri
-      this.startWaterStream(true, 0.025);
-      this.startGentleBirds();
-      this.startSufiDem(0.012);
-    }
-  }
-
-  setupReverb() {
-    const delayL = this.ctx.createDelay();
-    const delayR = this.ctx.createDelay();
-    delayL.delayTime.setValueAtTime(0.38, this.ctx.currentTime);
-    delayR.delayTime.setValueAtTime(0.54, this.ctx.currentTime);
-
-    const filter = this.ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(1100, this.ctx.currentTime);
-
-    const feedback = this.ctx.createGain();
-    feedback.gain.setValueAtTime(0.42, this.ctx.currentTime);
-
-    const wetGain = this.ctx.createGain();
-    wetGain.gain.setValueAtTime(0.5, this.ctx.currentTime);
-
-    delayL.connect(delayR);
-    delayR.connect(filter);
-    filter.connect(feedback);
-    feedback.connect(delayL);
-    filter.connect(wetGain);
-    wetGain.connect(this.masterGain);
-
-    this.reverbIn = delayL;
-    this.activeNodes.push(delayL, delayR, filter, feedback, wetGain);
-  }
-
-  // Akustik Dem (Derin ve dinlendirici Re/La kök tınısı)
-  startSufiDem(gainVal = 0.03) {
-    const notes = [73.42, 110, 146.83, 220]; // D2, A2, D3, A3
-    const demFilter = this.ctx.createBiquadFilter();
-    demFilter.type = 'lowpass';
-    demFilter.frequency.setValueAtTime(260, this.ctx.currentTime);
-
-    const demGain = this.ctx.createGain();
-    demGain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
-
-    demFilter.connect(demGain);
-    demGain.connect(this.masterGain);
-    if (this.reverbIn) demGain.connect(this.reverbIn);
-
-    notes.forEach((freq, idx) => {
-      const osc = this.ctx.createOscillator();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq + (idx * 0.15 - 0.2), this.ctx.currentTime);
-      osc.connect(demFilter);
-      osc.start();
-      this.activeNodes.push(osc);
-    });
-  }
-
-  // Dingin Şadırvan & Su Şırıltısı
-  startWaterStream(isFull = false, baseVol = 0.016) {
-    const bufferSize = this.ctx.sampleRate * 2;
-    const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-    const output = noiseBuffer.getChannelData(0);
-    let lastOut = 0.0;
-    for (let i = 0; i < bufferSize; i++) {
-      const white = Math.random() * 2 - 1;
-      output[i] = (lastOut + (0.02 * white)) / 1.02;
-      lastOut = output[i];
-      output[i] *= 2.8;
-    }
-
-    const noiseSource = this.ctx.createBufferSource();
-    noiseSource.buffer = noiseBuffer;
-    noiseSource.loop = true;
-
-    const waterFilter = this.ctx.createBiquadFilter();
-    waterFilter.type = 'bandpass';
-    waterFilter.frequency.setValueAtTime(620, this.ctx.currentTime);
-    waterFilter.Q.setValueAtTime(1.8, this.ctx.currentTime);
-
-    const waterLfo = this.ctx.createOscillator();
-    const waterLfoGain = this.ctx.createGain();
-    waterLfo.frequency.setValueAtTime(0.25, this.ctx.currentTime);
-    waterLfoGain.gain.setValueAtTime(140, this.ctx.currentTime);
-    waterLfo.connect(waterLfoGain);
-    waterLfoGain.connect(waterFilter.frequency);
-    waterLfo.start();
-
-    const waterGain = this.ctx.createGain();
-    waterGain.gain.setValueAtTime(isFull ? baseVol * 1.5 : baseVol, this.ctx.currentTime);
-
-    noiseSource.connect(waterFilter);
-    waterFilter.connect(waterGain);
-    waterGain.connect(this.masterGain);
-
-    noiseSource.start();
-    this.activeNodes.push(noiseSource, waterLfo, waterLfoGain, waterFilter, waterGain);
-
-    // Rastgele hafif şadırvan su damlacıkları
-    const playDroplet = () => {
-      if (!this.isPlaying || !this.ctx) return;
-      const dropFreq = 780 + Math.random() * 550;
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-      const now = this.ctx.currentTime;
-
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(dropFreq, now);
-      osc.frequency.exponentialRampToValueAtTime(dropFreq * 1.5, now + 0.04);
-
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.linearRampToValueAtTime(0.014, now + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
-
-      osc.connect(gain);
-      gain.connect(this.masterGain);
-      if (this.reverbIn) gain.connect(this.reverbIn);
-
-      osc.start(now);
-      osc.stop(now + 0.1);
-    };
-
-    this.dropletTimer = setInterval(() => {
-      if (Math.random() > 0.35) playDroplet();
-    }, 1300);
-  }
-
-  // Tasavvufi Ney Nefesi ve Melodisi (Rast / Uşşak Tınısı)
-  startNeyMelody() {
-    const phrases = [
-      [293.66, 329.63, 349.23, 329.63, 293.66],
-      [349.23, 392.00, 440.00, 392.00, 349.23, 329.63],
-      [440.00, 493.88, 523.25, 493.88, 440.00],
-      [392.00, 349.23, 329.63, 293.66]
-    ];
-    let phraseIdx = 0;
-
-    const playNeyPhrase = () => {
-      if (!this.isPlaying || !this.ctx || this.mode !== 'ney') return;
-      const phrase = phrases[phraseIdx % phrases.length];
-      phraseIdx++;
-
-      let startTime = this.ctx.currentTime + 0.4;
-      phrase.forEach((freq, noteIdx) => {
-        const noteDuration = 2.4 + (noteIdx === phrase.length - 1 ? 1.4 : 0);
-        const now = startTime;
-
-        const osc = this.ctx.createOscillator();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, now);
-
-        // İnce ney vibratosu
-        const vibrato = this.ctx.createOscillator();
-        const vibratoGain = this.ctx.createGain();
-        vibrato.frequency.setValueAtTime(4.2, now);
-        vibratoGain.gain.setValueAtTime(1.8, now);
-        vibrato.connect(vibratoGain);
-        vibratoGain.connect(osc.frequency);
-        vibrato.start(now);
-        vibrato.stop(now + noteDuration);
-
-        // Nefes açılış ve kapanış zarfı
-        const noteGain = this.ctx.createGain();
-        noteGain.gain.setValueAtTime(0.0001, now);
-        noteGain.gain.linearRampToValueAtTime(0.042, now + 0.7);
-        noteGain.gain.setValueAtTime(0.042, now + noteDuration - 0.6);
-        noteGain.gain.exponentialRampToValueAtTime(0.0001, now + noteDuration);
-
-        osc.connect(noteGain);
-        noteGain.connect(this.masterGain);
-        if (this.reverbIn) noteGain.connect(this.reverbIn);
-
-        osc.start(now);
-        osc.stop(now + noteDuration);
-
-        startTime += noteDuration - 0.25;
-      });
-
-      const totalPhraseTime = (startTime - this.ctx.currentTime) * 1000;
-      this.melodyTimer = setTimeout(playNeyPhrase, totalPhraseTime + 5500);
-    };
-
-    setTimeout(playNeyPhrase, 1800);
-  }
-
-  // 🕊️ Tasavvufi İlahi Korosu (Tale'al Bedru & Salat-ı Ümmiye Vokal Formantları)
-  startIlahiChoir() {
-    const ilahiSongs = [
-      // 1. Tale'al Bedru 'Alayna (طَلَعَ البَدْرُ عَلَيْنَا)
-      [
-        { f: 293.66, d: 1.1 }, { f: 293.66, d: 0.6 }, { f: 369.99, d: 0.8 }, { f: 440.00, d: 1.5 },
-        { f: 440.00, d: 0.6 }, { f: 493.88, d: 0.8 }, { f: 440.00, d: 2.4 }, // Tale'al bedru 'aleyna...
-        { f: 392.00, d: 0.8 }, { f: 369.99, d: 0.8 }, { f: 329.63, d: 0.8 }, { f: 369.99, d: 0.8 },
-        { f: 392.00, d: 0.8 }, { f: 369.99, d: 0.8 }, { f: 329.63, d: 0.8 }, { f: 293.66, d: 2.6 }, // Min seniyyetil veda'...
-        { f: 369.99, d: 0.8 }, { f: 440.00, d: 0.8 }, { f: 493.88, d: 1.2 }, { f: 493.88, d: 0.6 },
-        { f: 440.00, d: 0.8 }, { f: 493.88, d: 0.8 }, { f: 440.00, d: 2.4 }, // Vecebeş-şükrü 'aleyna...
-        { f: 392.00, d: 0.8 }, { f: 369.99, d: 0.8 }, { f: 329.63, d: 0.8 }, { f: 369.99, d: 0.8 },
-        { f: 329.63, d: 1.1 }, { f: 293.66, d: 3.0 } // Ma dea lillahi da'...
-      ],
-      // 2. Salat-ı Ümmiye (Itri - Allâhumme salli 'alâ seyyidinâ Muhammed)
-      [
-        { f: 293.66, d: 1.2 }, { f: 329.63, d: 0.8 }, { f: 369.99, d: 1.2 }, { f: 392.00, d: 1.4 },
-        { f: 369.99, d: 0.9 }, { f: 329.63, d: 1.0 }, { f: 293.66, d: 2.6 }, // Allahümme salli alâ...
-        { f: 369.99, d: 1.0 }, { f: 392.00, d: 0.9 }, { f: 440.00, d: 1.6 }, { f: 392.00, d: 0.9 },
-        { f: 369.99, d: 1.0 }, { f: 329.63, d: 2.4 }, // Seyyidinâ Muhammedin...
-        { f: 329.63, d: 1.0 }, { f: 369.99, d: 1.0 }, { f: 392.00, d: 1.2 }, { f: 369.99, d: 0.9 },
-        { f: 329.63, d: 1.1 }, { f: 293.66, d: 3.2 } // Ve ala alihi ve sahbihi ve sellim...
-      ]
-    ];
-
-    let songIdx = 0;
-
-    const playIlahiCycle = () => {
-      if (!this.isPlaying || !this.ctx || this.mode !== 'ilahi') return;
-      const song = ilahiSongs[songIdx % ilahiSongs.length];
-      songIdx++;
-
-      let startTime = this.ctx.currentTime + 0.4;
-
-      song.forEach((item) => {
-        const { f: freq, d: duration } = item;
-        const now = startTime;
-
-        // Vokal Formantı (Hûû / Ooh Koro Tınısı)
-        const voiceOsc = this.ctx.createOscillator();
-        voiceOsc.type = 'triangle';
-        voiceOsc.frequency.setValueAtTime(freq, now);
-
-        const vibrato = this.ctx.createOscillator();
-        const vibratoGain = this.ctx.createGain();
-        vibrato.frequency.setValueAtTime(4.6, now);
-        vibratoGain.gain.setValueAtTime(1.8, now);
-        vibrato.connect(vibratoGain);
-        vibratoGain.connect(voiceOsc.frequency);
-        vibrato.start(now);
-        vibrato.stop(now + duration);
-
-        const f1 = this.ctx.createBiquadFilter();
-        f1.type = 'bandpass';
-        f1.frequency.setValueAtTime(380, now);
-        f1.Q.setValueAtTime(3.2, now);
-
-        const f2 = this.ctx.createBiquadFilter();
-        f2.type = 'bandpass';
-        f2.frequency.setValueAtTime(880, now);
-        f2.Q.setValueAtTime(4.5, now);
-
-        const voiceGain = this.ctx.createGain();
-        voiceGain.gain.setValueAtTime(0.0001, now);
-        voiceGain.gain.linearRampToValueAtTime(0.038, now + 0.32);
-        voiceGain.gain.setValueAtTime(0.038, now + duration - 0.4);
-        voiceGain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-
-        voiceOsc.connect(f1);
-        voiceOsc.connect(f2);
-        f1.connect(voiceGain);
-        f2.connect(voiceGain);
-
-        voiceGain.connect(this.masterGain);
-        if (this.reverbIn) voiceGain.connect(this.reverbIn);
-
-        voiceOsc.start(now);
-        voiceOsc.stop(now + duration);
-
-        // Koro İkinci Sesi (Armonik Oktav Desteği)
-        const harmOsc = this.ctx.createOscillator();
-        harmOsc.type = 'sine';
-        harmOsc.frequency.setValueAtTime(freq * 0.5, now);
-
-        const harmGain = this.ctx.createGain();
-        harmGain.gain.setValueAtTime(0.0001, now);
-        harmGain.gain.linearRampToValueAtTime(0.016, now + 0.35);
-        harmGain.gain.setValueAtTime(0.016, now + duration - 0.35);
-        harmGain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
-
-        harmOsc.connect(harmGain);
-        harmGain.connect(this.masterGain);
-        if (this.reverbIn) harmGain.connect(this.reverbIn);
-
-        harmOsc.start(now);
-        harmOsc.stop(now + duration);
-
-        startTime += duration - 0.12;
-      });
-
-      const totalTime = (startTime - this.ctx.currentTime) * 1000;
-      this.melodyTimer = setTimeout(playIlahiCycle, totalTime + 4000);
-    };
-
-    setTimeout(playIlahiCycle, 1200);
-  }
-
-  // İlahi eşliğindeki hafif Ney taksimi
-  startNeyAccompaniment() {
-    const neyNotes = [293.66, 369.99, 440.00, 392.00, 329.63, 293.66];
-    let nIdx = 0;
-
-    const playNeyNote = () => {
-      if (!this.isPlaying || !this.ctx || this.mode !== 'ilahi') return;
-      const freq = neyNotes[nIdx % neyNotes.length];
-      nIdx++;
-      const now = this.ctx.currentTime;
-      const dur = 3.6;
-
-      const osc = this.ctx.createOscillator();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, now);
-
-      const vib = this.ctx.createOscillator();
-      const vibG = this.ctx.createGain();
-      vib.frequency.setValueAtTime(4.2, now);
-      vibG.gain.setValueAtTime(1.5, now);
-      vib.connect(vibG);
-      vibG.connect(osc.frequency);
-      vib.start(now);
-      vib.stop(now + dur);
-
-      const g = this.ctx.createGain();
-      g.gain.setValueAtTime(0.0001, now);
-      g.gain.linearRampToValueAtTime(0.014, now + 0.8);
-      g.gain.setValueAtTime(0.014, now + dur - 0.8);
-      g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-
-      osc.connect(g);
-      g.connect(this.masterGain);
-      if (this.reverbIn) g.connect(this.reverbIn);
-
-      osc.start(now);
-      osc.stop(now + dur);
-
-      setTimeout(playNeyNote, 8500 + Math.random() * 4000);
-    };
-
-    setTimeout(playNeyNote, 3000);
-  }
-
-  startGentleBirds() {
-    const playChirp = () => {
-      if (!this.isPlaying || !this.ctx || this.mode !== 'water') return;
-      const now = this.ctx.currentTime;
-      const birdOsc = this.ctx.createOscillator();
-      const birdGain = this.ctx.createGain();
-
-      const baseF = 2400 + Math.random() * 700;
-      birdOsc.type = 'sine';
-      birdOsc.frequency.setValueAtTime(baseF, now);
-      birdOsc.frequency.exponentialRampToValueAtTime(baseF * 1.3, now + 0.05);
-      birdOsc.frequency.exponentialRampToValueAtTime(baseF * 0.9, now + 0.11);
-
-      birdGain.gain.setValueAtTime(0.0001, now);
-      birdGain.gain.linearRampToValueAtTime(0.007, now + 0.02);
-      birdGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.13);
-
-      birdOsc.connect(birdGain);
-      birdGain.connect(this.masterGain);
-      if (this.reverbIn) birdGain.connect(this.reverbIn);
-
-      birdOsc.start(now);
-      birdOsc.stop(now + 0.14);
-    };
-
-    const scheduleBird = () => {
-      if (!this.isPlaying || this.mode !== 'water') return;
-      playChirp();
-      if (Math.random() > 0.5) setTimeout(playChirp, 180);
-      setTimeout(scheduleBird, 4500 + Math.random() * 6000);
-    };
-    setTimeout(scheduleBird, 2500);
-  }
-
-  startDeepChimes() {
-    const chimes = [220, 277.18, 329.63, 440, 554.37];
-    const playChime = () => {
-      if (!this.isPlaying || !this.ctx || this.mode !== 'dome') return;
-      const freq = chimes[Math.floor(Math.random() * chimes.length)];
-      const now = this.ctx.currentTime;
-      const osc = this.ctx.createOscillator();
-      const gain = this.ctx.createGain();
-
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(freq, now);
-
-      gain.gain.setValueAtTime(0.0001, now);
-      gain.gain.linearRampToValueAtTime(0.022, now + 0.4);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 6.0);
-
-      osc.connect(gain);
-      gain.connect(this.masterGain);
-      if (this.reverbIn) gain.connect(this.reverbIn);
-
-      osc.start(now);
-      osc.stop(now + 6.5);
-    };
-
-    const loop = () => {
-      if (!this.isPlaying || this.mode !== 'dome') return;
-      playChime();
-      setTimeout(loop, 6000 + Math.random() * 4000);
-    };
-    setTimeout(loop, 1500);
-  }
-
-  setVolume(val) {
-    this.volume = Math.max(0, Math.min(1, val));
-    if (this.masterGain && this.ctx) {
-      this.masterGain.gain.linearRampToValueAtTime(this.volume, this.ctx.currentTime + 0.1);
-    }
-  }
-
-  stop() {
-    if (!this.isPlaying) return;
-    this.isPlaying = false;
-    if (this.melodyTimer) clearTimeout(this.melodyTimer);
-    if (this.dropletTimer) clearInterval(this.dropletTimer);
-
-    if (this.masterGain && this.ctx) {
-      const now = this.ctx.currentTime;
-      this.masterGain.gain.linearRampToValueAtTime(0.0001, now + 0.7);
-      setTimeout(() => {
-        this.activeNodes.forEach(node => {
-          try { node.stop(); } catch(e) {}
-          try { node.disconnect(); } catch(e) {}
-        });
-        this.activeNodes = [];
-      }, 800);
-    }
-  }
-}
+// ─── TV Ekranı Fon Sesleri Listesi ───
+const TV_AUDIO_TRACKS = [
+  {
+    id: 'cinematic',
+    title: '🎬 Emotional Documentary',
+    sub: 'Sinematik & İlham Veren Melodi',
+    url: '/audio/cinematic.mp3',
+  },
+  {
+    id: 'salavat',
+    title: '🕊️ Salavat Fon Müziği',
+    sub: 'Huzur Veren Tasavvufi Ezgi',
+    url: '/audio/salavat.mp3',
+  },
+];
 
 // Gece / Akşam Kayan Yıldızlar
 function Particles({ isNight }) {
@@ -729,19 +253,24 @@ function TVContent() {
   const [isMounted, setIsMounted]         = useState(false);
   const [isMobile, setIsMobile]           = useState(false);
 
-  // Dinlendirici Huzur & Özel TV Fon Sesi Durumları
+  // TV Fon Müziği Durumları
   const [isAudioPlaying, setIsAudioPlaying]     = useState(false);
-  const [audioVolume, setAudioVolume]           = useState(0.30);
-  const [soundMode, setSoundMode]               = useState('ilahi'); // 'custom' | 'ilahi' | 'ney' | 'water'
+  const [audioVolume, setAudioVolume]           = useState(0.35);
+  const [soundMode, setSoundMode]               = useState('cinematic'); // 'cinematic' | 'salavat' | 'custom'
   const [customAudio, setCustomAudio]           = useState(null);
   const [showVolumePopup, setShowVolumePopup]   = useState(false);
   const [showAudioBanner, setShowAudioBanner]   = useState(false);
-  const audioEngineRef = useRef(null);
-  const customAudioRef = useRef(null);
+  const audioRef = useRef(null);
+
+  // Aktif Ses URL'si
+  const activeAudioUrl = useMemo(() => {
+    if (soundMode === 'custom' && customAudio?.url) return customAudio.url;
+    const track = TV_AUDIO_TRACKS.find(t => t.id === soundMode);
+    return track ? track.url : TV_AUDIO_TRACKS[0].url;
+  }, [soundMode, customAudio]);
 
   useEffect(() => {
     setIsMounted(true);
-    audioEngineRef.current = new PeacefulHuzurEngine();
 
     const checkMobile = () => {
       const mobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
@@ -753,59 +282,49 @@ function TVContent() {
 
     return () => {
       window.removeEventListener('resize', checkMobile);
-      if (audioEngineRef.current) {
-        audioEngineRef.current.stop();
-      }
-      if (customAudioRef.current) {
-        customAudioRef.current.pause();
+      if (audioRef.current) {
+        audioRef.current.pause();
       }
     };
   }, []);
 
-  // Audio Toggle
+  // Audio Toggle (Başlat / Duraklat)
   const toggleAudio = useCallback(() => {
+    if (!audioRef.current) return;
     if (isAudioPlaying) {
-      if (customAudioRef.current) customAudioRef.current.pause();
-      if (audioEngineRef.current) audioEngineRef.current.stop();
+      audioRef.current.pause();
       setIsAudioPlaying(false);
     } else {
-      if (soundMode === 'custom' && customAudio && customAudioRef.current) {
-        if (audioEngineRef.current) audioEngineRef.current.stop();
-        customAudioRef.current.volume = audioVolume;
-        customAudioRef.current.play().catch(e => console.log('Custom audio autoplay error:', e));
-      } else if (audioEngineRef.current) {
-        if (customAudioRef.current) customAudioRef.current.pause();
-        audioEngineRef.current.setVolume(audioVolume);
-        audioEngineRef.current.start(soundMode === 'custom' ? 'ilahi' : soundMode);
-      }
-      setIsAudioPlaying(true);
-      setShowAudioBanner(false);
+      audioRef.current.volume = audioVolume;
+      audioRef.current.play()
+        .then(() => {
+          setIsAudioPlaying(true);
+          setShowAudioBanner(false);
+        })
+        .catch(err => {
+          console.warn('Otomatik ses başlatılamadı:', err);
+        });
     }
-  }, [isAudioPlaying, audioVolume, soundMode, customAudio]);
+  }, [isAudioPlaying, audioVolume]);
 
   const handleVolumeChange = (newVal) => {
     setAudioVolume(newVal);
-    if (customAudioRef.current) {
-      customAudioRef.current.volume = newVal;
-    }
-    if (audioEngineRef.current) {
-      audioEngineRef.current.setVolume(newVal);
+    if (audioRef.current) {
+      audioRef.current.volume = newVal;
     }
   };
 
   const handleSoundModeChange = (newMode) => {
     setSoundMode(newMode);
-    if (isAudioPlaying) {
-      if (newMode === 'custom' && customAudio && customAudioRef.current) {
-        if (audioEngineRef.current) audioEngineRef.current.stop();
-        customAudioRef.current.volume = audioVolume;
-        customAudioRef.current.play().catch(e => console.log(e));
-      } else {
-        if (customAudioRef.current) customAudioRef.current.pause();
-        if (audioEngineRef.current) {
-          audioEngineRef.current.setMode(newMode);
-          audioEngineRef.current.start(newMode);
-        }
+    const targetUrl = newMode === 'custom' && customAudio?.url
+      ? customAudio.url
+      : (TV_AUDIO_TRACKS.find(t => t.id === newMode)?.url || TV_AUDIO_TRACKS[0].url);
+
+    if (audioRef.current) {
+      audioRef.current.src = targetUrl;
+      audioRef.current.volume = audioVolume;
+      if (isAudioPlaying) {
+        audioRef.current.play().catch(e => console.warn(e));
       }
     }
   };
@@ -887,7 +406,7 @@ function TVContent() {
           });
         } else {
           setCustomAudio(null);
-          setSoundMode(prev => (prev === 'custom' ? 'ilahi' : prev));
+          setSoundMode(prev => (prev === 'custom' ? 'cinematic' : prev));
         }
       }
       
@@ -1140,15 +659,13 @@ function TVContent() {
         }
       `}</style>
 
-      {/* Özel TV Fon Sesi Oynatıcısı (HTML5 Audio Loop) */}
-      {customAudio && (
-        <audio
-          ref={customAudioRef}
-          src={customAudio.url}
-          loop
-          preload="auto"
-        />
-      )}
+      {/* TV Fon Sesi Oynatıcısı (HTML5 Audio Loop) */}
+      <audio
+        ref={audioRef}
+        src={activeAudioUrl}
+        loop
+        preload="auto"
+      />
 
       {/* Arka Plan Yıldızları */}
       <Particles isNight={skyData.isNight} />
@@ -1167,7 +684,7 @@ function TVContent() {
           </div>
           <div className="text-left">
             <div className="text-xs font-black uppercase tracking-wider">Huzur Veren Fon Sesi</div>
-            <div className="text-[11px] text-emerald-100 font-medium">Ney & Şadırvan sesini başlatmak için dokunun 🌿</div>
+            <div className="text-[11px] text-emerald-100 font-medium">Fon müziğini başlatmak için dokunun 🎵</div>
           </div>
           <button 
             onClick={(e) => { e.stopPropagation(); setShowAudioBanner(false); }}
@@ -1269,11 +786,9 @@ function TVContent() {
                 <span className="text-[11px] font-medium hidden md:inline truncate">
                   {soundMode === 'custom' && customAudio
                     ? `🎵 ${customAudio.title}`
-                    : soundMode === 'ilahi'
-                    ? '🕊️ İlahi'
-                    : soundMode === 'ney'
-                    ? '🌿 Ney'
-                    : '💧 Su'}
+                    : soundMode === 'salavat'
+                    ? '🕊️ Salavat'
+                    : '🎬 Sinematik'}
                 </span>
               </button>
             </div>
@@ -1316,10 +831,42 @@ function TVContent() {
                     />
                   </div>
 
-                  {/* Huzur & Özel Ses Modu Seçimi */}
+                  {/* TV Fon Sesleri Seçimi */}
                   <div className="space-y-1.5 pt-1">
-                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ses Kaynağı</div>
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Fon Müziği Seçimi</div>
                     
+                    {/* 1. Müzik: Emotional Documentary */}
+                    <button
+                      onClick={() => handleSoundModeChange('cinematic')}
+                      className={`w-full text-left px-2.5 py-2 rounded-xl text-xs font-medium flex items-center justify-between transition-colors ${
+                        soundMode === 'cinematic'
+                          ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-400/40 font-bold'
+                          : 'text-slate-300 hover:bg-white/10'
+                      }`}
+                    >
+                      <div className="flex flex-col">
+                        <span>🎬 Emotional Documentary</span>
+                        <span className="text-[10px] text-slate-400 font-normal">Sinematik & İlham Veren Melodi</span>
+                      </div>
+                      {soundMode === 'cinematic' && <span className="text-emerald-400 text-xs">●</span>}
+                    </button>
+
+                    {/* 2. Müzik: Salavat Fon Müziği */}
+                    <button
+                      onClick={() => handleSoundModeChange('salavat')}
+                      className={`w-full text-left px-2.5 py-2 rounded-xl text-xs font-medium flex items-center justify-between transition-colors ${
+                        soundMode === 'salavat'
+                          ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-400/40 font-bold'
+                          : 'text-slate-300 hover:bg-white/10'
+                      }`}
+                    >
+                      <div className="flex flex-col">
+                        <span>🕊️ Salavat Fon Müziği</span>
+                        <span className="text-[10px] text-slate-400 font-normal">Huzur Veren Tasavvufi Ezgi</span>
+                      </div>
+                      {soundMode === 'salavat' && <span className="text-emerald-400 text-xs">●</span>}
+                    </button>
+
                     {/* Varsa Yüklenen Özel Ses */}
                     {customAudio && (
                       <button
@@ -1341,51 +888,6 @@ function TVContent() {
                         {soundMode === 'custom' && <span className="text-cyan-400 text-xs shrink-0">●</span>}
                       </button>
                     )}
-
-                    <button
-                      onClick={() => handleSoundModeChange('ilahi')}
-                      className={`w-full text-left px-2.5 py-2 rounded-xl text-xs font-medium flex items-center justify-between transition-colors ${
-                        soundMode === 'ilahi'
-                          ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-400/40 font-bold'
-                          : 'text-slate-300 hover:bg-white/10'
-                      }`}
-                    >
-                      <div className="flex flex-col">
-                        <span>🕊️ Tasavvufi İlahi Ezgisi</span>
-                        <span className="text-[10px] text-slate-400 font-normal">Tale'al Bedru & Salat-ı Ümmiye</span>
-                      </div>
-                      {soundMode === 'ilahi' && <span className="text-emerald-400 text-xs">●</span>}
-                    </button>
-
-                    <button
-                      onClick={() => handleSoundModeChange('ney')}
-                      className={`w-full text-left px-2.5 py-2 rounded-xl text-xs font-medium flex items-center justify-between transition-colors ${
-                        soundMode === 'ney'
-                          ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-400/40 font-bold'
-                          : 'text-slate-300 hover:bg-white/10'
-                      }`}
-                    >
-                      <div className="flex flex-col">
-                        <span>🌿 Ney & Şadırvan Suyu</span>
-                        <span className="text-[10px] text-slate-400 font-normal">Akustik Ney Taksimi & Su</span>
-                      </div>
-                      {soundMode === 'ney' && <span className="text-emerald-400 text-xs">●</span>}
-                    </button>
-
-                    <button
-                      onClick={() => handleSoundModeChange('water')}
-                      className={`w-full text-left px-2.5 py-2 rounded-xl text-xs font-medium flex items-center justify-between transition-colors ${
-                        soundMode === 'water'
-                          ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-400/40 font-bold'
-                          : 'text-slate-300 hover:bg-white/10'
-                      }`}
-                    >
-                      <div className="flex flex-col">
-                        <span>💧 Akarsu & Kuş Sesleri</span>
-                        <span className="text-[10px] text-slate-400 font-normal">Dingin Doğa Sükûneti</span>
-                      </div>
-                      {soundMode === 'water' && <span className="text-emerald-400 text-xs">●</span>}
-                    </button>
                   </div>
 
                   <div className="text-[10px] text-slate-400 text-center italic border-t border-sky-500/20 pt-2">
