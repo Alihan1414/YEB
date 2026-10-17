@@ -12,22 +12,32 @@ export async function POST(req) {
     const topStList = (stats?.topStudents || []).slice(0, 3).map(s => s.name).join(', ');
     const categoryCounts = stats?.categoryCounts || {};
 
+    if (!stats || (stats.weeklyReportsCount || 0) === 0) {
+      return NextResponse.json({
+        success: true,
+        summary: `**${institutionName.toUpperCase()} HAFTALIK İDARE VE GELİŞİM RAPORU**\n\nBu hafta henüz sisteme kaydedilmiş herhangi bir faaliyet, yoklama veya ders raporu bulunmamaktadır.\n\nÖğretmenlerimiz ve belleticilerimiz günlük raporları girdikçe kurum verimliliği, sınıf ve talebe başarı sıralamaları ve haftalık kurumsal idare analizi burada gerçek verilere dayalı olarak otomatik olarak oluşturulacaktır.`
+      });
+    }
+
     const geminiKey = process.env.GEMINI_API_KEY;
     if (!geminiKey || geminiKey.trim() === '') {
       const defaultSummary = `
 **${institutionName.toUpperCase()} HAFTALIK İDARE VE GELİŞİM RAPORU**
 
-Hafta boyunca kurumumuzda talebelerimizin akademik, ahlaki ve sosyal gelişimleri idari kadromuz ve kıymetli belleticilerimizce titizlikle takip edilmiştir. Bu süreçte toplam **${stats.weeklyReportsCount || 0}** adet faaliyet ve durum kaydı oluşturulmuş, yurt genelinde **%${stats.overallEfficiency || 95}** genel verimlilik ve başarı seviyesine ulaşılmıştır.
+Hafta boyunca kurumumuzda talebelerimizin akademik, ahlaki ve sosyal gelişimleri idari kadromuz ve belleticilerimizce titizlikle takip edilmiştir. Bu süreçte sisteme toplam **${stats.weeklyReportsCount || 0}** adet faaliyet ve durum kaydı girilmiş, genel başarı/verimlilik oranı **%${stats.overallEfficiency || 0}** olarak gerçekleşmiştir.
 
-**Kategorik İştirak ve Disiplin:**
-- **Yoklama & Katılım:** Toplam ${categoryCounts['Yoklama'] || stats.weeklyYoklamaCount || 0} kayıt ile talebelerimizin vakit disiplinine riayet ettiği gözlemlenmiştir.
-- **Akademik & Dahili Ders:** ${categoryCounts['Akademik'] || stats.weeklyAkademikCount || 0} akademik çalışma ve ${categoryCounts['Dahili Ders'] || stats.weeklyDahiliCount || 0} dahili ders faaliyeti tamamlanmıştır.
-- **Program & Faaliyet:** ${categoryCounts['Program'] || 0} adet sosyal ve manevi program icra edilmiştir.
+**Kategorik Dağılım ve İştirak:**
+- **Yoklama & Katılım:** Toplam ${categoryCounts['Yoklama'] || stats.weeklyYoklamaCount || 0} kayıt
+- **Akademik Çalışmalar:** ${categoryCounts['Akademik'] || stats.weeklyAkademikCount || 0} kayıt
+- **Dahili Ders Faaliyetleri:** ${categoryCounts['Dahili Ders'] || stats.weeklyDahiliCount || 0} kayıt
+- **Program & Faaliyetler:** ${categoryCounts['Program'] || 0} kayıt
+- **Girdi - Çıktı & Disiplin:** ${categoryCounts['Girdi Çıktı'] || 0} kayıt
+- **Sağlık & Revir Kayıtları:** ${categoryCounts['Sağlık'] || 0} kayıt
 
-${topCls ? `**Haftanın En Başarılı Sınıfı:** Gösterdiği %${topCls.efficiencyRate} iştirak verimliliği ve +${topCls.score} puan ile **${topCls.name}** sınıfımız haftanın en başarılı sınıfı seçilmiştir.` : ''}
-${topStList ? `**Tebrik ve Takdir:** Gayretleriyle temayüz eden talebelerimiz (**${topStList}**) başta olmak üzere tüm evlatlarımızı tebrik eder, muvaffakiyetlerinin devamını dileriz.` : ''}
+${topCls && topCls.score > 0 ? `**Haftanın Öne Çıkan Sınıfı:** Gösterdiği %${topCls.efficiencyRate} verimlilik ve +${topCls.score} puan ile **${topCls.name}** sınıfımız haftanın en başarılı sınıfı seçilmiştir.` : ''}
+${topStList ? `**Haftanın Gayretli Talebeleri:** Haftalık faaliyetlerde öne çıkan talebelerimiz (**${topStList}**) başta olmak üzere tüm evlatlarımızı gayretlerinden ötürü tebrik ederiz.` : ''}
 
-Önümüzdeki hafta dahili ders iştirakinin daha da artırılması ve etüt verimliliğinin üst seviyeye taşınması hedeflenmektedir. Emeği geçen tüm öğretmenlerimize ve destek veren velilerimize teşekkür ederiz.
+Emeği geçen tüm öğretmenlerimize ve idarecilerimize teşekkür ederiz.
       `.trim();
 
       return NextResponse.json({

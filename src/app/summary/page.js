@@ -119,10 +119,12 @@ export default function SummaryPage() {
       if (ts < monthAgo) return false;
     }
 
-    // 2. Filter by class
+    // 2. Filter by class and active student
+    const sId = (r.student_id || r.studentId || '').trim();
+    const st = studentMap[sId];
+    if (!st) return false;
     if (classFilter === 'All') return true;
-    const st = studentMap[r.student_id];
-    return st?.class === classFilter;
+    return st.class === classFilter;
   });
 
   // Category distribution

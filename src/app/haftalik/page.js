@@ -533,7 +533,7 @@ export default function WeeklySummaryPage() {
                       <div className="text-[10px] text-slate-400 font-semibold mt-0.5">
                         {catKey === 'Girdi Çıktı' 
                           ? `${stats?.insideCount || 0} İçeride` 
-                          : catData ? `%${catData.efficiencyRate} Verim` : 'Haftalık Kayıt'}
+                          : count > 0 && catData ? `%${catData.efficiencyRate} Verim` : '0 Kayıt'}
                       </div>
                     </div>
 
@@ -757,10 +757,18 @@ export default function WeeklySummaryPage() {
                 ))}
 
                 {(!stats?.studentsNeedingSupport || stats.studentsNeedingSupport.length === 0) && (
-                  <div className="text-center py-8 bg-emerald-50/50 rounded-2xl border border-dashed border-emerald-200 p-4">
-                    <CheckCircle className="mx-auto text-emerald-400 mb-1" size={24} />
-                    <p className="text-xs font-bold text-emerald-800">Harika! Bu hafta olumsuz veya eksi puan alan talebe bulunmuyor. 🎉</p>
-                    <p className="text-[10px] text-emerald-600 mt-0.5">Tüm talebelerimiz disiplin ve katılım kurallarına riayet etmektedir.</p>
+                  <div className="text-center py-8 bg-slate-50/70 rounded-2xl border border-dashed border-slate-200 p-4">
+                    <CheckCircle className="mx-auto text-emerald-500 mb-1" size={24} />
+                    <p className="text-xs font-bold text-slate-700">
+                      {(stats?.weeklyReportsCount || 0) > 0 
+                        ? "Harika! Bu hafta olumsuz veya eksi puan alan talebe bulunmuyor. 🎉"
+                        : "Bu hafta henüz olumsuz veya rehberlik gerektiren bir kayıt bulunmuyor."}
+                    </p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      {(stats?.weeklyReportsCount || 0) > 0 
+                        ? "Tüm talebelerimiz disiplin ve katılım kurallarına riayet etmektedir."
+                        : "Öğretmenlerimiz rapor girdikçe takibi gereken durumlar burada listelenecektir."}
+                    </p>
                   </div>
                 )}
               </div>

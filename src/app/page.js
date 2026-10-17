@@ -1105,8 +1105,10 @@ export default function StudentsPage() {
   const studentMap = Object.fromEntries(students.map(s => [s.id, s]));
   const classScores = {};
   weeklyReports.forEach(r => {
-    const st = studentMap[r.student_id];
-    const cls = st?.class || r.class_name || 'Bilinmiyor';
+    const sId = (r.student_id || r.studentId || '').trim();
+    const st = studentMap[sId];
+    if (!st) return;
+    const cls = st.class || 'Genel';
     const basePts = CATEGORY_SCORES[r.category] || 1;
     const pts = r.isPositive === false ? -1 : basePts;
     classScores[cls] = (classScores[cls] || 0) + pts;

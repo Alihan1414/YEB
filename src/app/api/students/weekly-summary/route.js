@@ -206,7 +206,12 @@ export async function GET(req) {
     let weeklyDahiliCount = 0;
     let totalPositiveReports = 0;
 
+    const validWeeklyReports = [];
     weeklyReports.forEach(r => {
+      const sId = (r.student_id || r.studentId || '').trim();
+      const st = studentMap[sId];
+      if (!st) return; // Skip orphan reports that do not belong to active students
+
       let category = r.category || 'Dahili Ders';
       if (category === 'Yemek') category = 'Yoklama';
       if (category === 'Namaz') category = 'Girdi Çıktı';
@@ -218,6 +223,7 @@ export async function GET(req) {
       const pts = isPos ? basePts : -1;
 
       if (isPos) totalPositiveReports++;
+      validWeeklyReports.push(r);
 
       // Category counters
       categoryCounts[category] = (categoryCounts[category] || 0) + 1;
@@ -225,10 +231,9 @@ export async function GET(req) {
       if (category === 'Akademik') weeklyAkademikCount++;
       if (category === 'Dahili Ders') weeklyDahiliCount++;
 
-      // Student mapping
-      const st = studentMap[r.student_id];
-      const cls = st?.class || r.class || 'Genel';
-      const studentFullName = st ? `${st.name} ${st.surname}` : r.student_name || 'Öğrenci';
+      // Real Student & Class mapping
+      const cls = st.class || 'Genel';
+      const studentFullName = `${st.name} ${st.surname}`.trim();
 
       // Category breakdown aggregation
       if (categoryBreakdown[category]) {
@@ -309,12 +314,12 @@ export async function GET(req) {
     Object.keys(categoryBreakdown).forEach(cat => {
       categoryBreakdown[cat].reports.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
       const total = categoryBreakdown[cat].count;
-      categoryBreakdown[cat].efficiencyRate = total > 0 ? Math.round((categoryBreakdown[cat].positiveCount / total) * 100) : 100;
+      categoryBreakdown[cat].efficiencyRate = total > 0 ? Math.round((categoryBreakdown[cat].positiveCount / total) * 100) : 0;
     });
 
     // Top Classes Formatting
     const topClasses = Object.values(classDataMap).map(c => {
-      const eff = c.reportCount > 0 ? Math.round((c.positiveCount / c.reportCount) * 100) : 100;
+      const eff = c.reportCount > 0 ? Math.round((c.positiveCount / c.reportCount) * 100) : 0;
       const dahiliRate = c.reportCount > 0 ? Math.round((c.dahiliCount / c.reportCount) * 100) : 0;
       return {
         name: c.name,
@@ -366,7 +371,7 @@ export async function GET(req) {
 
       memberList.sort((a, b) => b.score - a.score);
 
-      const eff = grpReports > 0 ? Math.round((grpPos / grpReports) * 100) : 100;
+      const eff = grpReports > 0 ? Math.round((grpPos / grpReports) * 100) : 0;
       const dahiliRate = grpReports > 0 ? Math.round((grpDahili / grpReports) * 100) : 0;
 
       return {
@@ -400,9 +405,9 @@ export async function GET(req) {
       .sort((a, b) => a.score - b.score) // en düşük puanlılar en başta
       .slice(0, 15);
 
-    const overallEfficiency = weeklyReports.length > 0 
-      ? Math.round((totalPositiveReports / weeklyReports.length) * 100) 
-      : 100;
+    const overallEfficiency = validWeeklyReports.length > 0 
+      ? Math.round((totalPositiveReports / validWeeklyReports.length) * 100) 
+      : 0;
 
     // Checkouts overview
     const checkedOutStudents = students.filter(s => s.checkout_time);
@@ -412,7 +417,7 @@ export async function GET(req) {
       totalStudentsCount: students.length,
       checkedOutCount: checkedOutStudents.length,
       insideCount: students.length - checkedOutStudents.length,
-      weeklyReportsCount: weeklyReports.length,
+      weeklyReportsCount: validWeeklyReports.length,
       weeklyYoklamaCount,
       weeklyAkademikCount,
       weeklyDahiliCount,
