@@ -32,8 +32,8 @@ function docToStudent(doc) {
   };
 }
 
-// Fetch ALL docs from a Firestore collection with strict timeout
-async function fetchAllDocs(projectId, apiKey, collection, timeoutMs = 1200) {
+// Fetch ALL docs from a Firestore collection with safe 8s timeout
+async function fetchAllDocs(projectId, apiKey, collection, timeoutMs = 8000) {
   const docs = [];
   let pageToken = '';
   const controller = new AbortController();

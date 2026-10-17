@@ -24,9 +24,9 @@ export async function GET(req) {
       console.warn("Local DB fetch failed in leave GET:", err.message);
     }
 
-    // 2. Try to read from Firestore and merge/sync with strict 1.2s timeout
+    // 2. Try to read from Firestore and merge/sync with 8s timeout
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 1200);
+    const timeout = setTimeout(() => controller.abort(), 8000);
 
     try {
       const res = await fetch(
@@ -126,9 +126,9 @@ export async function POST(req) {
     dbData.leaveRequests.push(newRequest);
     writeDb(dbData);
 
-    // 2. Save to Firestore (non-blocking)
+    // 2. Save to Firestore (with 8s timeout)
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 1200);
+    const timeout = setTimeout(() => controller.abort(), 8000);
 
     try {
       await fetch(

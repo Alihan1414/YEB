@@ -908,9 +908,9 @@ function TVContent() {
   // İlk yükleme
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Canlı senkronizasyon (TV ekranının güncel kalması - her 12 saniyede bir)
+  // Canlı senkronizasyon (TV ekranının güncel kalması - her 35 saniyede bir)
   useEffect(() => {
-    const iv = setInterval(fetchData, 12000);
+    const iv = setInterval(fetchData, 35000);
     return () => clearInterval(iv);
   }, [fetchData]);
 

@@ -27,7 +27,7 @@ export async function GET(req) {
   if (projectId && apiKey) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1200);
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
       const res = await fetch(
         fsUrl(projectId, apiKey, 'teacher_groups', '&pageSize=300'),
         { cache: 'no-store', signal: controller.signal }

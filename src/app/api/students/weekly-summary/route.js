@@ -31,10 +31,10 @@ export async function GET(req) {
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'vision-b1ad5';
     const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCH7bTzvqJqSzJiV0Ou6JudPovkrrWrwdw';
 
-    // 1. Fetch Students, Reports and Groups from Firestore with 1.2s timeout
+    // 1. Fetch Students, Reports and Groups from Firestore with 8s timeout
     if (projectId && apiKey) {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 1200);
+      const timeout = setTimeout(() => controller.abort(), 8000);
 
       try {
         const [sRes, rRes, gRes] = await Promise.all([

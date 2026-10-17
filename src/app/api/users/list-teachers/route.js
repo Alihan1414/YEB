@@ -120,9 +120,9 @@ export async function GET(req) {
       console.warn("Local DB error in list-teachers:", err.message);
     }
 
-    // 2. Supplement from Firestore with 1.2s timeout
+    // 2. Supplement from Firestore with 8s timeout
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 1200);
+    const timeout = setTimeout(() => controller.abort(), 8000);
 
     try {
       const res = await fetch(

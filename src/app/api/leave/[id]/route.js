@@ -22,10 +22,10 @@ export async function PATCH(req, { params }) {
     const nowStr = new Date().toISOString();
     let updatedRequest = null;
 
-    // 1. Update in Firestore (with 1.2s timeout)
+    // 1. Update in Firestore (with 8s timeout)
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1200);
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
       const fsRes = await fetch(
         `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/leaveRequests/${id}?key=${FIREBASE_API_KEY}&updateMask.fieldPaths=status&updateMask.fieldPaths=respondedBy&updateMask.fieldPaths=respondedAt`,
         {
@@ -109,10 +109,10 @@ export async function DELETE(req, { params }) {
       console.warn("Local DB delete error in leave DELETE:", err.message);
     }
 
-    // 2. Delete from Firestore (with 1.2s timeout)
+    // 2. Delete from Firestore (with 8s timeout)
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1200);
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
       await fetch(
         `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/leaveRequests/${id}?key=${FIREBASE_API_KEY}`,
         { method: 'DELETE', signal: controller.signal }

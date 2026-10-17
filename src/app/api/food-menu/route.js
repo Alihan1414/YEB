@@ -34,7 +34,7 @@ export async function GET(req) {
     // 2. Fetch from Firestore (with 1.2s timeout)
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 1200);
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
       const res = await fetch(
         `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/foodMenus?key=${FIREBASE_API_KEY}&pageSize=100`,
         { cache: 'no-store', signal: controller.signal }

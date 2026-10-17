@@ -59,13 +59,13 @@ export async function GET(req) {
       });
     } catch (e) {}
 
-    // 2. Supplement from Firestore with strict 1.2s timeout
+    // 2. Supplement from Firestore with safe 8s timeout
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'vision-b1ad5';
     const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCH7bTzvqJqSzJiV0Ou6JudPovkrrWrwdw';
 
     if (projectId && apiKey) {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 1200);
+      const timeout = setTimeout(() => controller.abort(), 8000);
 
       try {
         const res = await fetch(
@@ -194,16 +194,16 @@ export async function POST(req) {
       console.error("Local DB Save error:", dbErr.message);
     }
 
-    // 2. Firestore Save (non-blocking / fast attempt)
+    // 2. Firestore Save (authoritative cloud database with safe 8s timeout)
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'vision-b1ad5';
     const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCH7bTzvqJqSzJiV0Ou6JudPovkrrWrwdw';
 
     if (projectId && apiKey) {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 1200);
+      const timeout = setTimeout(() => controller.abort(), 8000);
 
       try {
-        await fetch(
+        const fsRes = await fetch(
           `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/reports/${reportId}?key=${apiKey}`,
           {
             method: 'PATCH',
@@ -229,8 +229,12 @@ export async function POST(req) {
           }
         );
         clearTimeout(timeout);
+        if (!fsRes.ok) {
+          console.warn('Firestore report save returned status:', fsRes.status);
+        }
       } catch (err) {
         clearTimeout(timeout);
+        console.error('Firestore report save error:', err.message);
       }
     }
 
@@ -279,13 +283,13 @@ export async function DELETE(req) {
       writeDb(dbData);
     }
 
-    // 2. Firestore Delete (non-blocking)
+    // 2. Firestore Delete (safe 8s timeout)
     const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'vision-b1ad5';
     const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCH7bTzvqJqSzJiV0Ou6JudPovkrrWrwdw';
 
     if (projectId && apiKey) {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 1200);
+      const timeout = setTimeout(() => controller.abort(), 8000);
 
       try {
         await fetch(
@@ -317,6 +321,30 @@ export async function PUT(req) {
         r.id === id ? { ...r, notified: !!notified } : r
       );
       writeDb(dbData);
+    }
+
+    // Sync to Firestore
+    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'vision-b1ad5';
+    const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCH7bTzvqJqSzJiV0Ou6JudPovkrrWrwdw';
+    if (projectId && apiKey) {
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
+        await fetch(
+          `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/reports/${id}?key=${apiKey}&updateMask.fieldPaths=notified`,
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            signal: controller.signal,
+            body: JSON.stringify({
+              fields: {
+                notified: { booleanValue: !!notified }
+              }
+            })
+          }
+        );
+        clearTimeout(timeout);
+      } catch (e) {}
     }
 
     return NextResponse.json({ success: true, id, notified: !!notified });

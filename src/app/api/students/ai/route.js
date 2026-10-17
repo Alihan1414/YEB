@@ -342,7 +342,7 @@ export async function POST(req) {
       const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCH7bTzvqJqSzJiV0Ou6JudPovkrrWrwdw';
       if (projectId && apiKey) {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 1200);
+        const timeout = setTimeout(() => controller.abort(), 8000);
 
         const res = await fetch(
           `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/students?key=${apiKey}&pageSize=1000`,
@@ -406,7 +406,7 @@ export async function POST(req) {
       const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCH7bTzvqJqSzJiV0Ou6JudPovkrrWrwdw';
       if (projectId && apiKey) {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 1200);
+        const timeout = setTimeout(() => controller.abort(), 8000);
 
         const res = await fetch(
           `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/teacher_groups?key=${apiKey}&pageSize=200`,
