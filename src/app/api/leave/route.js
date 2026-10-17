@@ -21,28 +21,21 @@ export async function GET(req) {
     }
 
     let requests = [];
+    let firestoreSuccess = false;
 
-    // 1. Try to read from local DB (Instant and guaranteed)
-    try {
-      const dbData = readDb();
-      const localRequests = dbData.leaveRequests || [];
-      requests = localRequests.filter(r => isInstitutionMatch(r.institutionId || r.institution_id, institutionId));
-    } catch (err) {
-      console.warn("Local DB fetch failed in leave GET:", err.message);
-    }
-
-    // 2. Try to read from Firestore and merge/sync with 8s timeout
+    // 1. Fetch from Firestore first (authoritative cloud database)
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
 
     try {
       const res = await fetch(
-        `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/leaveRequests?key=${FIREBASE_API_KEY}`,
+        `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/leaveRequests?key=${FIREBASE_API_KEY}&pageSize=500`,
         { cache: 'no-store', signal: controller.signal }
       );
       clearTimeout(timeout);
 
       if (res.ok) {
+        firestoreSuccess = true;
         const data = await res.json();
         const docs = data.documents || [];
         docs.forEach(doc => {
@@ -67,20 +60,33 @@ export async function GET(req) {
               respondedBy:       f.respondedBy?.stringValue       || '',
               respondedAt:       f.respondedAt?.stringValue       || ''
             };
-            
-            if (!requests.some(r => r.id === id)) {
-              requests.push(item);
-            } else {
-              const idx = requests.findIndex(r => r.id === id);
-              if (idx !== -1) {
-                requests[idx] = { ...requests[idx], ...item };
-              }
-            }
+            requests.push(item);
           }
         });
       }
     } catch (err) {
       clearTimeout(timeout);
+    }
+
+    // 2. Only fallback to Local DB if Firestore was unreachable, or for very recent local writes (<30s)
+    try {
+      const dbData = readDb();
+      const localRequests = dbData.leaveRequests || [];
+      const now = Date.now();
+
+      localRequests.forEach(r => {
+        const rInstId = normalizeInstitutionId(r.institutionId || r.institution_id || '');
+        if (isInstitutionMatch(rInstId, institutionId)) {
+          const isRecentWrite = r.created_at && (now - new Date(r.created_at).getTime() < 30000);
+          if (!firestoreSuccess || isRecentWrite) {
+            if (!requests.some(item => item.id === r.id)) {
+              requests.push(r);
+            }
+          }
+        }
+      });
+    } catch (err) {
+      console.warn("Local DB fetch fallback in leave GET:", err.message);
     }
 
     // Sort requests by date descending
