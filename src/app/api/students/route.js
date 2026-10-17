@@ -81,9 +81,11 @@ export async function GET(req) {
   const normInstId = rawInstId ? normalizeInstitutionId(rawInstId) : '';
 
   const cacheKey = `students_${normInstId || 'all'}`;
-  const cachedData = getCached(cacheKey);
+  const cachedData = getCached(cacheKey, 5000);
   if (cachedData) {
-    return NextResponse.json({ success: true, students: cachedData });
+    return NextResponse.json({ success: true, students: cachedData }, {
+      headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' }
+    });
   }
 
   const dbData = readDb();
@@ -177,7 +179,9 @@ export async function GET(req) {
 
   students.sort((a, b) => (a.surname || '').localeCompare(b.surname || '', 'tr'));
   setCached(cacheKey, students);
-  return NextResponse.json({ success: true, students });
+  return NextResponse.json({ success: true, students }, {
+    headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' }
+  });
 }
 
 // ─── POST ────────────────────────────────────────────────────────────────────
@@ -196,10 +200,10 @@ export async function POST(req) {
       for (let i = 0; i < students.length; i++) {
         const item = students[i];
         if (!item) continue;
-        const name         = (item.name         || '').trim().slice(0, 50);
-        const surname      = (item.surname       || '').trim().slice(0, 50);
-        const studentClass = (item.studentClass  || '').trim().slice(0, 20);
-        const parentPhone  = (item.parentPhone   || '').trim().slice(0, 20);
+        const name         = (item.name         || '').trim().slice(0, 100);
+        const surname      = (item.surname       || '').trim().slice(0, 100);
+        const studentClass = (item.studentClass  || '').trim().slice(0, 100);
+        const parentPhone  = (item.parentPhone   || '').trim().slice(0, 30);
         if (!name || !surname || !studentClass) continue;
 
         const stId = `student-${Date.now()}-${i}-${Math.floor(Math.random() * 1000)}`;
@@ -244,6 +248,9 @@ export async function POST(req) {
         console.warn('Local DB bulk add error:', dbErr.message);
       }
 
+      invalidateCache('students');
+      invalidateCache('weekly_summary');
+      invalidateCache('dashboard');
       return NextResponse.json({ success: true, count: created.length, students: created });
     }
 
@@ -290,10 +297,10 @@ export async function POST(req) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             fields: {
-              name:           { stringValue: newStudent.name.slice(0, 50) },
-              surname:        { stringValue: newStudent.surname.slice(0, 50) },
-              class:          { stringValue: newStudent.class.slice(0, 20) },
-              parent_phone:   { stringValue: newStudent.parent_phone.slice(0, 20) },
+              name:           { stringValue: newStudent.name.slice(0, 100) },
+              surname:        { stringValue: newStudent.surname.slice(0, 100) },
+              class:          { stringValue: newStudent.class.slice(0, 100) },
+              parent_phone:   { stringValue: newStudent.parent_phone.slice(0, 30) },
               institution_id: { stringValue: newStudent.institution_id },
               created_at:     { timestampValue: now },
             },
@@ -309,6 +316,8 @@ export async function POST(req) {
     }
 
     invalidateCache('students');
+    invalidateCache('weekly_summary');
+    invalidateCache('dashboard');
     return NextResponse.json({ success: true, id: stId, student: newStudent });
   } catch (err) {
     console.error('POST STUDENT ERROR:', err.message);

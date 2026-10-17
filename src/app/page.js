@@ -745,6 +745,8 @@ export default function StudentsPage() {
         // Gerçek ID ile güncelle
         setStudents(prev => prev.map(s => s.id === tempId ? { ...data.student } : s));
       }
+      await fetchStudents();
+      await fetchWeeklyReports();
     } catch (e) {
       console.error('handleAddStudent error:', e);
       showToast('Hata: ' + e.message, 'error');
