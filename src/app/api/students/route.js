@@ -91,12 +91,33 @@ export async function GET(req) {
   const dbData = readDb();
   const deletedSet = new Set(dbData.deleted_students || []);
 
+  // Sync deleted_students from Firestore cloud metadata
+  try {
+    const delRes = await fetch(
+      fsUrl(projectId, apiKey, 'system_metadata/deleted_students'),
+      { cache: 'no-store' }
+    );
+    if (delRes.ok) {
+      const delData = await delRes.json();
+      const fsDeleted = delData.fields?.ids?.arrayValue?.values || [];
+      fsDeleted.forEach(v => {
+        if (v.stringValue) deletedSet.add(v.stringValue);
+      });
+    }
+  } catch (e) {
+    // Non-fatal
+  }
+
   const reportsByStudent = {};
   let firestoreReportsSuccess = false;
+  let firestoreStudentsSuccess = false;
 
   let students = [];
   try {
     const studentDocs = await fetchAllDocs(projectId, apiKey, 'students');
+    if (studentDocs && studentDocs.length > 0) {
+      firestoreStudentsSuccess = true;
+    }
     students = studentDocs
       .map(docToStudent)
       .filter(s => !deletedSet.has(s.id) && (!normInstId || normInstId === 'platform' || isInstitutionMatch(s.institution_id, normInstId)));
@@ -143,24 +164,30 @@ export async function GET(req) {
     } catch (e) {}
   }
 
-  // 2. Fallback / Merge with Local DB if Firestore was empty or missing some
+  // 2. Fallback / Merge with Local DB ONLY if Firestore was unreachable or for very recent writes (<45s)
   try {
+    const now = Date.now();
     const localStudents = (dbData.students || []).filter(
       s => !deletedSet.has(s.id) && (!normInstId || normInstId === 'platform' || isInstitutionMatch(s.institution_id || s.institutionId || 'bolu-kilicaslan', normInstId))
     );
 
     localStudents.forEach(ls => {
-      if (!students.some(s => s.id === ls.id)) {
-        students.push({
-          id: ls.id,
-          name: ls.name || '',
-          surname: ls.surname || '',
-          class: ls.class || '',
-          parent_phone: ls.parent_phone || '',
-          institution_id: normalizeInstitutionId(ls.institution_id || ls.institutionId || 'bolu-kilicaslan'),
-          created_at: ls.created_at || null,
-          checkout_time: ls.checkout_time || null,
-        });
+      // If Firestore is working and has returned docs, do NOT resurrect older students that were deleted from Firestore!
+      // Only include local students created in the last 45 seconds (handling immediate write propagation)
+      const isRecentWrite = ls.created_at && (now - new Date(ls.created_at).getTime() < 45000);
+      if (!firestoreStudentsSuccess || isRecentWrite) {
+        if (!students.some(s => s.id === ls.id)) {
+          students.push({
+            id: ls.id,
+            name: ls.name || '',
+            surname: ls.surname || '',
+            class: ls.class || '',
+            parent_phone: ls.parent_phone || '',
+            institution_id: normalizeInstitutionId(ls.institution_id || ls.institutionId || 'bolu-kilicaslan'),
+            created_at: ls.created_at || null,
+            checkout_time: ls.checkout_time || null,
+          });
+        }
       }
     });
   } catch (dbErr) {
@@ -354,7 +381,7 @@ export async function DELETE(req) {
       console.warn('Local DB delete error:', localErr.message);
     }
 
-    // 2. Firestore'dan sil
+    // 2. Firestore'dan sil (students koleksiyonu)
     try {
       const delRes = await fetch(
         fsUrl(projectId, apiKey, `students/${id}`),
@@ -367,7 +394,39 @@ export async function DELETE(req) {
       console.warn('Firestore delete student error:', fsErr.message);
     }
 
-    // 3. Firestore'daki ilgili raporları temizle
+    // 3. Firestore'daki kalıcı deleted_students metadata dokümanını güncelle (ASLA geri gelmemesi için)
+    try {
+      let currentDeleted = [id];
+      try {
+        const curRes = await fetch(fsUrl(projectId, apiKey, 'system_metadata/deleted_students'), { cache: 'no-store' });
+        if (curRes.ok) {
+          const curData = await curRes.json();
+          const vals = curData.fields?.ids?.arrayValue?.values || [];
+          currentDeleted = Array.from(new Set([...vals.map(v => v.stringValue).filter(Boolean), id]));
+        }
+      } catch (e) {}
+
+      await fetch(
+        fsUrl(projectId, apiKey, 'system_metadata/deleted_students'),
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fields: {
+              ids: {
+                arrayValue: {
+                  values: currentDeleted.map(delId => ({ stringValue: delId }))
+                }
+              }
+            }
+          })
+        }
+      );
+    } catch (metaErr) {
+      console.warn('Firestore deleted_students sync error:', metaErr.message);
+    }
+
+    // 4. Firestore'daki ilgili raporları temizle
     try {
       const reportDocs = await fetchAllDocs(projectId, apiKey, 'reports');
       const toDelete   = reportDocs.filter(d => (d.fields?.student_id?.stringValue === id || d.fields?.studentId?.stringValue === id));

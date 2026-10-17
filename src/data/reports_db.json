@@ -1681,21 +1681,6 @@
       "score": 0
     },
     {
-      "id": "student-kilicaslan-new-1791141975242-78",
-      "name": "Mehmet Arif",
-      "surname": "Çalışkan",
-      "class": "Tekamül Altı (L.M. Kaşitoğlu)",
-      "parent_phone": "",
-      "institution_id": "bolu-kilicaslan",
-      "institutionId": "bolu-kilicaslan",
-      "created_at": "2026-10-04T19:26:15.240Z",
-      "checkout_time": null,
-      "last_report_date": null,
-      "status": "Rapor Yok",
-      "report_count": 0,
-      "score": 0
-    },
-    {
       "id": "student-kilicaslan-new-1791141975242-79",
       "name": "Mehmet Emin",
       "surname": "İnce",
@@ -1723,20 +1708,6 @@
       "last_report_date": null,
       "status": "Rapor Yok",
       "report_count": 0,
-      "score": 0
-    },
-    {
-      "id": "student-1792266725275-111",
-      "name": "alihan",
-      "surname": "divanli",
-      "class": "Hazırlık (M.S. Aldemir)",
-      "parent_phone": "",
-      "institution_id": "bolu-kilicaslan",
-      "created_at": "2026-10-17T19:52:05.275Z",
-      "report_count": 0,
-      "last_report_date": null,
-      "status": "Rapor Yok",
-      "checkout_time": null,
       "score": 0
     }
   ],
@@ -2315,7 +2286,10 @@
     }
   ],
   "leaveRequests": [],
-  "deleted_students": [],
+  "deleted_students": [
+    "student-1792266725275-111",
+    "student-kilicaslan-new-1791141975242-78"
+  ],
   "tvAudios": {},
   "teacher_groups": [
     {
