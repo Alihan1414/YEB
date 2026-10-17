@@ -719,12 +719,11 @@ function TVContent() {
   const [reports, setReports]             = useState([]);
   const [attendanceRate, setAttendanceRate] = useState(100);
   const [foodMenu, setFoodMenu]           = useState(null);
-  const [activeRightTab, setActiveRightTab] = useState('menu'); // 'menu' | 'reports' | 'motto'
+  const [activeRightTab, setActiveRightTab] = useState('menu'); // 'menu' | 'motto'
   const [loading, setLoading]             = useState(true);
   const [lastRefresh, setLastRefresh]     = useState(new Date());
   const [hadithIdx, setHadithIdx]         = useState(0);
   const [mottoIdx, setMottoIdx]           = useState(0);
-  const [reportIdx, setReportIdx]         = useState(0);
   const [hadithVisible, setHadithVisible] = useState(true);
   const [isFullscreen, setIsFullscreen]   = useState(false);
   const [isMounted, setIsMounted]         = useState(false);
@@ -824,19 +823,14 @@ function TVContent() {
     }
   };
 
-  // ── Hadis / Motto / Menü / Rapor rotasyonu (Her 12 saniyede bir) ──
+  // ── Hadis / Motto / Menü rotasyonu (Her 12 saniyede bir) ──
   useEffect(() => {
     const interval = setInterval(() => {
       setHadithVisible(false);
       setTimeout(() => {
         setHadithIdx(i => (i + 1) % HADITHS.length);
         setMottoIdx(i => (i + 1) % MOTTOS.length);
-        setReportIdx(i => i + 1);
-        setActiveRightTab(prev => {
-          if (prev === 'menu') return 'reports';
-          if (prev === 'reports') return 'motto';
-          return 'menu';
-        });
+        setActiveRightTab(prev => (prev === 'menu' ? 'motto' : 'menu'));
         setHadithVisible(true);
       }, 500);
     }, 12000);
@@ -941,32 +935,6 @@ function TVContent() {
 
   // Gökyüzü Hesabı
   const skyData = useSunPosition();
-
-  // Son Raporlar (Pozitif / Güncel Notlar)
-  const recentReports = useMemo(() => {
-    return [...reports]
-      .filter(r => r.content && r.content.trim() !== '')
-      .sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
-      .slice(0, 10);
-  }, [reports]);
-
-  // Canlı Kayan Yazı Maddeleri (Canlı Akış Bandı)
-  const tickerItems = useMemo(() => {
-    if (recentReports.length > 0) {
-      const mapped = recentReports.map(r => ({
-        title: `${r.student_name || 'Öğrenci'} (${r.category || 'Not'}):`,
-        text: `"${r.content}"`
-      }));
-      return [...mapped, ...mapped];
-    }
-    return [
-      { title: "Bolu Kılıçarslan:", text: "Geleceği geçmişe bağlayan samimi ve ilkeli eğitim anlayışı." },
-      { title: "Cemaat & İbadet:", text: "Vakit namazlarına iştirak ve mescid edebi en büyük bereketimizdir." },
-      { title: "Ders & Etüt:", text: "Azimle çalışarak hedeflerine yürüyen tüm talebelerimize muvaffakiyetler dileriz." },
-      { title: "Bolu Kılıçarslan:", text: "Geleceği geçmişe bağlayan samimi ve ilkeli eğitim anlayışı." },
-      { title: "Cemaat & İbadet:", text: "Vakit namazlarına iştirak ve mescid edebi en büyük bereketimizdir." },
-    ];
-  }, [recentReports]);
 
   // ────────────────────────────────────────────────────────────
   // Early returns AFTER all hooks
@@ -1545,66 +1513,8 @@ function TVContent() {
             <div className="absolute top-0 right-0 w-36 h-36 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
           </div>
 
-        ) : activeRightTab === 'reports' && recentReports.length > 0 ? (
-          /* 2. SEÇENEK: CANLI BAŞARI & GAYRET RAPORU */
-          <div className="col-span-12 lg:col-span-4 bg-gradient-to-b from-[#0c244c]/95 via-[#113166]/90 to-[#091b38]/95 backdrop-blur-xl border border-sky-400/30 rounded-3xl p-6 flex flex-col justify-between relative overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
-            <div className="flex items-center justify-between border-b border-sky-500/20 pb-3">
-              <div className="flex items-center gap-2 text-sky-400 font-black text-xs md:text-sm tracking-wider uppercase">
-                <Sparkles size={18} className="text-amber-400" />
-                <span>GÜNCEL GELİŞİM & GAYRET</span>
-              </div>
-              <span className="text-[10px] font-bold text-emerald-300 bg-emerald-500/20 border border-emerald-400/30 px-2 py-0.5 rounded-md flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                Canlı Not
-              </span>
-            </div>
-
-            {(() => {
-              const currRep = recentReports[reportIdx % recentReports.length];
-              const categoryIcons = {
-                'namaz': '🤲',
-                'akademik': '📚',
-                'program': '📋',
-                'sağlık': '🩺',
-                'yemek': '🍽️',
-                'dahili': '✨'
-              };
-              const icon = categoryIcons[(currRep.category || '').toLowerCase()] || '📌';
-
-              return (
-                <div className={`my-auto py-3 space-y-3 hadith-transition ${hadithVisible ? 'hadith-visible' : 'hadith-hidden'}`}>
-                  <div className="bg-white/5 border border-sky-400/20 rounded-2xl p-4 text-left">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-amber-300 font-extrabold text-sm flex items-center gap-1.5">
-                        <span>{icon}</span> {currRep.student_name || 'Öğrencimiz'}
-                      </span>
-                      <span className="text-[10px] font-bold text-sky-300 bg-sky-500/20 border border-sky-400/30 px-2 py-0.5 rounded-full">
-                        {currRep.category || 'Gözlem'}
-                      </span>
-                    </div>
-                    <p className="text-slate-100 text-xs md:text-sm font-medium leading-relaxed italic">
-                      &ldquo;{currRep.content}&rdquo;
-                    </p>
-                    {currRep.created_at && (
-                      <div className="text-[10px] text-slate-400 mt-3 font-mono">
-                        {new Date(currRep.created_at).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })()}
-
-            <div className="text-center pt-2 border-t border-white/5">
-              <span className="text-sky-300/80 text-[11px] font-semibold italic">
-                Tüm öğrencilerimize muvaffakiyetler dileriz 🌟
-              </span>
-            </div>
-            <div className="absolute top-0 right-0 w-36 h-36 bg-sky-500/10 rounded-full blur-3xl pointer-events-none" />
-          </div>
-
         ) : (
-          /* 3. SEÇENEK: GÜNÜN MOTİVASYON VE AHLAK SÖZÜ */
+          /* 2. SEÇENEK: GÜNÜN MOTİVASYON VE AHLAK SÖZÜ */
           <div className="col-span-12 lg:col-span-4 bg-gradient-to-b from-[#131c54]/90 via-[#1b1968]/85 to-[#24135e]/90 backdrop-blur-xl border border-purple-500/25 rounded-3xl p-8 flex flex-col justify-between items-center text-center relative overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
             <div className="w-16 h-16 rounded-full bg-indigo-500/15 border border-purple-400/30 flex items-center justify-center text-sky-300 mt-4 shadow-inner">
               <Sun size={32} className="text-amber-300" />
@@ -1626,29 +1536,6 @@ function TVContent() {
             <div className="absolute bottom-0 inset-x-0 h-32 pointer-events-none opacity-20 bg-gradient-to-t from-purple-900 via-purple-800 to-transparent" />
           </div>
         )}
-      </div>
-
-      {/* ─── CANLI GELİŞMELER & TEBRİKLER AKIŞI (Canlı Kayan Yazı Bandı) ─── */}
-      <div className="relative z-10 my-2 md:my-3 bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl px-4 py-2.5 flex items-center gap-4 overflow-hidden shadow-lg">
-        <div className="flex items-center gap-2 shrink-0 bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-xs font-black tracking-wider uppercase px-3 py-1 rounded-xl">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-          </span>
-          <span>CANLI AKIŞ</span>
-        </div>
-        
-        <div className="flex-1 overflow-hidden relative">
-          <div className="animate-marquee-scroll flex items-center gap-8 whitespace-nowrap text-xs md:text-sm font-medium text-slate-200">
-            {tickerItems.map((item, idx) => (
-              <div key={idx} className="flex items-center gap-2">
-                <span className="text-amber-400 font-bold">{item.title}</span>
-                <span className="text-slate-300">{item.text}</span>
-                <span className="text-sky-400/40 ml-4">•</span>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
 
       {/* ─── İSTATİSTİK KARTLARI (Canlı Veriler) ─── */}
