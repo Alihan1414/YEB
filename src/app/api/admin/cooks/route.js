@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { readDb, writeDb } from '@/lib/db';
+import { normalizeInstitutionId, isInstitutionMatch } from '@/lib/institution';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +19,8 @@ function slugifyName(name) {
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
-    const institutionId = searchParams.get('institutionId') || 'bolu-kilicaslan';
+    const rawInstId = searchParams.get('institutionId') || 'bolu-kilicaslan';
+    const institutionId = normalizeInstitutionId(rawInstId);
 
     let cooks = [];
 
@@ -27,13 +29,13 @@ export async function GET(req) {
       const dbData = readDb();
       const localUsers = dbData.users || [];
       localUsers.forEach(lu => {
-        if (lu.institutionId === institutionId && lu.role === 'cook') {
+        if (isInstitutionMatch(lu.institutionId, institutionId) && lu.role === 'cook') {
           cooks.push({
             id: lu.id || lu.email,
             name: lu.name,
             email: lu.email,
             role: 'cook',
-            institutionId: lu.institutionId,
+            institutionId: normalizeInstitutionId(lu.institutionId),
             institutionName: lu.institutionName,
             disabled: lu.disabled || false
           });
@@ -58,7 +60,7 @@ export async function GET(req) {
           const uInstId = f.institutionId?.stringValue || '';
           const email = f.email?.stringValue || '';
           
-          if (uInstId === institutionId && role === 'cook') {
+          if (isInstitutionMatch(uInstId, institutionId) && role === 'cook') {
             if (!cooks.some(c => c.email.toLowerCase() === email.toLowerCase())) {
               cooks.push({
                 id: doc.name.split('/').pop(),

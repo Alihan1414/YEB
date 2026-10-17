@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { readDb } from '@/lib/db';
+import { normalizeInstitutionId, isInstitutionMatch } from '@/lib/institution';
 
 export const dynamic = 'force-dynamic';
 

@@ -3,19 +3,14 @@ import { readDb, writeDb } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
-// Normalize email: strip auto-added .com suffix from simple usernames
-// e.g. "yeb@2026.com" → "yeb@2026" to match local DB entries
-function normalizeEmailForLookup(email) {
-  if (!email) return '';
-  // If domain has no dot originally (e.g. @2026), the login system added .com
-  // Try both the raw email and the stripped version
-  const lower = email.toLowerCase();
-  const parts = lower.split('@');
-  if (parts.length === 2 && parts[1].endsWith('.com')) {
-    // e.g. yeb@2026.com → also try yeb@2026
-    return parts[1].slice(0, -4); // returns '2026' — the domain without .com
-  }
-  return null;
+function areEmailsEquivalent(e1, e2) {
+  if (!e1 || !e2) return false;
+  const a = e1.toLowerCase().trim();
+  const b = e2.toLowerCase().trim();
+  if (a === b) return true;
+  const aNoCom = a.endsWith('.com') ? a.slice(0, -4) : a;
+  const bNoCom = b.endsWith('.com') ? b.slice(0, -4) : b;
+  return aNoCom === bNoCom;
 }
 
 // Firebase config fallback (public client-side keys, not secrets)
@@ -116,21 +111,10 @@ export async function GET(req) {
     // 2. Fallback to local DB
     const dbData = readDb();
     const localUsers = dbData.users || [];
-    const emailLower = email ? email.toLowerCase() : '';
-    const strippedDomain = normalizeEmailForLookup(email); // e.g. '2026' from 'yeb@2026.com'
-
     let found = localUsers.find(u => {
       if (uid && u.id === uid) return true;
       if (!u.email) return false;
-      const uEmailLower = u.email.toLowerCase();
-      // Direct match
-      if (emailLower && uEmailLower === emailLower) return true;
-      // Match when Firebase added .com: e.g. 'yeb@2026.com' vs 'yeb@2026'
-      if (strippedDomain) {
-        const uParts = uEmailLower.split('@');
-        if (uParts.length === 2 && uParts[1] === strippedDomain) return true;
-      }
-      return false;
+      return areEmailsEquivalent(u.email, email);
     });
 
     // If found by email but the stored ID doesn't match Firebase UID,
