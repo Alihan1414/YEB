@@ -2,8 +2,11 @@ import { NextResponse } from 'next/server';
 import { readDb } from '@/lib/db';
 import { normalizeInstitutionId, isInstitutionMatch } from '@/lib/institution';
 import { getCached, setCached } from '@/lib/serverCache';
+import { listAllDocs, readStr, readArr, docId } from '@/lib/firestoreRest';
 
 export const dynamic = 'force-dynamic';
+
+const NO_STORE = { 'Cache-Control': 'no-store, no-cache, must-revalidate' };
 
 const CATEGORY_SCORES = {
   Akademik: 3,
@@ -13,7 +16,6 @@ const CATEGORY_SCORES = {
   Saglik: 1,
   Yoklama: 1,
   'Dahili Ders': 1,
-  // Eski veri uyumluluğu
   Namaz: 2,
   Yemek: 1,
   Dahili: 1,
@@ -24,164 +26,130 @@ export async function GET(req) {
     const { searchParams } = new URL(req.url);
     const rawInstId = searchParams.get('institutionId') || 'bolu-kilicaslan';
     const normInstId = normalizeInstitutionId(rawInstId);
+    const instOk = (i) => normInstId === 'platform' || isInstitutionMatch(i || 'bolu-kilicaslan', normInstId);
 
-    const cacheKey = `weekly_summary_${normInstId}`;
-    const cachedData = getCached(cacheKey, 60000);
+    // Gün parametresi (varsayılan son 7 gün)
+    const days = parseInt(searchParams.get('days') || '7', 10);
+
+    const cacheKey = `weekly_summary_${normInstId}_${days}`;
+    const cachedData = getCached(cacheKey, 10000); // 10 saniye kısa önbellek (anında güncellik için)
     if (cachedData) {
-      return NextResponse.json(cachedData);
+      return NextResponse.json(cachedData, { headers: NO_STORE });
     }
 
     let students = [];
     let reports = [];
     let teacherGroups = [];
 
-    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'student-reports-app-22e38';
-    const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'AIzaSyDAkvmh3UMgWeKs-Cqjd4_hS6pzb2pXkqU';
+    // 1. Firestore Bulut Veritabanından Kesintisiz Oku
+    try {
+      const [sDocs, rDocs, gDocs] = await Promise.all([
+        listAllDocs('students'),
+        listAllDocs('reports'),
+        listAllDocs('teacher_groups')
+      ]);
 
-    // 1. Fetch Students, Reports and Groups from Firestore with 8s timeout
-    if (projectId && apiKey) {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 8000);
+      students = sDocs
+        .filter(d => instOk(readStr(d.fields, 'institution_id', 'institutionId')))
+        .map(d => ({
+          id: docId(d),
+          name: readStr(d.fields, 'name'),
+          surname: readStr(d.fields, 'surname'),
+          class: readStr(d.fields, 'class'),
+          checkout_time: readStr(d.fields, 'checkout_time') || null,
+        }));
 
-      try {
-        const [sRes, rRes, gRes] = await Promise.all([
-          fetch(
-            `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/students?pageSize=300&key=${apiKey}`,
-            { cache: 'no-store', signal: controller.signal }
-          ),
-          fetch(
-            `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/reports?pageSize=1000&key=${apiKey}`,
-            { cache: 'no-store', signal: controller.signal }
-          ),
-          fetch(
-            `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/teacher_groups?pageSize=100&key=${apiKey}`,
-            { cache: 'no-store', signal: controller.signal }
-          ),
-        ]);
-        clearTimeout(timeout);
+      reports = rDocs
+        .filter(d => instOk(readStr(d.fields, 'institution_id', 'institutionId')))
+        .map(d => {
+          const f = d.fields || {};
+          return {
+            id: docId(d),
+            student_id: readStr(f, 'student_id', 'studentId').trim(),
+            student_name: readStr(f, 'student_name', 'studentName'),
+            class: readStr(f, 'class'),
+            category: readStr(f, 'category') || 'Dahili Ders',
+            isPositive: f.isPositive?.booleanValue !== false,
+            content: readStr(f, 'content'),
+            created_at: readStr(f, 'created_at') || null,
+            created_by: readStr(f, 'created_by') || 'Bilinmeyen',
+          };
+        });
 
-        if (sRes.ok && rRes.ok && gRes.ok) {
-          const [sData, rData, gData] = await Promise.all([sRes.json(), rRes.json(), gRes.json()]);
+      teacherGroups = gDocs
+        .filter(d => instOk(readStr(d.fields, 'institution_id', 'institutionId')))
+        .map(d => ({
+          id: docId(d),
+          name: readStr(d.fields, 'name'),
+          section: readStr(d.fields, 'section'),
+          teacher_name: readStr(d.fields, 'teacher_name'),
+          teacher_email: readStr(d.fields, 'teacher_email'),
+          student_ids: readArr(d.fields, 'student_ids'),
+          order: d.fields?.order?.integerValue ? Number(d.fields.order.integerValue) : 99,
+        }));
+    } catch (err) {
+      console.warn('Firestore weekly-summary read warn, fallback to local:', err.message);
+      const dbData = readDb();
+      students = (dbData.students || [])
+        .filter(s => instOk(s.institution_id || s.institutionId))
+        .map(s => ({ id: s.id, name: s.name, surname: s.surname, class: s.class, checkout_time: s.checkout_time || null }));
 
-          if (sData.documents) {
-            students = sData.documents
-              .filter(doc => {
-                const f = doc.fields || {};
-                const rInst = normalizeInstitutionId(f.institution_id?.stringValue || f.institutionId?.stringValue || 'bolu-kilicaslan');
-                return normInstId === 'platform' || isInstitutionMatch(rInst, normInstId);
-              })
-              .map(doc => {
-                const fields = doc.fields || {};
-                return {
-                  id: doc.name.split('/').pop(),
-                  name: fields.name?.stringValue || '',
-                  surname: fields.surname?.stringValue || '',
-                  class: fields.class?.stringValue || '',
-                  checkout_time: fields.checkout_time?.timestampValue || fields.checkout_time?.stringValue || null,
-                };
-              });
-          }
+      reports = (dbData.reports || [])
+        .filter(r => instOk(r.institution_id || r.institutionId))
+        .map(r => ({
+          id: r.id,
+          student_id: (r.student_id || r.studentId || '').trim(),
+          student_name: r.student_name || r.studentName,
+          class: r.class || r.className,
+          category: r.category || 'Dahili Ders',
+          isPositive: r.isPositive !== false,
+          content: r.content || '',
+          created_at: r.created_at || null,
+          created_by: r.created_by || r.createdBy || 'Bilinmeyen',
+        }));
 
-          if (rData.documents) {
-            reports = rData.documents
-              .filter(doc => {
-                const f = doc.fields || {};
-                const rInst = normalizeInstitutionId(f.institution_id?.stringValue || f.institutionId?.stringValue || 'bolu-kilicaslan');
-                return normInstId === 'platform' || isInstitutionMatch(rInst, normInstId);
-              })
-              .map(doc => {
-                const fields = doc.fields || {};
-                return {
-                  id: doc.name.split('/').pop(),
-                  student_id: fields.student_id?.stringValue || '',
-                  student_name: fields.student_name?.stringValue || '',
-                  class: fields.class?.stringValue || '',
-                  category: fields.category?.stringValue || 'Dahili Ders',
-                  isPositive: fields.isPositive?.booleanValue !== false,
-                  content: fields.content?.stringValue || '',
-                  created_at: fields.created_at?.timestampValue || fields.created_at?.stringValue || null,
-                  created_by: fields.created_by?.stringValue || 'Bilinmeyen',
-                };
-              });
-          }
-
-          if (gData.documents) {
-            teacherGroups = gData.documents
-              .filter(doc => {
-                const f = doc.fields || {};
-                const rInst = normalizeInstitutionId(f.institution_id?.stringValue || f.institutionId?.stringValue || 'bolu-kilicaslan');
-                return normInstId === 'platform' || isInstitutionMatch(rInst, normInstId);
-              })
-              .map(doc => {
-                const fields = doc.fields || {};
-                const sIds = (fields.student_ids?.arrayValue?.values || []).map(v => v.stringValue).filter(Boolean);
-                return {
-                  id: doc.name.split('/').pop(),
-                  name: fields.name?.stringValue || '',
-                  teacher_name: fields.teacher_name?.stringValue || '',
-                  teacher_email: fields.teacher_email?.stringValue || '',
-                  student_ids: sIds,
-                };
-              });
-          }
-        }
-      } catch (err) {
-        clearTimeout(timeout);
-      }
+      teacherGroups = (dbData.teacher_groups || [])
+        .filter(g => instOk(g.institution_id || g.institutionId))
+        .map((g, i) => ({
+          id: g.id,
+          name: g.name,
+          section: g.section,
+          teacher_name: g.teacher_name,
+          teacher_email: g.teacher_email,
+          student_ids: g.student_ids || [],
+          order: g.order ?? i + 1,
+        }));
     }
 
-    // Supplement from Local DB if available
-    try {
-      const dbData = readDb();
-      if ((!students || students.length === 0) && dbData.students) {
-        students = dbData.students
-          .filter(s => normInstId === 'platform' || isInstitutionMatch(s.institution_id || s.institutionId || 'bolu-kilicaslan', normInstId))
-          .map(s => ({ id: s.id, name: s.name, surname: s.surname, class: s.class, checkout_time: s.checkout_time || null }));
-      }
-      if ((!reports || reports.length === 0) && dbData.reports) {
-        reports = dbData.reports
-          .filter(r => normInstId === 'platform' || isInstitutionMatch(r.institution_id || r.institutionId || 'bolu-kilicaslan', normInstId))
-          .map(r => ({
-            id: r.id,
-            student_id: r.student_id || r.studentId,
-            student_name: r.student_name || r.studentName,
-            class: r.class || r.className,
-            category: r.category || 'Dahili Ders',
-            isPositive: r.isPositive !== false,
-            content: r.content || '',
-            created_at: r.created_at || null,
-            created_by: r.created_by || r.createdBy || 'Bilinmeyen',
-          }));
-      }
-      if ((!teacherGroups || teacherGroups.length === 0) && dbData.teacher_groups) {
-        teacherGroups = dbData.teacher_groups
-          .filter(g => normInstId === 'platform' || isInstitutionMatch(g.institution_id || g.institutionId || 'bolu-kilicaslan', normInstId))
-          .map(g => ({
-            id: g.id,
-            name: g.name,
-            teacher_name: g.teacher_name,
-            teacher_email: g.teacher_email,
-            student_ids: g.student_ids || [],
-          }));
-      }
-    } catch (e) {}
+    // Grupları sırala (Çetinkaya, Aldemir, Mısırlı, Güney, Çetinkaya, Yerlikaya, Kalkan, Zauzı, Kaşıtoğlu)
+    teacherGroups.sort((a, b) => (a.order ?? 99) - (b.order ?? 99) || (a.name || '').localeCompare(b.name || '', 'tr'));
 
-    // 2. Filter reports by last 7 days
-    const weekAgo = new Date();
-    weekAgo.setDate(weekAgo.getDate() - 7);
+    // 2. Tarih filtresi: Saat farkından dolayı sınırda kalan raporların düşmesini engellemek için gün başlangıcı (00:00:00) esas alınır
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+    cutoffDate.setHours(0, 0, 0, 0);
 
     const weeklyReports = reports.filter(r => {
-      const d = r.created_at ? new Date(r.created_at) : null;
-      return d && d >= weekAgo;
+      if (!r.created_at) return false;
+      const d = new Date(r.created_at);
+      return !isNaN(d.getTime()) && d >= cutoffDate;
     });
 
-    // 3. Calculations
+    // 3. Hesaplamalar ve Detaylı Analizler
     const studentMap = Object.fromEntries(students.map(s => [s.id, s]));
     
-    // Class-level stats aggregation
     const classDataMap = {};
     const teacherPerformance = {};
     const studentStatsMap = {};
+    const dailyActivityMap = {}; // Günlük trend analizi
+
+    // Son 'days' günün tarihlerini hazırla
+    for (let i = 0; i < days; i++) {
+      const dt = new Date();
+      dt.setDate(dt.getDate() - i);
+      const key = dt.toISOString().slice(0, 10);
+      dailyActivityMap[key] = { date: key, count: 0, positive: 0, negative: 0 };
+    }
 
     const categoryCounts = {
       Akademik: 0,
@@ -193,12 +161,12 @@ export async function GET(req) {
     };
 
     const categoryBreakdown = {
-      Akademik: { name: 'Akademik', count: 0, positiveCount: 0, negativeCount: 0, reports: [], classDist: {}, studentScores: {} },
-      Yoklama: { name: 'Yoklama', count: 0, positiveCount: 0, negativeCount: 0, reports: [], classDist: {}, studentScores: {} },
-      Program: { name: 'Program', count: 0, positiveCount: 0, negativeCount: 0, reports: [], classDist: {}, studentScores: {} },
-      Sağlık: { name: 'Sağlık', count: 0, positiveCount: 0, negativeCount: 0, reports: [], classDist: {}, studentScores: {} },
-      'Girdi Çıktı': { name: 'Girdi Çıktı', count: 0, positiveCount: 0, negativeCount: 0, reports: [], classDist: {}, studentScores: {} },
-      'Dahili Ders': { name: 'Dahili Ders', count: 0, positiveCount: 0, negativeCount: 0, reports: [], classDist: {}, studentScores: {} },
+      Akademik: { name: 'Akademik', count: 0, positiveCount: 0, negativeCount: 0, reports: [], classDist: {}, groupDist: {}, studentScores: {} },
+      Yoklama: { name: 'Yoklama', count: 0, positiveCount: 0, negativeCount: 0, reports: [], classDist: {}, groupDist: {}, studentScores: {} },
+      Program: { name: 'Program', count: 0, positiveCount: 0, negativeCount: 0, reports: [], classDist: {}, groupDist: {}, studentScores: {} },
+      Sağlık: { name: 'Sağlık', count: 0, positiveCount: 0, negativeCount: 0, reports: [], classDist: {}, groupDist: {}, studentScores: {} },
+      'Girdi Çıktı': { name: 'Girdi Çıktı', count: 0, positiveCount: 0, negativeCount: 0, reports: [], classDist: {}, groupDist: {}, studentScores: {} },
+      'Dahili Ders': { name: 'Dahili Ders', count: 0, positiveCount: 0, negativeCount: 0, reports: [], classDist: {}, groupDist: {}, studentScores: {} },
     };
 
     let weeklyYoklamaCount = 0;
@@ -207,10 +175,19 @@ export async function GET(req) {
     let totalPositiveReports = 0;
 
     const validWeeklyReports = [];
+
+    // Hangi öğrencinin hangi grupta olduğunu hızla bulmak için harita
+    const studentToGroupMap = {};
+    teacherGroups.forEach(grp => {
+      (grp.student_ids || []).forEach(sid => {
+        studentToGroupMap[sid] = grp.name + (grp.section ? ` (${grp.section})` : '');
+      });
+    });
+
     weeklyReports.forEach(r => {
-      const sId = (r.student_id || r.studentId || '').trim();
+      const sId = (r.student_id || '').trim();
       const st = studentMap[sId];
-      if (!st) return; // Skip orphan reports that do not belong to active students
+      if (!st) return;
 
       let category = r.category || 'Dahili Ders';
       if (category === 'Yemek') category = 'Yoklama';
@@ -225,28 +202,38 @@ export async function GET(req) {
       if (isPos) totalPositiveReports++;
       validWeeklyReports.push(r);
 
-      // Category counters
+      // Günlük trend
+      if (r.created_at) {
+        const dayKey = r.created_at.slice(0, 10);
+        if (dailyActivityMap[dayKey]) {
+          dailyActivityMap[dayKey].count++;
+          if (isPos) dailyActivityMap[dayKey].positive++;
+          else dailyActivityMap[dayKey].negative++;
+        }
+      }
+
       categoryCounts[category] = (categoryCounts[category] || 0) + 1;
       if (category === 'Yoklama') weeklyYoklamaCount++;
       if (category === 'Akademik') weeklyAkademikCount++;
       if (category === 'Dahili Ders') weeklyDahiliCount++;
 
-      // Real Student & Class mapping
       const cls = st.class || 'Genel';
       const studentFullName = `${st.name} ${st.surname}`.trim();
+      const groupName = studentToGroupMap[sId] || 'Grup Dışı';
 
-      // Category breakdown aggregation
       if (categoryBreakdown[category]) {
         categoryBreakdown[category].count += 1;
         if (isPos) categoryBreakdown[category].positiveCount += 1;
         else categoryBreakdown[category].negativeCount += 1;
         categoryBreakdown[category].classDist[cls] = (categoryBreakdown[category].classDist[cls] || 0) + 1;
+        categoryBreakdown[category].groupDist[groupName] = (categoryBreakdown[category].groupDist[groupName] || 0) + 1;
         categoryBreakdown[category].studentScores[studentFullName] = (categoryBreakdown[category].studentScores[studentFullName] || 0) + pts;
         categoryBreakdown[category].reports.push({
           id: r.id,
           studentName: studentFullName,
           studentId: r.student_id,
           className: cls,
+          groupName: groupName,
           content: r.content,
           isPositive: isPos,
           createdAt: r.created_at,
@@ -255,7 +242,7 @@ export async function GET(req) {
         });
       }
 
-      // Class aggregation
+      // Sınıf agregasyonu
       if (!classDataMap[cls]) {
         classDataMap[cls] = {
           name: cls,
@@ -275,13 +262,14 @@ export async function GET(req) {
       if (category === 'Dahili Ders') classDataMap[cls].dahiliCount += 1;
       classDataMap[cls].categories[category] = (classDataMap[cls].categories[category] || 0) + 1;
 
-      // Student-level aggregation
+      // Öğrenci agregasyonu
       if (r.student_id) {
         if (!studentStatsMap[r.student_id]) {
           studentStatsMap[r.student_id] = {
             id: r.student_id,
             name: studentFullName,
             class: cls,
+            groupName: groupName,
             score: 0,
             reportCount: 0,
             positiveCount: 0,
@@ -305,19 +293,16 @@ export async function GET(req) {
         classDataMap[cls].studentScores[r.student_id] = (classDataMap[cls].studentScores[r.student_id] || 0) + pts;
       }
 
-      // Teacher performance
       const teacher = r.created_by || 'Bilinmeyen';
       teacherPerformance[teacher] = (teacherPerformance[teacher] || 0) + 1;
     });
 
-    // Sort category reports newest first
     Object.keys(categoryBreakdown).forEach(cat => {
       categoryBreakdown[cat].reports.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
       const total = categoryBreakdown[cat].count;
       categoryBreakdown[cat].efficiencyRate = total > 0 ? Math.round((categoryBreakdown[cat].positiveCount / total) * 100) : 0;
     });
 
-    // Top Classes Formatting
     const topClasses = Object.values(classDataMap).map(c => {
       const eff = c.reportCount > 0 ? Math.round((c.positiveCount / c.reportCount) * 100) : 0;
       const dahiliRate = c.reportCount > 0 ? Math.round((c.dahiliCount / c.reportCount) * 100) : 0;
@@ -334,7 +319,7 @@ export async function GET(req) {
       };
     }).sort((a, b) => b.score - a.score);
 
-    // Group-level Aggregation (Öğretmen Grupları: Aslanlar vb.)
+    // Öğretmen Grupları Detaylı Analizi (Çetinkaya, Aldemir, Mısırlı, Güney...)
     const topGroups = teacherGroups.map(grp => {
       const memberIds = new Set(grp.student_ids || []);
       let grpScore = 0;
@@ -354,10 +339,13 @@ export async function GET(req) {
         memberList.push({
           id: stId,
           name: st ? `${st.name} ${st.surname}` : 'Öğrenci',
-          class: st?.class || 'Genel',
+          class: st?.class || grp.section || 'Genel',
           score: sc,
           reportCount: repCount,
+          positiveCount: stStat ? stStat.positiveCount : 0,
+          negativeCount: stStat ? stStat.negativeCount : 0,
           dahiliCount: dahCount,
+          lastNote: stStat ? stStat.lastNegativeNote : '',
         });
 
         if (stStat) {
@@ -371,12 +359,14 @@ export async function GET(req) {
 
       memberList.sort((a, b) => b.score - a.score);
 
-      const eff = grpReports > 0 ? Math.round((grpPos / grpReports) * 100) : 0;
+      const eff = grpReports > 0 ? Math.round((grpPos / grpReports) * 100) : 100;
       const dahiliRate = grpReports > 0 ? Math.round((grpDahili / grpReports) * 100) : 0;
 
       return {
         id: grp.id,
         name: grp.name,
+        section: grp.section || '',
+        displayName: `${grp.name}${grp.section ? ` (${grp.section})` : ''}`,
         teacherName: grp.teacher_name || 'Öğretmen',
         teacherEmail: grp.teacher_email || '',
         studentCount: memberIds.size,
@@ -389,31 +379,31 @@ export async function GET(req) {
         dahiliParticipationRate: dahiliRate,
         members: memberList,
       };
-    }).sort((a, b) => b.score - a.score);
+    }).sort((a, b) => b.score - a.score || b.efficiencyRate - a.efficiencyRate);
 
-    // AYRIŞTIRMA: Sadece POZİTİF gelişim gösteren (score > 0) talebeleri en başarılı olarak sırala!
     const allStudentStats = Object.values(studentStatsMap);
 
     const topStudents = allStudentStats
       .filter(s => s.score > 0)
       .sort((a, b) => b.score - a.score)
-      .slice(0, 15);
+      .slice(0, 20);
 
-    // AYRIŞTIRMA: Olumsuz davranış veya eksi puanı olanları destek/rehberlik listesine al!
     const studentsNeedingSupport = allStudentStats
       .filter(s => s.negativeCount > 0 || s.score < 0)
-      .sort((a, b) => a.score - b.score) // en düşük puanlılar en başta
-      .slice(0, 15);
+      .sort((a, b) => a.score - b.score)
+      .slice(0, 20);
 
     const overallEfficiency = validWeeklyReports.length > 0 
       ? Math.round((totalPositiveReports / validWeeklyReports.length) * 100) 
-      : 0;
+      : 100;
 
-    // Checkouts overview
     const checkedOutStudents = students.filter(s => s.checkout_time);
+    const dailyActivity = Object.values(dailyActivityMap).sort((a, b) => a.date.localeCompare(b.date));
 
     const summaryResult = {
       success: true,
+      periodDays: days,
+      allTimeReportsCount: reports.length, // Kurumun bugüne kadar kaydedilmiş kalıcı toplam rapor sayısı
       totalStudentsCount: students.length,
       checkedOutCount: checkedOutStudents.length,
       insideCount: students.length - checkedOutStudents.length,
@@ -424,17 +414,17 @@ export async function GET(req) {
       overallEfficiency,
       categoryCounts,
       categoryBreakdown,
+      dailyActivity,
       topClasses,
       topGroups,
       topStudents,
       studentsNeedingSupport,
       teacherPerformance,
-      // Backward compatibility fields
       weeklyNamazCount: weeklyYoklamaCount,
     };
 
     setCached(cacheKey, summaryResult);
-    return NextResponse.json(summaryResult);
+    return NextResponse.json(summaryResult, { headers: NO_STORE });
 
   } catch (error) {
     console.error('Weekly Summary API Error:', error);

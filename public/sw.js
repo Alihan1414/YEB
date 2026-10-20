@@ -1,5 +1,5 @@
-// Service Worker — Web Push Bildirimleri
-// Bu dosya arka planda çalışarak push bildirimlerini yakalar
+// Service Worker — Web Push Bildirimleri & Otomatik Önbellek Temizleme
+// SW Version: v2.5.0-bolu-oct2026
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();

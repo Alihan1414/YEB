@@ -221,7 +221,7 @@ export default function WeeklySummaryPage() {
 
   // Chart data for modal
   const groupChartData = (stats?.topGroups || []).map(g => ({
-    name: g.name,
+    name: g.displayName || g.name,
     score: g.score,
     dahili: g.dahiliCount,
     efficiency: g.efficiencyRate
@@ -1105,7 +1105,7 @@ export default function WeeklySummaryPage() {
                                 {grp.score > 0 && i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i+1}`}
                               </div>
                               <div>
-                                <h3 className="text-base font-black text-slate-900">{grp.name}</h3>
+                                <h3 className="text-base font-black text-slate-900">{grp.displayName || grp.name}</h3>
                                 <p className="text-xs text-slate-400 font-semibold">
                                   Sorumlu: <span className="text-slate-700 font-bold">{grp.teacherName}</span> · {grp.studentCount} Talebe
                                 </p>

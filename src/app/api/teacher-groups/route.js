@@ -2,170 +2,102 @@ import { NextResponse } from 'next/server';
 import { readDb, writeDb } from '@/lib/db';
 import { normalizeInstitutionId, isInstitutionMatch } from '@/lib/institution';
 import { getCached, setCached, invalidateCache } from '@/lib/serverCache';
+import { listAllDocs, patchDoc, deleteDoc, S, ARR, readStr, readArr, docId } from '@/lib/firestoreRest';
 
 export const dynamic = 'force-dynamic';
 
-function getFirestoreConfig() {
-  const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'student-reports-app-22e38';
-  const apiKey    = process.env.NEXT_PUBLIC_FIREBASE_API_KEY    || 'AIzaSyDAkvmh3UMgWeKs-Cqjd4_hS6pzb2pXkqU';
-  return { projectId, apiKey };
+const NO_STORE = { 'Cache-Control': 'no-store, no-cache, must-revalidate' };
+
+function docToGroup(doc) {
+  const f = doc.fields || {};
+  return {
+    id: docId(doc),
+    name: readStr(f, 'name'),
+    section: readStr(f, 'section'),
+    aliases: readArr(f, 'aliases'),
+    order: f.order?.integerValue !== undefined ? Number(f.order.integerValue) : 999,
+    teacher_email: readStr(f, 'teacher_email'),
+    teacher_name: readStr(f, 'teacher_name'),
+    teacher_id: readStr(f, 'teacher_id'),
+    student_ids: readArr(f, 'student_ids'),
+    student_names: readArr(f, 'student_names'),
+    institution_id: normalizeInstitutionId(readStr(f, 'institution_id', 'institutionId') || 'bolu-kilicaslan'),
+    created_at: readStr(f, 'created_at') || null,
+  };
 }
 
-function fsUrl(projectId, apiKey, path, extra = '') {
-  return `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${path}?key=${apiKey}${extra}`;
+function sortGroups(groups) {
+  return groups.sort((a, b) => (a.order ?? 999) - (b.order ?? 999) || (a.name || '').localeCompare(b.name || '', 'tr'));
 }
 
 // ─── GET ─────────────────────────────────────────────────────────────────────
 export async function GET(req) {
-  const { projectId, apiKey } = getFirestoreConfig();
   const { searchParams } = new URL(req.url);
-  const rawInstId  = searchParams.get('institutionId') || '';
+  const rawInstId = searchParams.get('institutionId') || '';
   const normInstId = rawInstId ? normalizeInstitutionId(rawInstId) : '';
+  const instOk = (i) => !normInstId || isInstitutionMatch(i, normInstId);
 
   const cacheKey = `groups_${normInstId || 'all'}`;
-  const cachedData = getCached(cacheKey);
-  if (cachedData) {
-    return NextResponse.json({ success: true, groups: cachedData });
-  }
+  const cached = getCached(cacheKey, 8000);
+  if (cached) return NextResponse.json({ success: true, groups: cached }, { headers: NO_STORE });
 
-  const groupsMap = new Map();
-
-  // 1. Fetch from Firestore (with 1.2s timeout to prevent hanging)
-  if (projectId && apiKey) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
-      const res = await fetch(
-        fsUrl(projectId, apiKey, 'teacher_groups', '&pageSize=300'),
-        { cache: 'no-store', signal: controller.signal }
-      );
-      clearTimeout(timeoutId);
-      if (res.ok) {
-        const data = await res.json();
-        (data.documents || []).forEach(doc => {
-          const fields = doc.fields || {};
-          const id = doc.name.split('/').pop();
-          const rInst = fields.institution_id?.stringValue || fields.institutionId?.stringValue || 'bolu-kilicaslan';
-          
-          if (!normInstId || isInstitutionMatch(rInst, normInstId)) {
-            const studentIds = (fields.student_ids?.arrayValue?.values || []).map(v => v.stringValue).filter(Boolean);
-            const studentNames = (fields.student_names?.arrayValue?.values || []).map(v => v.stringValue).filter(Boolean);
-            
-            groupsMap.set(id, {
-              id,
-              name: fields.name?.stringValue || '',
-              teacher_email: fields.teacher_email?.stringValue || '',
-              teacher_name: fields.teacher_name?.stringValue || '',
-              teacher_id: fields.teacher_id?.stringValue || '',
-              student_ids: studentIds,
-              student_names: studentNames,
-              institution_id: normalizeInstitutionId(rInst),
-              created_at: fields.created_at?.timestampValue || fields.created_at?.stringValue || null,
-            });
-          }
-        });
-      }
-    } catch (err) {
-      // Ignore Firestore timeout or quota error, fallback to local DB
-    }
-  }
-
-  // 2. Supplement from Local DB
+  let groups;
+  let fromCloud = true;
   try {
-    const dbData = readDb();
-    (dbData.teacher_groups || []).forEach(g => {
-      const rInst = g.institution_id || g.institutionId || 'bolu-kilicaslan';
-      if (!normInstId || isInstitutionMatch(rInst, normInstId)) {
-        if (!groupsMap.has(g.id)) {
-          groupsMap.set(g.id, {
-            ...g,
-            institution_id: normalizeInstitutionId(rInst)
-          });
-        }
-      }
-    });
-  } catch (e) {}
+    groups = (await listAllDocs('teacher_groups')).map(docToGroup).filter(g => instOk(g.institution_id));
+  } catch (err) {
+    console.error('Groups Firestore read failed:', err.message);
+    fromCloud = false;
+    groups = (readDb().teacher_groups || [])
+      .map(g => ({ ...g, institution_id: normalizeInstitutionId(g.institution_id || g.institutionId || 'bolu-kilicaslan') }))
+      .filter(g => instOk(g.institution_id));
+  }
 
-  const groups = Array.from(groupsMap.values());
-  groups.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'tr'));
-
-  setCached(cacheKey, groups);
-  return NextResponse.json({ success: true, groups });
+  sortGroups(groups);
+  if (fromCloud) setCached(cacheKey, groups);
+  return NextResponse.json({ success: true, groups }, { headers: NO_STORE });
 }
 
 // ─── POST ────────────────────────────────────────────────────────────────────
 export async function POST(req) {
-  const { projectId, apiKey } = getFirestoreConfig();
-
   try {
-    const body = await req.json();
-    const {
-      name,
-      teacherEmail,
-      teacherName,
-      teacherId,
-      studentIds = [],
-      studentNames = [],
-      institutionId = 'bolu-kilicaslan'
-    } = body;
-
+    const { name, teacherEmail, teacherName, teacherId, studentIds = [], studentNames = [], institutionId = 'bolu-kilicaslan' } = await req.json();
     if (!name || !name.trim()) {
       return NextResponse.json({ success: false, error: 'Grup adı zorunludur.' }, { status: 400 });
     }
 
-    const groupId = `group-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-    const nowIso = new Date().toISOString();
-    const cleanInstId = normalizeInstitutionId(institutionId);
-
     const newGroup = {
-      id: groupId,
+      id: `group-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       name: name.trim(),
       teacher_email: (teacherEmail || '').trim(),
       teacher_name: (teacherName || '').trim(),
       teacher_id: (teacherId || '').trim(),
       student_ids: studentIds,
       student_names: studentNames,
-      institution_id: cleanInstId,
-      created_at: nowIso,
+      institution_id: normalizeInstitutionId(institutionId),
+      created_at: new Date().toISOString(),
     };
 
-    // 1. Save to Local DB
     try {
-      const dbData = readDb();
-      dbData.teacher_groups = dbData.teacher_groups || [];
-      dbData.teacher_groups = dbData.teacher_groups.filter(g => g.id !== groupId);
-      dbData.teacher_groups.unshift(newGroup);
-      writeDb(dbData);
-    } catch (e) {
-      console.warn('Local DB group save error:', e.message);
+      await patchDoc(`teacher_groups/${newGroup.id}`, {
+        name: S(newGroup.name),
+        teacher_email: S(newGroup.teacher_email),
+        teacher_name: S(newGroup.teacher_name),
+        teacher_id: S(newGroup.teacher_id),
+        student_ids: ARR(studentIds),
+        student_names: ARR(studentNames),
+        institution_id: S(newGroup.institution_id),
+        created_at: { timestampValue: newGroup.created_at },
+      });
+    } catch (err) {
+      return NextResponse.json({ success: false, error: 'Grup buluta kaydedilemedi, tekrar deneyin.' }, { status: 503 });
     }
 
-    // 2. Save to Firestore
-    if (projectId && apiKey) {
-      try {
-        await fetch(
-          fsUrl(projectId, apiKey, `teacher_groups/${groupId}`),
-          {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              fields: {
-                name:           { stringValue: newGroup.name },
-                teacher_email:  { stringValue: newGroup.teacher_email },
-                teacher_name:   { stringValue: newGroup.teacher_name },
-                teacher_id:     { stringValue: newGroup.teacher_id },
-                student_ids:    { arrayValue: { values: studentIds.map(id => ({ stringValue: id })) } },
-                student_names:  { arrayValue: { values: studentNames.map(n => ({ stringValue: n })) } },
-                institution_id: { stringValue: cleanInstId },
-                created_at:     { timestampValue: nowIso },
-              },
-            }),
-          }
-        );
-      } catch (err) {
-        console.warn('Firestore POST group warn:', err.message);
-      }
-    }
+    try {
+      const db = readDb();
+      db.teacher_groups = [newGroup, ...(db.teacher_groups || []).filter(g => g.id !== newGroup.id)];
+      writeDb(db);
+    } catch (e) {}
 
     invalidateCache('groups');
     return NextResponse.json({ success: true, group: newGroup });
@@ -177,65 +109,34 @@ export async function POST(req) {
 
 // ─── PUT ─────────────────────────────────────────────────────────────────────
 export async function PUT(req) {
-  const { projectId, apiKey } = getFirestoreConfig();
-
   try {
-    const body = await req.json();
-    const { id, name, studentIds, studentNames } = body;
+    const { id, name, studentIds, studentNames } = await req.json();
+    if (!id) return NextResponse.json({ success: false, error: 'Grup ID eksik.' }, { status: 400 });
 
-    if (!id) {
-      return NextResponse.json({ success: false, error: 'Grup ID eksik.' }, { status: 400 });
-    }
+    const fields = {};
+    const mask = [];
+    if (name !== undefined) { fields.name = S(name.trim()); mask.push('name'); }
+    if (studentIds !== undefined) { fields.student_ids = ARR(studentIds); mask.push('student_ids'); }
+    if (studentNames !== undefined) { fields.student_names = ARR(studentNames); mask.push('student_names'); }
 
-    // 1. Local DB
-    try {
-      const dbData = readDb();
-      if (dbData.teacher_groups) {
-        const idx = dbData.teacher_groups.findIndex(g => g.id === id);
-        if (idx !== -1) {
-          if (name !== undefined) dbData.teacher_groups[idx].name = name.trim();
-          if (studentIds !== undefined) dbData.teacher_groups[idx].student_ids = studentIds;
-          if (studentNames !== undefined) dbData.teacher_groups[idx].student_names = studentNames;
-          writeDb(dbData);
-        }
-      }
-    } catch (e) {
-      console.warn('Local DB group PUT error:', e.message);
-    }
-
-    // 2. Firestore
-    if (projectId && apiKey) {
+    if (mask.length) {
       try {
-        const updateFields = {};
-        const fieldMasks = [];
-
-        if (name !== undefined) {
-          updateFields.name = { stringValue: name.trim() };
-          fieldMasks.push('updateMask.fieldPaths=name');
-        }
-        if (studentIds !== undefined) {
-          updateFields.student_ids = { arrayValue: { values: studentIds.map(sid => ({ stringValue: sid })) } };
-          fieldMasks.push('updateMask.fieldPaths=student_ids');
-        }
-        if (studentNames !== undefined) {
-          updateFields.student_names = { arrayValue: { values: studentNames.map(sn => ({ stringValue: sn })) } };
-          fieldMasks.push('updateMask.fieldPaths=student_names');
-        }
-
-        if (fieldMasks.length > 0) {
-          await fetch(
-            fsUrl(projectId, apiKey, `teacher_groups/${id}`, `&${fieldMasks.join('&')}`),
-            {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ fields: updateFields }),
-            }
-          );
-        }
+        await patchDoc(`teacher_groups/${id}`, fields, mask);
       } catch (err) {
-        console.warn('Firestore PUT group warn:', err.message);
+        return NextResponse.json({ success: false, error: 'Grup güncellenemedi, tekrar deneyin.' }, { status: 503 });
       }
     }
+
+    try {
+      const db = readDb();
+      const g = (db.teacher_groups || []).find(x => x.id === id);
+      if (g) {
+        if (name !== undefined) g.name = name.trim();
+        if (studentIds !== undefined) g.student_ids = studentIds;
+        if (studentNames !== undefined) g.student_names = studentNames;
+        writeDb(db);
+      }
+    } catch (e) {}
 
     invalidateCache('groups');
     return NextResponse.json({ success: true });
@@ -247,30 +148,21 @@ export async function PUT(req) {
 
 // ─── DELETE ──────────────────────────────────────────────────────────────────
 export async function DELETE(req) {
-  const { projectId, apiKey } = getFirestoreConfig();
   const { searchParams } = new URL(req.url);
   const id = searchParams.get('id');
-
-  if (!id) {
-    return NextResponse.json({ success: false, error: 'Grup ID eksik.' }, { status: 400 });
-  }
+  if (!id) return NextResponse.json({ success: false, error: 'Grup ID eksik.' }, { status: 400 });
 
   try {
-    // 1. Local DB
     try {
-      const dbData = readDb();
-      if (dbData.teacher_groups) {
-        dbData.teacher_groups = dbData.teacher_groups.filter(g => g.id !== id);
-        writeDb(dbData);
-      }
-    } catch (e) {}
-
-    // 2. Firestore
-    if (projectId && apiKey) {
-      try {
-        await fetch(fsUrl(projectId, apiKey, `teacher_groups/${id}`), { method: 'DELETE' });
-      } catch (e) {}
+      await deleteDoc(`teacher_groups/${id}`);
+    } catch (err) {
+      return NextResponse.json({ success: false, error: 'Grup silinemedi, tekrar deneyin.' }, { status: 503 });
     }
+    try {
+      const db = readDb();
+      db.teacher_groups = (db.teacher_groups || []).filter(g => g.id !== id);
+      writeDb(db);
+    } catch (e) {}
 
     invalidateCache('groups');
     return NextResponse.json({ success: true, id });

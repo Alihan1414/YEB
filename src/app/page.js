@@ -488,73 +488,33 @@ export default function StudentsPage() {
       if (data.success && data.data) {
         setAiMatch(data.data);
         
-        // Match all students from returned matchedStudents
-        const matchedList = [];
-        const rawMatches = Array.isArray(data.data.matchedStudents) ? [...data.data.matchedStudents] : [];
-        if (data.data.matchedStudentId && !rawMatches.some(m => m.id === data.data.matchedStudentId)) {
-          rawMatches.push({ id: data.data.matchedStudentId, name: data.data.matchedStudentName });
-        }
-
-        // If a group was identified, guarantee all group members from teacherGroups are included
-        if (data.data.matchedGroupName) {
-          const normTargetGrp = data.data.matchedGroupName.toLowerCase().replace(/[^a-z0-9]/g, '');
-          const grp = teacherGroups.find(g => {
-            const normG = (g.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-            return normG === normTargetGrp || normG.includes(normTargetGrp) || normTargetGrp.includes(normG);
-          });
-          if (grp && Array.isArray(grp.student_ids)) {
-            grp.student_ids.forEach(sId => {
-              const st = students.find(s => s.id === sId);
-              if (st && !matchedList.some(m => m.id === st.id)) {
-                matchedList.push(st);
-              }
-            });
-          }
-        }
-
-        // If a class was identified, guarantee all students in that class are included
-        if (data.data.matchedClassName) {
-          const normTargetCls = String(data.data.matchedClassName).toLowerCase().replace(/[^a-z0-9]/g, '');
-          students.forEach(st => {
-            if (st.class) {
-              const normC = String(st.class).toLowerCase().replace(/[^a-z0-9]/g, '');
-              if (normC === normTargetCls || normC.includes(normTargetCls)) {
-                if (!matchedList.some(m => m.id === st.id)) {
-                  matchedList.push(st);
-                }
-              }
-            }
-          });
-        }
-
+        // API zaten tüm grup, sınıf, hariç tutma ve tekil eşleştirmeleri eksiksiz yaptı
+        const rawMatches = Array.isArray(data.data.matchedStudents) ? data.data.matchedStudents : [];
+        const matchedIdSet = new Set(rawMatches.map(m => String(m.id)));
+        
+        const matchedList = students.filter(s => matchedIdSet.has(String(s.id)));
+        // Local listede henüz id'si eşleşmeyen varsa API'den ekle
         rawMatches.forEach(rm => {
-          const normId = String(rm.id || '').trim().toLowerCase();
-          const rawRmName = String(rm.name || '').trim().toLowerCase();
-          const normName = rawRmName.replace(/[^a-z0-9]/g, '');
-
-          const st = students.find(s => normId && String(s.id).trim().toLowerCase() === normId)
-                  || students.find(s => normId && String(s.id).trim().toLowerCase().includes(normId))
-                  || students.find(s => {
-                       const full = `${s.name || ''} ${s.surname || ''}`.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-                       return normName && (full === normName || full.includes(normName) || normName.includes(full));
-                     })
-                  || students.find(s => {
-                       const fn = String(s.name || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-                       const sn = String(s.surname || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
-                       return (fn && fn.length >= 3 && normName.includes(fn)) || (sn && sn.length >= 4 && normName.includes(sn));
-                     });
-
-          if (st && !matchedList.some(m => m.id === st.id)) {
-            matchedList.push(st);
+          if (!matchedList.some(s => String(s.id) === String(rm.id))) {
+            const parts = (rm.name || '').trim().split(/\s+/);
+            matchedList.push({
+              id: rm.id,
+              name: parts.length > 1 ? parts.slice(0, -1).join(' ') : rm.name,
+              surname: parts.length > 1 ? parts.slice(-1)[0] : '',
+              class: rm.class || '',
+              parent_phone: '',
+            });
           }
         });
 
         setSelectedBulkStudents(matchedList);
 
-        if (data.data.matchedGroupName) {
-          showToast(`🎯 "${data.data.matchedGroupName}" grubu tespit edildi (${matchedList.length} öğrenci)!`);
+        if (Array.isArray(data.data.notes) && data.data.notes.length > 0) {
+          showToast(`ℹ️ ${data.data.notes[0]}`, 'warning');
+        } else if (data.data.matchedGroupName) {
+          showToast(`🎯 "${data.data.matchedGroupName}" grubu (${matchedList.length} öğrenci) tespit edildi!`);
         } else if (data.data.matchedClassName) {
-          showToast(`🎯 "${data.data.matchedClassName}" sınıfı tespit edildi (${matchedList.length} öğrenci)!`);
+          showToast(`🎯 "${data.data.matchedClassName}" (${matchedList.length} öğrenci) tespit edildi!`);
         } else if (matchedList.length === 1) {
           showToast(`✅ ${matchedList[0].name} ${matchedList[0].surname} tespit edildi!`);
         } else if (matchedList.length > 1) {
@@ -645,30 +605,43 @@ export default function StudentsPage() {
     let savedCount = 0;
 
     try {
-      for (const st of targetStudents) {
-        const res = await fetch('/api/students/reports', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            studentId: st.id,
-            studentName: `${st.name} ${st.surname}`,
-            className: st.class || '',
-            parentPhone: st.parent_phone || '',
-            content: aiMatch.extractedText,
-            category: aiMatch.category || 'Dahili',
-            isPositive: aiMatch.isPositive !== false,
-            notifyParent: !!notifyParent,
-            institutionId: instId,
-            createdBy: author,
-          }),
-        });
-        const data = await res.json();
-        if (data.success) {
-          savedCount++;
-          if (data.report) {
-            setReports(prev => [data.report, ...prev.filter(r => r.id !== data.report.id)]);
+      // 4'lü paralel paketler halinde kaydet (eski telefonlarda bağlantı kopmasını engeller ve 4 kat hızlandırır)
+      const chunkSize = 4;
+      const newSavedReports = [];
+      
+      for (let i = 0; i < targetStudents.length; i += chunkSize) {
+        const chunk = targetStudents.slice(i, i + chunkSize);
+        await Promise.all(chunk.map(async (st) => {
+          try {
+            const res = await fetch('/api/students/reports', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                studentId: st.id,
+                studentName: `${st.name} ${st.surname}`,
+                className: st.class || '',
+                parentPhone: st.parent_phone || '',
+                content: aiMatch.extractedText,
+                category: aiMatch.category || 'Dahili',
+                isPositive: aiMatch.isPositive !== false,
+                notifyParent: !!notifyParent,
+                institutionId: instId,
+                createdBy: author,
+              }),
+            });
+            const data = await res.json();
+            if (data.success) {
+              savedCount++;
+              if (data.report) newSavedReports.push(data.report);
+            }
+          } catch (stErr) {
+            console.error('Rapor kaydetme hatası:', st.name, stErr);
           }
-        }
+        }));
+      }
+
+      if (newSavedReports.length > 0) {
+        setReports(prev => [...newSavedReports, ...prev.filter(r => !newSavedReports.some(nr => nr.id === r.id))]);
       }
 
       showToast(`${savedCount} öğrenci için rapor başarıyla kaydedildi!`);
@@ -1095,9 +1068,18 @@ export default function StudentsPage() {
   const classesList = ['All', ...Array.from(new Set(students.map(s => s.class).filter(c => c && typeof c === 'string' && c.trim()))).sort()];
   const filteredStudents = students.filter(s => {
     const name = `${s.name} ${s.surname}`.toLowerCase();
+    let matchesClassOrGroup = true;
+    if (selectedClass.startsWith('group:')) {
+      const gId = selectedClass.replace('group:', '');
+      const grp = teacherGroups.find(g => g.id === gId);
+      matchesClassOrGroup = grp ? (grp.student_ids || []).includes(s.id) : true;
+    } else if (selectedClass !== 'All') {
+      matchesClassOrGroup = s.class === selectedClass;
+    }
+
     return (
       (name.includes(searchQuery.toLowerCase()) || (s.class && s.class.toLowerCase().includes(searchQuery.toLowerCase()))) &&
-      (selectedClass === 'All' || s.class === selectedClass)
+      matchesClassOrGroup
     );
   });
 
@@ -1219,10 +1201,23 @@ export default function StudentsPage() {
                       onChange={e => setSelectedClass(e.target.value)}
                       className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-xs md:text-sm text-slate-700 font-semibold focus:outline-none focus:border-blue-600 transition-all appearance-none cursor-pointer"
                     >
-                      <option value="All">Tüm Sınıflar</option>
-                      {classesList.filter(c => c !== 'All' && c && c.trim()).map(cls => (
-                        <option key={cls} value={cls}>{cls}</option>
-                      ))}
+                      <option value="All">Tüm Talebeler ({students.length})</option>
+                      
+                      {teacherGroups.length > 0 && (
+                        <optgroup label="📋 Öğretmen Grupları">
+                          {teacherGroups.map(grp => (
+                            <option key={grp.id} value={`group:${grp.id}`}>
+                              {grp.name} {grp.section ? `(${grp.section})` : ''} — {(grp.student_ids || []).length} Talebe
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
+
+                      <optgroup label="🏫 Bölümler / Sınıflar">
+                        {classesList.filter(c => c !== 'All' && c && c.trim()).map(cls => (
+                          <option key={cls} value={cls}>{cls}</option>
+                        ))}
+                      </optgroup>
                     </select>
                     <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-400">
                       <ChevronRight size={14} className="rotate-90" />
